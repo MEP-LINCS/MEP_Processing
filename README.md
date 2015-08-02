@@ -1,2 +1,2 @@
 # MEP_LINCS_Pilot
-Package, merging and analysis code for the MEP-LINCS pilot dataset
+This repository holds the code and reports for merging and analyzing the MEP-LINCS pilot dataset. The OSX source package for the MEMA R package is here. The source code for the MEMA pacakge is at markdane/MEMA.
