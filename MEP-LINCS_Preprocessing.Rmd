@@ -76,7 +76,7 @@ nuclearAreaHiThresh <- 2500
 
 #Only process a curated set of the data
 curatedOnly <- TRUE
-curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|LineageRatio"
+curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|LineageRatio|_PA_"
 
 ```
 
@@ -91,15 +91,9 @@ The merging assumes that the actual, physical B row wells (B01-B04) have been pr
 ```{r Read and clean spotmetadata, echo=FALSE}
 
 #Read in the spot metadata from the gal file
-smd <- readSpotMetadata(paste0("./",cellLine,"/",ss,"/Metadata/20150515_LI8X001_v1.gal"))
+smd <- readSpotMetadata(paste0("./",cellLine,"/",ss,"/Metadata/20150515_LI8X001_v1_Curated.gal"))
 #Relabel the column Name to ECMpAnnotID
 setnames(smd, "Name", "ECMpAnnotID")
-
-#Make a display name from  ECMpAnnotID
-#Remove the first underscore and all text after it
-smd$ECMp <- gsub("_.*","",smd$ECMpAnnotID)
-#Replace any dashes with the word blank
-smd$ECMp <- gsub("-","blank",smd$ECMp)
 
 #Add the print order and deposition number to the metadata
 ldf <- readLogData(paste0("./",cellLine,"/",ss,"/Metadata/20150512-112336.xml"))
@@ -197,8 +191,7 @@ expDTList <- mclapply(barcodes, function(barcode){
   #Read the well metadata from a multi-sheet Excel file
   wellMetadata <- data.table(readMetadata(paste0("./",cellLine,"/",
     ss,"/Metadata/",barcode,".xlsx")), key="Well")
-  #Create a ligand display name by removing the first underscore and all trailing text
-  wellMetadata$Ligand <- gsub("_.*","",wellMetadata$LigandAnnotID)
+  
   #merge well metadata with the data and spot metadata
   pcDT <- merge(pcDT,wellMetadata,by = "Well")
   pcDT <- pcDT[,Barcode := barcode]
@@ -215,8 +208,30 @@ expDTList <- mclapply(barcodes, function(barcode){
 }, mc.cores=4)
 
 cDT <- rbindlist(expDTList, fill = TRUE)
-
 densityRadius <- median(cDT$Nuclei_CP_AreaShape_Area)
+
+#TODO: Clean up first setup of annotations
+#       Create short, unique display names for ECMp and Ligand
+#Add own as the uniprot ID for reagents without one
+#Find ECMps without uniprot IDs
+noID <- unique(grep("_",cDT$ECMpAnnotID, value=TRUE,invert=TRUE))
+#Add own as uniprot ID
+cDT[cDT$ECMpAnnotID %in% noID]$ECMpAnnotID <- paste(cDT[cDT$ECMpAnnotID %in% noID]$ECMpAnnotID,"own",sep="_")
+#Specifically curate PDGFAB and HighSerum
+cDT$LigandAnnotID <- gsub("PDGFAB-","PDGFAB_own-",cDT$LigandAnnotID)
+cDT$LigandAnnotID[cDT$LigandAnnotID == "HighSerum"] <- "HighSerum_own"
+#Remove spaces trailing underscores
+cDT$LigandAnnotID <- gsub("_ ","_", cDT$LigandAnnotID)
+
+#Create short display names, then replace where not unique
+cDT$ECMp <- gsub("_.*","",cDT$ECMpAnnotID)
+cDT$Ligand <- gsub("_.*","",cDT$LigandAnnotID)
+
+#Use entire AnnotID for ligands with same uniprot IDs
+cDT$Ligand[cDT$Ligand == "NRG1"] <- cDT$LigandAnnotID[cDT$Ligand == "NRG1"]
+cDT$Ligand[cDT$Ligand == "TGFB1"] <- cDT$LigandAnnotID[cDT$Ligand == "TGFB1"]
+cDT$Ligand[cDT$Ligand == "CXCL12"] <- cDT$LigandAnnotID[cDT$Ligand == "CXCL12"]
+cDT$Ligand[cDT$Ligand == "IGF1"] <- cDT$LigandAnnotID[cDT$Ligand == "IGF1"]
 
 ```
 

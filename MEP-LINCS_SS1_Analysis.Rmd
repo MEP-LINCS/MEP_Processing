@@ -21,8 +21,8 @@ calcGroupRatios <- function(x,group,signal){
 scaleToMedians <- function(x, normBase){
   #browser()
   if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
-
-  return(as.numeric(x)/normBase)
+xn <- as.numeric(x)/normBase
+  return(xn)
 }
 
 #Set the staining set to be analyzed (SS1|SS2|SS3)
@@ -78,7 +78,7 @@ l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Leve
 barcodes <- sort(unique(l3$Barcode))
 
 #Set a threshold for filtering wells on their QA score
-wellQAThresh <- 0
+wellQAThresh <- 0.8
 
 #TODO: Read this from Level 3 data
 lthresh <- 0.6
@@ -104,51 +104,6 @@ Level 3 - Normalized data aggregated to the spot level
 Level 4 - Normalized data aggregated to the replicate (MEP) level  
 
 The data merging and analysis is done in R using open source software. 
-
-\newpage
-
-##MEMA Layout
-All MEMAs in the experiment are in separate wells and have the same design of 46 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
-
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6}
-
-#Select the A row wells and delete the blanks
-setkey(l1,Well)
-DT <- unique(l1[grep("A",unique(l1$Well),value=TRUE),list(ArrayRow,ArrayColumn,ECMp)])
-setkey(DT,ECMp)
-DT <- DT[!"blank"]
-
-p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
-  geom_point(shape=21, size = 2.2)+
-  guides(fill=guide_legend(ncol = 4))+
-  theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
-  scale_y_reverse()+
-  xlab("")+ylab("")+
-  ggtitle(" \n\nLINCs MEMA A Row Layout")
-print(p)
-
-```
-
-
-##Replicate Count
-The MEMAs have an average of 15 replicates with a range from 13 to 19.  
-
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3}
-#Remove the fiducial and blank entries
-setkey(DT,ECMp)
-DT <- DT[!"fiducial"]
-DT <- DT[!"blank"]
-
-
-p <- ggplot(DT, aes(x=ECMp))+
-  geom_bar(width=.8)+geom_hline(yintercept = mean(table(DT$ECMp)), colour="blue")+
-  ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
-  xlab("Printed ECM Protein")+ylab("Number of spots")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-
-print(p)
-
-```
 
 \newpage
 
@@ -244,29 +199,8 @@ l4F$SpotCellCount_MedNorm_RobustZ <- (l4F$SpotCellCount_MedNorm-SCCMedian)/SCCma
 ##Filtering
 Wells with QA scores below `r wellQAThresh ` and the HighSerum control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))` ligands in the dataset. 
 
-Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown below.
+Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
-```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3}
-
-p <- ggplot(l4F, aes(x = ECMp, y=ReplicateCount))+
-  geom_boxplot()+
-  ggtitle(" \n\nCount of MEP Replicates by ECM Protein")+
-  xlab("")+ylab("Replicate Count")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-
-print(p)
-
-p <- ggplot(l4F, aes(x = Ligand, y=ReplicateCount))+
-  geom_boxplot()+
-  ggtitle(" \n\nCount of MEP Replicates by Ligand")+
-  xlab("")+ylab("Replicate Count")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-
-print(p)
-
-```
-
-\newpage
 
 ##Spot Cell Count Analysis
 The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. First, the count of cells at each spot is normalized by dividing it by the median cell count of all spots in the same plate's high serum well.  The normalized spot cell counts are then summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. The blue lines at +/- 2 show thresholds for selecting MEPs of interest. Below the distribtion plot are plots with Z scores stratified by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.
@@ -275,47 +209,54 @@ The spot cell count analysis uses robust Z scores to identify MEPs with extreme 
 
 p <- ggplot(l4F, aes(x=SpotCellCount_MedNorm_RobustZ))+geom_bar(binwidth = .1)+
   geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Spot Cell Count Robust Z Scores Distribution"))+
-  ylab("Count")+xlab("Spot Cell Count Robust Z Scores")+
+  ggtitle(paste("\n\n","MEP Median Normalized Spot Cell Count Robust Z Scores Distribution"))+
+  ylab("Count")+xlab("Median Normalized Spot Cell Count Robust Z Scores")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 
 ```
 
 
-```{r SCC_response, fig.width=8, fig.height=3.5, echo=FALSE}
+```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE}
 
 p <- ggplot(l4F, aes(x = reorder(Ligand, SpotCellCount_MedNorm_RobustZ, FUN=median), y = SpotCellCount_MedNorm_RobustZ, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP  Spot Cell Count Robust Z Scores by Ligand"))+
+  ggtitle(paste("\n\nMEP Median Normalized Spot Cell Count Robust Z Scores by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
+```
 
-p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, SpotCellCount_MedNorm_RobustZ, FUN=median), y = SpotCellCount_MedNorm_RobustZ))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Spot Cell Count Robust Z Scores by ECM Protein"))+
+```{r, fig.width=8,  fig.height=3.5, echo=FALSE}
+p <- ggplot(l4F, aes(x = reorder(ECMp, SpotCellCount_MedNorm_RobustZ, FUN=median), y = SpotCellCount_MedNorm_RobustZ))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Median Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
 ```
 
+\newpage
+
 ##Unbiased Analysis
 
 The unbiased approach is:  
   Summarize the cell level to the median spot level, then combine replicates to get to the MEP level  
   Select a curated feature vector of MEP raw intensities and morphologies  
+  Normalize the feature values by dividing them by their control's value
   Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
   Exclude inactive MEPs by selecting for distances above the 95th percentile  
   Perform hierarchical clustering on the active MEPs 
+  
+The following heatmaps show the active MEPs based on the entire dataset, the dataset without NID1 and the normalized dataset without NID1. The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
   
 ```{r, fig.height=16}
 setkey(l4, "ECMp")
 l4fv <- l4[!"blank"]
 l4fv <- l4fv[!"fiducial"]
-l4fv$MEP <- paste(l4fv$ECMpAnnotID, l4fv$LigandAnnotID, sep="-")
+l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
 
 #Get numeric features
-fv <- grep("_CP_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
+fv <- grep("_CP_|_PA_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
 fv <- grep("Norm|Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
 fvDT <- l4fv[,fv,with = FALSE]
@@ -324,13 +265,6 @@ fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
 hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
 #Replace all HighSerum rows with one row of medians as the last row
 fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
-
-scaleToMedians <- function(x, normBase){
-  #browser()
-  if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
-xn <- as.numeric(x)/normBase
-  return(xn)
-}
 
 #Normalize the feature vectors to the medians
 #to equally weight all features
@@ -346,21 +280,30 @@ names(distHS) <- fvDT$MEP
 #Select the most active by distance from the median control fv
 dmmThresh <- quantile(distHS,probs = .95)
 activeMEPs <- distHS[distHS>dmmThresh]
-
+#browser()
 #Create an active MEP subset matrix of the normalized data
 activeFV <- fvDT[fvDT$MEP %in% names(activeMEPs)]
 #Remove MEP column and convert to a matrix
 activeFVM <- as.matrix(activeFV[,grep("MEP",colnames(activeFV),invert=TRUE), with=FALSE])
-splits <- limma::strsplit2(activeFV$MEP,split="_")
-rownames(activeFVM) <- paste(splits[,1], limma::strsplit2(splits[,2],"-")[,2], sep="_")
+
+#This assignment of names retains the order after matrix coercion
+rownames(activeFVM) <- names(activeMEPs)
          
-#TODO: get the barcode for each ligand and add color bar
-ligands <- limma::strsplit2(rownames(activeFVM),"_")[,2]
-aFVMBarcodes <- unique(l4$Barcode[ligands[33] == l4$Ligand])
+#get the barcode for each MEP and add color bar
+#get a datatable with columns of barcode and ligand to merge into 
+#activeFVM
+ activeFVMDT <- data.table(Ligand =sub("[[:alnum:]]*-{1}","",rownames(activeFVM)), Index = 1:nrow(activeFVM))
+ l4MEPs <- unique(l4[,list(Barcode,Ligand)])
+ setkey(l4MEPs,"Ligand")
+ setkey(activeFVMDT,"Ligand")
+ activeLB <- merge(activeFVMDT,l4MEPs)
+ setkey(activeLB,"Index")
+ activeLB$Barcode <- as.factor(activeLB$Barcode)
 
 #Cluster the active MEPs, scaling the inputs
 plot.new()
-heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors"), mar = c(17, 10))
+heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
 
 ```
 
@@ -370,10 +313,10 @@ The next heatmap shows the same analysis run on the dataset after removing NID1.
 setkey(l4, "ECMp")
 l4fv <- l4[!"blank"]
 l4fv <- l4fv[!"fiducial"]
-l4fv$MEP <- paste(l4fv$ECMpAnnotID, l4fv$LigandAnnotID, sep="-")
+l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
 
 #Get numeric features
-fv <- grep("_CP_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
+fv <- grep("_CP_|_PA_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
 fv <- grep("Norm|Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
 fvDT <- l4fv[,fv,with = FALSE]
@@ -383,13 +326,6 @@ fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
 hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
 #Replace all HighSerum rows with one row of medians as the last row
 fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
-
-scaleToMedians <- function(x, normBase){
-  #browser()
-  if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
-xn <- as.numeric(x)/normBase
-  return(xn)
-}
 
 #Normalize the feature vectors to the medians
 #to equally weight all features
@@ -410,12 +346,23 @@ activeMEPsF <- distHS[distHS>dmmThresh]
 activeFVF <- fvDT[fvDT$MEP %in% names(activeMEPsF)]
 #Remove MEP column and convert to a matrix
 activeFVMF <- as.matrix(activeFVF[,grep("MEP",colnames(activeFVF),invert=TRUE), with=FALSE])
-splits <- limma::strsplit2(activeFVF$MEP,split="_")
-rownames(activeFVMF) <- paste(splits[,1], limma::strsplit2(splits[,2],"-")[,2], sep="_")
-         
+
+rownames(activeFVMF) <- names(activeMEPsF)
+
+#get the barcode for each MEP and add color bar
+#get a datatable with columns of barcode and ligand to merge into 
+#activeFVM
+ activeFVMFDT <- data.table(Ligand =sub("[[:alnum:]]*-{1}","",rownames(activeFVMF)), Index = 1:nrow(activeFVMF))
+ setkey(activeFVMFDT,"Ligand")
+ activeLB <- merge(activeFVMFDT,l4MEPs)
+ setkey(activeLB,"Index")
+ activeLB$Barcode <- as.factor(activeLB$Barcode)
+
+        
 #Cluster the active MEPs, scaling the inputs
 plot.new()
-heatmap.2(activeFVMF,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors (no NID1)"), mar = c(17, 10))
+heatmap.2(activeFVMF,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors\n(no NID1)"),  lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
 
 ```
 
@@ -426,9 +373,9 @@ The next heatmap shows the same analysis run on the dataset after removing NID1 
 setkey(l4, "ECMp")
 l4fv <- l4[!"blank"]
 l4fv <- l4fv[!"fiducial"]
-l4fv$MEP <- paste(l4fv$ECMpAnnotID, l4fv$LigandAnnotID, sep="-")
+l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
 
-#Get the normlaized numeric features
+#Get the normalized numeric features
 fv <- grep("MedNorm|MEP$",colnames(l4fv),value=TRUE)
 fv <- grep("Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
@@ -439,13 +386,6 @@ fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
 hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
 #Replace all HighSerum rows with one row of medians as the last row
 fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
-
-scaleToMedians <- function(x, normBase){
-  #browser()
-  if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
-xn <- as.numeric(x)/normBase
-  return(xn)
-}
 
 #Normalize the feature vectors to the medians
 #to equally weight all features
@@ -466,12 +406,21 @@ activeMEPsFN <- distHS[distHS>dmmThresh]
 activeFVFN <- fvDT[fvDT$MEP %in% names(activeMEPsFN)]
 #Remove MEP column and convert to a matrix
 activeFVMFN <- as.matrix(activeFVFN[,grep("MEP",colnames(activeFVFN),invert=TRUE), with=FALSE])
-splits <- limma::strsplit2(activeFVFN$MEP,split="_")
-rownames(activeFVMFN) <- paste(splits[,1], limma::strsplit2(splits[,2],"-")[,2], sep="_")
-         
+rownames(activeFVMFN) <- names(activeMEPsFN)
+ 
+#get the barcode for each MEP and add color bar
+#get a datatable with columns of barcode and ligand to merge into 
+#activeFVM
+ activeFVMFNDT <- data.table(Ligand =sub("[[:alnum:]]*-{1}","",rownames(activeFVMFN)), Index = 1:nrow(activeFVMFN))
+ setkey(activeFVMFNDT,"Ligand")
+ activeLB <- merge(activeFVMFNDT,l4MEPs)
+ setkey(activeLB,"Index")
+ activeLB$Barcode <- as.factor(activeLB$Barcode)
+ 
 #Cluster the active MEPs, scaling the inputs
 plot.new()
-heatmap.2(activeFVMFN,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active Normalized MEP Feature Vectors (no NID1)"), mar = c(17, 10))
+heatmap.2(activeFVMFN,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active Normalized MEP Feature Vectors\n(no NID1)"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
 
 ```
 
@@ -479,10 +428,55 @@ heatmap.2(activeFVMFN,scale="column", col = bluered, trace = "none", cexRow=.5, 
 
 #Supplemental Material
 
+
+##MEMA Layout
+All MEMAs in the experiment are in separate wells and have the same design of 46 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
+
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6}
+
+#Select the A row wells and delete the blanks
+setkey(l1,Well)
+DT <- unique(l1[grep("A",unique(l1$Well),value=TRUE),list(ArrayRow,ArrayColumn,ECMp)])
+setkey(DT,ECMp)
+DT <- DT[!"blank"]
+
+p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
+  geom_point(shape=21, size = 2.2)+
+  guides(fill=guide_legend(ncol = 4))+
+  theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
+  scale_y_reverse()+
+  xlab("")+ylab("")+
+  ggtitle(" \n\nLINCs MEMA A Row Layout")
+print(p)
+
+```
+
+
+##Replicate Count
+The MEMAs have an average of 15 replicates with a range from 13 to 19.  
+
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3}
+#Remove the fiducial and blank entries
+setkey(DT,ECMp)
+DT <- DT[!"fiducial"]
+DT <- DT[!"blank"]
+
+
+p <- ggplot(DT, aes(x=ECMp))+
+  geom_bar(width=.8)+geom_hline(yintercept = mean(table(DT$ECMp)), colour="blue")+
+  ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
+  xlab("Printed ECM Protein")+ylab("Number of spots")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+
+print(p)
+
+```
+
 ##Quality Analysis
 The variance of the signal in MEMA data comes from biological and technical factors. The technical factors create regions of low cell counts per spot and uneven staining across the array. The goal of the QA pipeline is to quantify the technical factors to identify wells or plates that need to be removed from downstream processing and/or be replaced by wells from a new experiment.
 
 The hypothesis for the MEMA QA process is that the biological signal comes from individual spots while the technical variations come from regions of low signal. A bivariate loess model can be used to quantify the number of spots in low signal regions, leading to a MEMA QA score. 
+\newpage
 
 ###Loess Model Explanation
 The loess model of a MEMA is the mean value of a weighted version of each spot's region or neighborhood. In a 700 spot array, a loess span value of 0.1 sets the size of the neighborhood to be the nearest 70 points (within approximately 5 spots in all directions). The weights are a tricubic function of the euclidean distance between the spot being modeled and the neighborhood spots. These weights vary from 1 to 0 as distances increase from the nearest to the farthest neighbor. In other words, each spot in the model takes on the mean value of its 70 nearest neighbors with the closest neighbors having the largest impact. Therefore, the loess model is dominated by the technical regional factors as opposed to individual biological responses.
@@ -532,6 +526,29 @@ suppressWarnings(print(p))
 
 ```
 
+\newpage
+
+##Replicates after filtering
+
+```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5}
+
+p <- ggplot(l4F, aes(x = ECMp, y=ReplicateCount))+
+  geom_boxplot()+
+  ggtitle(" \n\nCount of MEP Replicates by ECM Protein")+
+  xlab("")+ylab("Replicate Count")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+
+print(p)
+
+p <- ggplot(l4F, aes(x = Ligand, y=ReplicateCount))+
+  geom_boxplot()+
+  ggtitle(" \n\nCount of MEP Replicates by Ligand")+
+  xlab("")+ylab("Replicate Count")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+
+print(p)
+
+```
 
 \newpage
 
@@ -568,13 +585,7 @@ for (barcode in barcodes){
 ```{r SCCHighSerum_response}
 
 p <- ggplot(l3[l3$Ligand == "HighSerum"], aes(x = reorder(Ligand, SpotCellCount, FUN=median), y = SpotCellCount, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP  Spot Cell Count Robust Z Scores by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, SpotCellCount_MedNorm_RobustZ, FUN=median), y = SpotCellCount_MedNorm_RobustZ))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Spot Cell Count Robust Z Scores by ECM Protein"))+
+  ggtitle(paste("\n\nSpot Cell Count in High Serum Wells"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -583,7 +594,7 @@ suppressWarnings(print(p))
 
 \newpage
 
-##Extreme Spot Cell Count MEPs
+###Extreme Spot Cell Count MEPs
 
 ```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 
@@ -594,7 +605,7 @@ kable(l4F[l4F$SpotCellCount_MedNorm_RobustZ >=2|
 
 \newpage
 
-##Active MEPS from Unbiased Analysis
+###Active MEPS from Unbiased Analysis
 The table below shows the active MEPs and their euclidean distance from the feature vector of the control wells (High serum wells).
 
 ```{r ActiveMeps, echo = FALSE}
@@ -603,6 +614,7 @@ kable(activeMEPs, digits = 2)
 
 ```
 
+###Active MEPS w/o NID1
 The table below shows the active MEPs (without NID1) and their euclidean distance from the feature vector of the control wells (High serum wells).
 
 ```{r ActiveMepsNoNID, echo = FALSE}
@@ -611,6 +623,7 @@ kable(activeMEPsF, digits = 2)
 
 ```
 
+###Active Median Normalized MEPS w/o NID1
 The table below shows the active MEPs (without NID1) based on their normalized feature vectors and their euclidean distance from the feature vector of the control wells (High serum wells).
 
 ```{r ActiveMepsNormedNoNID, echo = FALSE}
