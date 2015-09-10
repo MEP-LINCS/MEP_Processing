@@ -1,5 +1,5 @@
 ---
-output: pdf_document
+output: html_document
 ---
 
 ```{r global_options, include=FALSE}
@@ -423,6 +423,144 @@ heatmap.2(activeFVMFN,scale="column", col = bluered, trace = "none", cexRow=.5, 
           lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
 
 ```
+
+
+###PCA Unbiased Analysis  
+The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
+
+The unbiased PCA analysis method is:
+
+  Summarize the cell level to the median spot level, then combine replicates to get to the MEP level  
+  Normalize the feature values by dividing them by their control's value
+  Use PCA to transform the entire feature set to a much smaller number of principal components (PCFV)
+  Calculate the euclidean distance of each MEP's PCFV to the high serum control PCFV 
+  Exclude inactive MEPs by selecting for distances above the 95th percentile  
+  Perform hierarchical clustering PCFVs of the active MEPs 
+  
+
+```{r, fig.height=12}
+setkey(l4, "ECMp")
+l4fv <- l4[!"blank"]
+l4fv <- l4fv[!"fiducial"]
+l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
+
+#Convert Barcode, ECMp, Ligand to factors so they can be used in #colors
+l4fv$Barcode <- as.factor(l4fv$Barcode)
+l4fv$ECMp <- as.factor(l4fv$ECMp)
+l4fv$Ligand <- as.factor(l4fv$Ligand)
+
+#Get the PCFVs
+l4PCAModel <- prcomp(as.formula(paste(" ~ ",paste(grep("MedNorm",colnames(l4fv),value=TRUE),collapse = "+"))),data = l4fv, scale= TRUE)
+#Test how many to keep using Kaiser’s criterion of variance >1
+# (l4PCAModel$sdev)^2 shows keeping 6 PCA. Large drop off after PC 9
+#so extending to 9 pcs
+
+#Extract the first 9 PCs of each MEP into a matrix
+l4pcv <- l4PCAModel$x[,1:9]
+
+#Get medians of high serum PCs
+l4pcvHS <- l4pcv[grepl("HighSerum", l4fv$MEP),]
+hsMedians <- data.frame(t(as.matrix(apply(l4pcvHS,2,median))))
+
+#Replace all HighSerum rows with one row of medians as the last row
+l4pcvDT<- rbind(l4pcv[!grepl("HighSerum", l4fv$MEP),],hsMedians)
+
+#Calculate the dist matrix with euclidean method
+dmm <- as.matrix(dist(l4pcvDT), labels=TRUE)
+#Extract the distance to the last row which is the high serum medians
+distHS <- dmm[nrow(dmm),]
+#Name the distance values
+names(distHS) <- c(l4fv$MEP[!grepl("HighSerum", l4fv$MEP)],"HighSerum")
+
+#Select the most active by distance from the median control fv
+dmmThresh <- quantile(distHS,probs = .95)
+activeMEPsPC <- distHS[distHS>dmmThresh]
+
+#Create an active MEP subset matrix of the PC values
+activePC <- l4pcv[l4fv$MEP %in% names(activeMEPsPC),]
+#Remove MEP column and convert to a matrix
+activeFVMFN <- as.matrix(activeFVFN[,grep("MEP",colnames(activeFVFN),invert=TRUE), with=FALSE])
+rownames(activePC) <- names(activeMEPsPC)
+ 
+#get the barcode for each MEP and add color bar
+#get a datatable with columns of barcode and ligand to merge into 
+#activePC
+ activePCDT <- data.table(Ligand =sub("[[:alnum:]]*-{1}","",rownames(activePC)), Index = 1:nrow(activePC))
+ setkey(activePCDT,"Ligand")
+ activeLB <- merge(activePCDT,l4MEPs)
+ setkey(activeLB,"Index")
+ activeLB$Barcode <- as.factor(activeLB$Barcode)
+ 
+#Cluster the active MEPs, scaling the inputs
+plot.new()
+heatmap.2(activePC,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active PCA MEPs"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
+
+```
+
+####PCA Without NID1
+
+```{r, fig.height=12}
+setkey(l4, "ECMp")
+l4fv <- l4[!"blank"]
+l4fv <- l4fv[!"fiducial"]
+l4fv <- l4fv[!"NID1"]
+l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
+
+#Convert Barcode, ECMp, Ligand to factors so they can be used in #colors
+l4fv$Barcode <- as.factor(l4fv$Barcode)
+l4fv$ECMp <- as.factor(l4fv$ECMp)
+l4fv$Ligand <- as.factor(l4fv$Ligand)
+
+#Get the PCFVs
+l4PCAModel <- prcomp(as.formula(paste(" ~ ",paste(grep("MedNorm",colnames(l4fv),value=TRUE),collapse = "+"))),data = l4fv, scale= TRUE)
+#Test how many to keep using Kaiser’s criterion of variance >1
+# (l4PCAModel$sdev)^2 shows keeping 6 PCA. Large drop off after PC 9
+#so extending to 9 pcs
+
+#Extract the first 9 PCs of each MEP into a matrix
+l4pcv <- l4PCAModel$x[,1:9]
+
+#Get medians of high serum PCs
+l4pcvHS <- l4pcv[grepl("HighSerum", l4fv$MEP),]
+hsMedians <- data.frame(t(as.matrix(apply(l4pcvHS,2,median))))
+
+#Replace all HighSerum rows with one row of medians as the last row
+l4pcvDT<- rbind(l4pcv[!grepl("HighSerum", l4fv$MEP),],hsMedians)
+
+#Calculate the dist matrix with euclidean method
+dmm <- as.matrix(dist(l4pcvDT), labels=TRUE)
+#Extract the distance to the last row which is the high serum medians
+distHS <- dmm[nrow(dmm),]
+#Name the distance values
+names(distHS) <- c(l4fv$MEP[!grepl("HighSerum", l4fv$MEP)],"HighSerum")
+
+#Select the most active by distance from the median control fv
+dmmThresh <- quantile(distHS,probs = .95)
+activeMEPsPC <- distHS[distHS>dmmThresh]
+
+#Create an active MEP subset matrix of the PC values
+activePC <- l4pcv[l4fv$MEP %in% names(activeMEPsPC),]
+#Remove MEP column and convert to a matrix
+activeFVMFN <- as.matrix(activeFVFN[,grep("MEP",colnames(activeFVFN),invert=TRUE), with=FALSE])
+rownames(activePC) <- names(activeMEPsPC)
+ 
+#get the barcode for each MEP and add color bar
+#get a datatable with columns of barcode and ligand to merge into 
+#activePC
+ activePCDT <- data.table(Ligand =sub("[[:alnum:]]*-{1}","",rownames(activePC)), Index = 1:nrow(activePC))
+ setkey(activePCDT,"Ligand")
+ activeLB <- merge(activePCDT,l4MEPs)
+ setkey(activeLB,"Index")
+ activeLB$Barcode <- as.factor(activeLB$Barcode)
+ 
+#Cluster the active MEPs, scaling the inputs
+plot.new()
+heatmap.2(activePC,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active PCA MEPs\n(no NID1)"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
+
+```
+
 
 \newpage
 
