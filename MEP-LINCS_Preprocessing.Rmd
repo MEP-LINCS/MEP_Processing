@@ -43,6 +43,16 @@ medianNorm <- function(DT, value){
   normedValues <- DT[, value, with = FALSE]/median(unlist(DT[, value, with = FALSE]), na.rm=TRUE)
 }
 
+  normDataset <- function(dt){
+  parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount",colnames(dt),value = TRUE), function(parm){
+    dt <- dt[,paste0(parm,"_MedNorm") := normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+#     parmNormed <- pcDT[,normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+#     parmNormed <- parmNormed[,Barcode := NULL]
+    return(dt)
+  })
+  return(parmNormedList[[length(parmNormedList)]])
+  }
+  
 library("limma")#read GAL file and strsplit2
 library("MEMA")#merge, annotate and normalize functions
 library("data.table")#fast file reads, data merges and subsetting
@@ -154,7 +164,6 @@ expDTList <- mclapply(barcodes, function(barcode){
       setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
     }
     
-    
     #Merge the cells, cytoplasm and nuclei data
     if (ss %in% c("SS1","SS3")){
       setkey(cells,Cells_CP_ImageNumber,Cells_CP_ObjectNumber)
@@ -169,7 +178,6 @@ expDTList <- mclapply(barcodes, function(barcode){
       setnames(DT,"Nuclei_CP_ImageNumber","Spot")
       setnames(DT,"Nuclei_CP_ObjectNumber","ObjectNumber")
     }
-    
     
     #Add the well name as a parameter
     DT <- DT[,Well := well]
@@ -197,16 +205,8 @@ expDTList <- mclapply(barcodes, function(barcode){
   #Count the cells at each spot
   pcDT<-pcDT[,SpotCellCount := .N,by="Barcode,Well,Spot"]
   
-  #If there is a highSerum well in the plate, use it for normalization
-  if(sum(pcDT$Ligand=="HighSerum")){
-    intensityNames <- grep("_CP_Intensity_",colnames(pcDT), value=TRUE)
-    for(intensityName in intensityNames){
-      #Median normalize to the plate's control well for each channel's value
-      pcDT <- pcDT[,paste0(intensityName,"_MedNorm") := normWellsWithinPlate(.SD, value=intensityName, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
-    }
-
-    pcDT <- pcDT[,SpotCellCount_MedNorm := normWellsWithinPlate(.SD, value="SpotCellCount", baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
-  }
+  #Normalized all measured parameters to their plate's control well
+  pcDT <- normDataset(pcDT)
   
   pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
   pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
@@ -304,7 +304,6 @@ for(intensityName in intensityNames){
   #Median normalize the median intensity at each spot
   cDT <- cDT[,paste0(intensityName,"_SpotNorm") := medianNorm(.SD,intensityName),by="Barcode,Well,Spot"]
 }
-
 
 #Create staining set specific derived parameters
 if(ss %in% c("SS1", "SS3")){

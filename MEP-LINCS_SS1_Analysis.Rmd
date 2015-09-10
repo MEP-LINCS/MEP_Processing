@@ -82,10 +82,6 @@ wellQAThresh <- 0
 
 #TODO: Read this from Level 3 data
 lthresh <- 0.6
-#workaround 'bug?' in fread
-# l2$Sparse <- as.logical(gsub(" ","",l2$Sparse))
-# l2$OuterCell <- as.logical(gsub(" ","",l2$OuterCell))
-# l2$Perimeter <- as.logical(gsub(" ","",l2$Perimeter))
 
 ```
 ---
@@ -320,7 +316,7 @@ l4fv$MEP <- paste(l4fv$ECMpAnnotID, l4fv$LigandAnnotID, sep="-")
 
 #Get numeric features
 fv <- grep("_CP_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
-fv <- grep("Norm", fv, value = TRUE, invert = TRUE)
+fv <- grep("Norm|Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
 fvDT <- l4fv[,fv,with = FALSE]
 #Get medians of high serum numeric features
@@ -358,8 +354,13 @@ activeFVM <- as.matrix(activeFV[,grep("MEP",colnames(activeFV),invert=TRUE), wit
 splits <- limma::strsplit2(activeFV$MEP,split="_")
 rownames(activeFVM) <- paste(splits[,1], limma::strsplit2(splits[,2],"-")[,2], sep="_")
          
+#TODO: get the barcode for each ligand and add color bar
+ligands <- limma::strsplit2(rownames(activeFVM),"_")[,2]
+aFVMBarcodes <- unique(l4$Barcode[ligands[33] == l4$Ligand])
+
 #Cluster the active MEPs, scaling the inputs
-heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors"), mar = c(15, 13))
+plot.new()
+heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors"), mar = c(17, 10))
 
 ```
 
@@ -373,7 +374,7 @@ l4fv$MEP <- paste(l4fv$ECMpAnnotID, l4fv$LigandAnnotID, sep="-")
 
 #Get numeric features
 fv <- grep("_CP_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
-fv <- grep("Norm", fv, value = TRUE, invert = TRUE)
+fv <- grep("Norm|Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
 fvDT <- l4fv[,fv,with = FALSE]
 fvDT <- fvDT[!grepl("NID1", fvDT$MEP)]
@@ -413,7 +414,64 @@ splits <- limma::strsplit2(activeFVF$MEP,split="_")
 rownames(activeFVMF) <- paste(splits[,1], limma::strsplit2(splits[,2],"-")[,2], sep="_")
          
 #Cluster the active MEPs, scaling the inputs
-heatmap.2(activeFVMF,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors (no NID1)"), mar = c(15, 13))
+plot.new()
+heatmap.2(activeFVMF,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors (no NID1)"), mar = c(17, 10))
+
+```
+
+
+The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normlaized to each plate's control well.
+  
+```{r, fig.height=16}
+setkey(l4, "ECMp")
+l4fv <- l4[!"blank"]
+l4fv <- l4fv[!"fiducial"]
+l4fv$MEP <- paste(l4fv$ECMpAnnotID, l4fv$LigandAnnotID, sep="-")
+
+#Get the normlaized numeric features
+fv <- grep("MedNorm|MEP$",colnames(l4fv),value=TRUE)
+fv <- grep("Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
+#Create numeric feature vectors
+fvDT <- l4fv[,fv,with = FALSE]
+fvDT <- fvDT[!grepl("NID1", fvDT$MEP)]
+#Get medians of high serum numeric features
+fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
+hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
+#Replace all HighSerum rows with one row of medians as the last row
+fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
+
+scaleToMedians <- function(x, normBase){
+  #browser()
+  if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
+xn <- as.numeric(x)/normBase
+  return(xn)
+}
+
+#Normalize the feature vectors to the medians
+#to equally weight all features
+fvDTNorm <- rbindlist(apply(fvDT[,grep("MEP",colnames(fvDT),invert=TRUE), with=FALSE], 1, scaleToMedians, normBase = hsMedians[,grep("MEP",colnames(fvDT),invert=TRUE)]))
+
+#Calculate the dist matrix with euclidean method
+dmm <- as.matrix(dist(fvDTNorm), labels=TRUE)
+#Extract the distance to the high serum medians
+distHS <- dmm[which(fvDT$MEP == "HighSerum"),]
+#Name the distance values
+names(distHS) <- fvDT$MEP
+
+#Select the most active by distance from the median control fv
+dmmThresh <- quantile(distHS,probs = .95)
+activeMEPsFN <- distHS[distHS>dmmThresh]
+
+#Create an active MEP subset matrix of the normalized data
+activeFVFN <- fvDT[fvDT$MEP %in% names(activeMEPsFN)]
+#Remove MEP column and convert to a matrix
+activeFVMFN <- as.matrix(activeFVFN[,grep("MEP",colnames(activeFVFN),invert=TRUE), with=FALSE])
+splits <- limma::strsplit2(activeFVFN$MEP,split="_")
+rownames(activeFVMFN) <- paste(splits[,1], limma::strsplit2(splits[,2],"-")[,2], sep="_")
+         
+#Cluster the active MEPs, scaling the inputs
+plot.new()
+heatmap.2(activeFVMFN,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active Normalized MEP Feature Vectors (no NID1)"), mar = c(17, 10))
 
 ```
 
@@ -540,7 +598,7 @@ kable(l4F[l4F$SpotCellCount_MedNorm_RobustZ >=2|
 The table below shows the active MEPs and their euclidean distance from the feature vector of the control wells (High serum wells).
 
 ```{r ActiveMeps, echo = FALSE}
-activeMEPS <- activeMEPs[order(activeMEPs)]
+activeMEPs <- activeMEPs[order(activeMEPs)]
 kable(activeMEPs, digits = 2)
 
 ```
@@ -548,8 +606,16 @@ kable(activeMEPs, digits = 2)
 The table below shows the active MEPs (without NID1) and their euclidean distance from the feature vector of the control wells (High serum wells).
 
 ```{r ActiveMepsNoNID, echo = FALSE}
-activeMEPSF <- activeMEPsF[order(activeMEPsF)]
+activeMEPsF <- activeMEPsF[order(activeMEPsF)]
 kable(activeMEPsF, digits = 2)
+
+```
+
+The table below shows the active MEPs (without NID1) based on their normalized feature vectors and their euclidean distance from the feature vector of the control wells (High serum wells).
+
+```{r ActiveMepsNormedNoNID, echo = FALSE}
+activeMEPsFN <- activeMEPsFN[order(activeMEPsFN)]
+kable(activeMEPsFN, digits = 2)
 
 ```
 
