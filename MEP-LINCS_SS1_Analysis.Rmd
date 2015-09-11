@@ -1,5 +1,5 @@
 ---
-output: html_document
+output: pdf_document
 ---
 
 ```{r global_options, include=FALSE}
@@ -250,6 +250,11 @@ The unbiased approach is:
 The following heatmaps show the active MEPs based on the entire dataset, the dataset without NID1 and the normalized dataset without NID1. The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
   
 ```{r, fig.height=16}
+
+#Setup colors for RowSideColors and text in all heatmaps
+selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
+plateCol = selDark2(8)
+ 
 setkey(l4, "ECMp")
 l4fv <- l4[!"blank"]
 l4fv <- l4fv[!"fiducial"]
@@ -303,7 +308,7 @@ rownames(activeFVM) <- names(activeMEPs)
 #Cluster the active MEPs, scaling the inputs
 plot.new()
 heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
-          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=plateCol[activeLB$Barcode], colRow = plateCol[activeLB$Barcode])
 
 ```
 
@@ -362,12 +367,12 @@ rownames(activeFVMF) <- names(activeMEPsF)
 #Cluster the active MEPs, scaling the inputs
 plot.new()
 heatmap.2(activeFVMF,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active MEP Feature Vectors\n(no NID1)"),  lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
-          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=plateCol[activeLB$Barcode], colRow = plateCol[activeLB$Barcode])
 
 ```
 
 
-The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normlaized to each plate's control well.
+The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
   
 ```{r, fig.height=16}
 setkey(l4, "ECMp")
@@ -416,12 +421,12 @@ rownames(activeFVMFN) <- names(activeMEPsFN)
  activeLB <- merge(activeFVMFNDT,l4MEPs)
  setkey(activeLB,"Index")
  activeLB$Barcode <- as.factor(activeLB$Barcode)
- 
+
+
 #Cluster the active MEPs, scaling the inputs
 plot.new()
 heatmap.2(activeFVMFN,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active Normalized MEP Feature Vectors\n(no NID1)"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
-          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
-
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=plateCol[activeLB$Barcode], colRow = plateCol[activeLB$Barcode])
 ```
 
 
@@ -490,17 +495,18 @@ rownames(activePC) <- names(activeMEPsPC)
  activeLB <- merge(activePCDT,l4MEPs)
  setkey(activeLB,"Index")
  activeLB$Barcode <- as.factor(activeLB$Barcode)
- 
-#Cluster the active MEPs, scaling the inputs
+
+
+ #Cluster the active MEPs, scaling the inputs
 plot.new()
 heatmap.2(activePC,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active PCA MEPs"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
-          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=plateCol[activeLB$Barcode], colRow = plateCol[activeLB$Barcode])
 
 ```
 
 ####PCA Without NID1
 
-```{r, fig.height=12}
+```{r, fig.height=3,fig.width=4}
 setkey(l4, "ECMp")
 l4fv <- l4[!"blank"]
 l4fv <- l4fv[!"fiducial"]
@@ -517,6 +523,62 @@ l4PCAModel <- prcomp(as.formula(paste(" ~ ",paste(grep("MedNorm",colnames(l4fv),
 #Test how many to keep using Kaiser’s criterion of variance >1
 # (l4PCAModel$sdev)^2 shows keeping 6 PCA. Large drop off after PC 9
 #so extending to 9 pcs
+
+ 
+plot(l4PCAModel, main  = paste("PCA Scree Plot for",cellLine,ss), type = "lines")
+abline(h = 1, col = "blue")
+title(xlab = "Principal Component")
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Barcode)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Barcode")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4fv$Barcode)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Barcode")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4fv$Barcode)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Barcode")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Nuclei_CP_AreaShape_Area_MedNorm)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Nuclei Area")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Nuclei_CP_AreaShape_Center_Y_MedNorm)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Local Y")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4fv$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_MedNorm)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "MitoTracker")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC9, col = l4fv$SpotCellCount_MedNorm)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Spot Cell Count")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+kable(l4PCAModel$rotation[,1:9], digits = 2)
 
 #Extract the first 9 PCs of each MEP into a matrix
 l4pcv <- l4PCAModel$x[,1:9]
@@ -553,11 +615,13 @@ rownames(activePC) <- names(activeMEPsPC)
  activeLB <- merge(activePCDT,l4MEPs)
  setkey(activeLB,"Index")
  activeLB$Barcode <- as.factor(activeLB$Barcode)
- 
+```
+
+```{r, fig.height=12, fig.width=8} 
 #Cluster the active MEPs, scaling the inputs
 plot.new()
 heatmap.2(activePC,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.7, key=FALSE, main = paste("Active PCA MEPs\n(no NID1)"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
-          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=as.character(unclass(activeLB$Barcode)), colRow = as.character(unclass(activeLB$Barcode)))
+          lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=plateCol[activeLB$Barcode], colRow = plateCol[activeLB$Barcode])
 
 ```
 
