@@ -11,8 +11,16 @@ library("limma")#read GAL file and strsplit2
 library("MEMA")#merge, annotate and normalize functions
 library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
+library(tidyr)
+library(dplyr)
+library(synapseClient)
 
-#Select a staining set
+synapseLogin()
+
+# Select a cell line
+cl <- "PC3"
+
+# Select a staining set
 ss <- "SS2"
 densityThresh <- 0.4
 outerThresh <- 0.5
@@ -20,6 +28,15 @@ outerThresh <- 0.5
 #Filter out debris based on nuclear area
 nuclearAreaThresh <- 1000
 
+# Find GAL file
+q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='gal' and cell_line=='%s' and staining_set=='%s'", cl, ss)
+qr <- synQuery(q)
+galId <- qr$file.id
+
+# Find XML file
+q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='xml' and cell_line=='%s' and staining_set=='%s'", cl, ss)
+qr <- synQuery(q)
+xmlId <- qr$file.id
 ```
 
 
