@@ -50,7 +50,9 @@ The merging assumes that the actual, physical B row wells (B01-B04) have been pr
 ```{r Read and clean spotmetadata, echo=FALSE}
 
 #Read in the spot metadata from the gal file
-smd <- readSpotMetadata(paste0("./",ss,"/Metadata/20150515_LI8X001_v1.gal"))
+smdFile <- synGet(galId)
+smd <- readSpotMetadata(getFileLocation(smdFile))
+
 #Relabel the column Name to ECMpAnnotID
 setnames(smd, "Name", "ECMpAnnotID")
 
