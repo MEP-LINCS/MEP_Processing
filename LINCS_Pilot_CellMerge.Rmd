@@ -63,7 +63,9 @@ smd$ECMp <- gsub("_.*","",smd$ECMpAnnotID)
 smd$ECMp <- gsub("-","blank",smd$ECMp)
 
 #Add the print order and deposition number to the metadata
-ldf <- readLogData(paste0("./",ss,"/Metadata/20150512-112336.xml"))
+ldfFile <- synGet(xmlId)
+ldf <- readLogData(getFileLocation(ldfFile))
+
 spotMetadata <- merge(smd,ldf, all=TRUE)
 setkey(spotMetadata,Spot)
 #Make a rotated version of the spot metadata to match the print orientation
