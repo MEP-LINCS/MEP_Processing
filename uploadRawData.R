@@ -35,7 +35,8 @@ uploadToSynapse <- function(x, parentId) {
   annots <- toAnnotationList(x)
   obj <- File(x$filename, parentId=parentId)
   synSetAnnotations(obj) <- annots
-  obj <- synStore(obj, forceVersion=FALSE)
+  obj <- synStore(obj, forceVersion=FALSE, 
+                  activityName="Upload", executed=thisScript)
   obj
 }
 
