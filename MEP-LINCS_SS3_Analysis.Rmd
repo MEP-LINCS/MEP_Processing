@@ -1,5 +1,5 @@
 ---
-output: pdf_document
+output: html_document
 ---
 
 ```{r global_options, include=FALSE}
@@ -25,8 +25,9 @@ xn <- as.numeric(x)/normBase
   return(xn)
 }
 
+ 
 #Set the staining set to be analyzed (SS1|SS2|SS3)
-ss <- "SS1"
+ss <- "SS3"
 #Set the cell line to be analyzed (PC3|MCF7|YAPC)
 cellLine <- "PC3"
 ```
@@ -68,35 +69,42 @@ create8WellPseudoImage <- function(DT, pr, prDisplay){
     xlab(prDisplay)+
         theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=ncol)
-}
+  }
+  
+  
+#Setup colors for Barcode and text in all heatmaps
+selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
+plateCol = selDark2(8)
 
 l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
 l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
 l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
+l4$MEP <- paste(l4$ECMp, l4$Ligand, sep="-")
+
 
 barcodes <- sort(unique(l3$Barcode))
 
 #Set a threshold for filtering wells on their QA score
-wellQAThresh <- 0.8
+wellQAThresh <- 0.7
 
 #TODO: Read this from Level 3 data
 lthresh <- 0.6
 
 ```
 ---
-title: "MEP-LINCs `r cellLine` `r ss` Pilot Analysis"
+title: "MEP-LINCS `r cellLine` `r ss` Pilot Analysis"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
 ##Summary
-The MEP-LINCs `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4)` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID))` printed ECM proteins and `r length(unique(l4$LigandAnnotID))-1` ligands or growth factors.  
+The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4)` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID))` printed ECM proteins and `r length(unique(l4$LigandAnnotID))-1` ligands or growth factors.  
 
 ##Introduction
-The LINCs Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on an Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
+The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on an Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
 
-Intensity, position and a limited set of morphology data are gatherd for each cell, merged with the experiment metadata, normalized and aggregated. The dataset is organized to the four LINCs imaging categories as follows:
+Intensity, position and a limited set of morphology data are gatherd for each cell, merged with the experiment metadata, normalized and aggregated. The dataset is organized to the four LINCS imaging categories as follows:
 
 Level 1 - Raw data  
 Level 2 - Normalized data  
@@ -130,7 +138,7 @@ for (barcode in barcodes){
   p <- ggplot(DT, aes(x=LoessSCC))+
     geom_histogram(binwidth=.04)+
     geom_vline(xintercept=lthresh, colour="blue")+
-    geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 1.5, y = 40, size = rel(3), colour="red")+
+    geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
     ggtitle(paste("\n\n\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Normalized Spot Cell Count")+xlim(0,3)+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.x = element_text( size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.title.y = element_text( size=rel(.5)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=4)
@@ -146,6 +154,7 @@ for (barcode in barcodes){
 
 passedQAWells <- unique(l3[l3$QAScore > wellQAThresh,list(Barcode,Well)])
 
+#Remove failed QA wells
 setkey(l1,Barcode,Well)
 l1F <- merge(l1,passedQAWells)
 setkey(l2,Barcode,Well)
@@ -153,15 +162,15 @@ l2F <- merge(l2,passedQAWells)
 setkey(l3,Barcode,Well)
 l3F <- merge(l3,passedQAWells)
 
-#Remove the fiducial, blank and control data
+#Remove the high serum, fiducial data and blank
 setkey(l1F,Ligand)
-l1F <- l1F[!"FBS"]
+l1F <- l1F[!"HighSerum"]
 setkey(l1F,ECMp)
 l1F <- l1F[!"fiducial"]
 l1F <- l1F[!"blank"]
 #Remove the high serum and fiducial data
 setkey(l2F,Ligand)
-l2F <- l2F[!"FBS"]
+l2F <- l2F[!"HighSerum"]
 setkey(l2F,ECMp)
 l2F <- l2F[!"fiducial"]
 l2F <- l2F[!"blank"]
@@ -172,19 +181,19 @@ l2FSCC <- l2F[l2F$SpotCellCount >= 20]
 
 #Remove the high serum and fiducial data
 setkey(l3F,Ligand)
-l3F <- l3F[!"FBS"]
+l3F <- l3F[!"HighSerum"]
 setkey(l3F,ECMp)
 l3F <- l3F[!"fiducial"]
 l3F <- l3F[!"blank"]
 
 #Summarize spot level data to MEP level by taking the medians of the parameters
-  mepNames<-grep("AreaShape|Children|Intensity|SpotCellCount|Loess|EduPositiveProportion|Population|Neighbors|ReplicateCount|LigandAnnotID|ECMpAnnotID", x=names(l3F),value=TRUE)
+mepNames<-grep("AreaShape|Children|Intensity|SpotCellCount|Loess|EdUPositiveProportion|Population|Neighbors|ReplicateCount|LineageRatio|LigandAnnotID|ECMpAnnotID", x=names(l3F),value=TRUE)
 
 mepKeep<-l3F[,mepNames,with=FALSE]
 l4F<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID"]
-
+  
 #Merge back in the replicate metadata
-mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp),keyby="LigandAnnotID,ECMpAnnotID"]
+mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,ReplicateCount),keyby="LigandAnnotID,ECMpAnnotID"]
 l4F <- mDT[l4F, mult="first"]
 
 #Add Robust Z Score of the normalized Spot Cell Count
@@ -192,12 +201,46 @@ SCCMedian <- median(l4F$SpotCellCount_MedNorm, na.rm=TRUE)
 SCCmad <-mad(l4F$SpotCellCount_MedNorm, na.rm=TRUE)
 l4F$SpotCellCount_MedNorm_RobustZ <- (l4F$SpotCellCount_MedNorm-SCCMedian)/SCCmad
 
+#Add Robust Z Score of the raw Spot Cell Count
+SCCMedian <- median(l4F$SpotCellCount, na.rm=TRUE)
+SCCmad <-mad(l4F$SpotCellCount, na.rm=TRUE)
+l4F$SpotCellCount_RobustZ <- (l4F$SpotCellCount-SCCMedian)/SCCmad
+
+if (ss == "SS2"){
+  #Add Robust Z Score of the Edu Signal
+  EduPPMedian <- median(l4F$EduPositiveProportion_MedNorm, na.rm=TRUE)
+  EduPPmad <-mad(l4F$EduPositiveProportion_MedNorm, na.rm=TRUE)
+  if(EduPPmad == 0) { l4F$EduPP_MedNorm_RobustZ <- 0
+  } else {
+    l4F$EduPP_MedNorm_RobustZ <- (l4F$EduPositiveProportion_MedNorm-EduPPMedian)/EduPPmad
+  }
+}
+
+if (ss == "SS3"){
+  #Add Robust Z Score of the LineageRatio Signal
+  lrMedian <- median(l4F$LineageRatio, na.rm=TRUE)
+  lrMad <-mad(l4F$LineageRatio, na.rm=TRUE)
+  if(lrMad == 0) { l4F$LineageRatio_RobustZ <- 0
+  } else {
+    l4F$LineageRatio_RobustZ <- (l4F$LineageRatio-lrMedian)/lrMad
+  }
+
+  #Add Robust Z Scores of the normalized lineage ratios
+  lrMedian <- median(l4F$LineageRatio_MedNorm, na.rm=TRUE)
+  lrMad <-mad(l4F$LineageRatio_MedNorm, na.rm=TRUE)
+  if(lrMad == 0) { l4F$LineageRatio_MedNorm_RobustZ <- 0
+  } else {
+    l4F$LineageRatio_MedNorm_RobustZ <- (l4F$LineageRatio_MedNorm-lrMedian)/lrMad
+  }
+  
+}
+
 ```
 
 \newpage
 
 ##Filtering
-Wells with QA scores below `r wellQAThresh ` and the FBS control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))` ligands in the dataset. 
+Wells with QA scores below `r wellQAThresh ` and the HighSerum control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))` ligands in the dataset. 
 
 Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
@@ -237,6 +280,175 @@ suppressWarnings(print(p))
 
 \newpage
 
+##Lineage Marker Analysis
+
+This staining set includes the lineage markers KRT5 which is associated with basal cells and KRT19 which is associated with luminal cells. This analysis evaluates the lineage responses through a ratio of the median intensity of KRT19 to KRT5. 
+
+```{r LineageMarkers, echo=FALSE}
+
+p <- ggplot(l4F, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_MedNorm,
+                     y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_MedNorm,
+                     colour = Ligand))+
+  geom_point(alpha=.5)+
+  guides(colour=FALSE)+
+  xlab("KRT5")+ylab("KRT19")
+print(p)
+
+p <- ggplot(l4F, aes(x=LineageRatio))+
+  geom_bar(binwidth = .1)+
+  ggtitle("Histogram of Lineage Ratios")
+print(p)
+
+p <- ggplot(l4F, aes(x=LineageRatio_RobustZ))+geom_bar(binwidth = .1)+
+  geom_vline(xintercept = c(-2,2), colour = "blue")+
+  ggtitle(paste("\n\n","MEP Lineage Ratio Robust Z Scores Distribution"))+
+  ylab("Count")+xlab("Lineage Ratio Robust Z Scores")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+
+```
+
+```{r, echo=FALSE}
+
+p <- ggplot(l4F, aes(x = reorder(Ligand, LineageRatio, FUN=median), y = LineageRatio, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP  LineageRatio by Ligand"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, LineageRatio, FUN=median), y = LineageRatio))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP LineageRatio by ECM Protein"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+The ligand-stratified boxplots of the lineage ratios show batch effects likely due to each ligand being in a different well with no replicates. These can also be seen in the following boxplots of the lineage ratios in the control wells.
+
+```{r, echo = FALSE}
+
+#Plot lineage ratios of control wells in each plate
+p <- ggplot(l4[l4$Ligand == "HighSerum"], aes(x = reorder(Ligand, LineageRatio, FUN=median), y = LineageRatio, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nLineageRatio in Control Wells"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+
+#Plot lineage ratios of control wells in each plate
+p <- ggplot(l4[l4$Ligand == "HighSerum"], aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT19, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nKRT19 Intensity in Control Wells"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+#Plot lineage ratios of control wells in each plate
+p <- ggplot(l4[l4$Ligand == "HighSerum"], aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT5, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT5, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nKRT 5 Intensity in Control Wells"))+
+  #xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+```
+The lineage ratio analysis is rerun using normalized data. The normalized data is calculated by dividing each lineage ratio by the lineage ratio of its corresponding control well.
+
+```{r, echo = FALSE}
+
+p <- ggplot(l4F, aes(x=LineageRatio_MedNorm_RobustZ))+geom_bar(binwidth = .1)+
+  geom_vline(xintercept = c(-2,2), colour = "blue")+
+  ggtitle(paste("\n\n","MEP Normalized Lineage Ratio Robust Z Scores Distribution"))+
+  ylab("Count")+xlab("Normalized Lineage Ratio Robust Z Scores")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+
+p <- ggplot(l4F, aes(x = reorder(Ligand, LineageRatio_MedNorm, FUN=median), y = LineageRatio_MedNorm, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized LineageRatio by Ligand"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, LineageRatio_MedNorm, FUN=median), y = LineageRatio_MedNorm))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized LineageRatio by ECM Protein"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r lineageGating, echo=FALSE, eval=FALSE}
+for (ligand in unique(l2F$Ligand)[1:4]){
+  DT <- l2F[l2F$Ligand == ligand]
+p <- ggplot(DT, aes(x = scale(lscale, Nuclei_CP_Intensity_IntegratedIntensity_Dapi),
+                     y = scale(lscale,Cytoplasm_CP_Intensity_MedianIntensity_KRT5),
+                              colour = MEP))+
+  geom_point(size=1, alpha=.5)+
+  facet_wrap(~MEP)+
+  ylim(.3,.6)+
+    guides(colour=FALSE)
+print(p)
+
+p <- ggplot(DT, aes(x = scale(lscale, Nuclei_CP_Intensity_IntegratedIntensity_Dapi),
+                     y = scale(lscale,Cytoplasm_CP_Intensity_MedianIntensity_KRT19),
+                              colour = MEP))+
+  geom_point(size=1, alpha=.5)+
+  facet_wrap(~MEP)+
+  ylim(.5,.7)+
+    guides(colour=FALSE)
+print(p)
+}
+
+
+for (MEP in (unique(l2F$MEP)[1:10])){
+  setkey(l2F,MEP)
+  DT <- l2F[MEP]
+  p <- ggplot(DT, aes(x = scale(lscale, Nuclei_CP_Intensity_IntegratedIntensity_Dapi_MedNorm),
+                     y = scale(lscale,Cytoplasm_CP_Intensity_MedianIntensity_KRT5_MedNorm),
+                              colour = MEP))+
+  geom_point(size=2, alpha=1)+
+    guides(colour=FALSE)+
+    xlab("logicle Total DAPI")+ylab("logicle KRT5")+
+    ggtitle(MEP)
+  
+print(p)
+
+  p <- ggplot(DT, aes(x = log2(Nuclei_CP_Intensity_IntegratedIntensity_Dapi_MedNorm),
+                     y = log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5_MedNorm),
+                              colour = MEP))+
+  geom_point(size=2, alpha=1)+
+    guides(colour=FALSE)+
+    xlab("Log2 Total DAPI")+ylab("log2 KRT5")+
+    ggtitle(MEP)
+print(p)
+
+}
+
+
+```
+
+
+```{r, echo=FALSE, eval=TRUE}
+
+p <- ggplot(l4F, aes(x=Nuclei_PA_AreaShape_Neighbors_MedNorm,
+                     y = LineageRatio_MedNorm))+
+  geom_point(alpha=.5)+
+  stat_smooth(method="gam")+
+  facet_wrap(~ECMp)+
+  xlab("Normalized Number of Neighbors")+ylab("KRT19/KRT5")
+print(p)
+
+p <- ggplot(l4F, aes(x=Nuclei_PA_AreaShape_Neighbors_MedNorm,
+                     y = LineageRatio_MedNorm))+
+  geom_point(alpha=.5)+
+  stat_smooth(method="gam")+
+  facet_wrap(~Ligand)+
+  xlab("Number of Neighbors")+ylab("KRT19/KRT5")
+print(p)
+
+```
+
+
+\newpage
+
 ##Unbiased Analysis
 
 The unbiased approach is:  
@@ -251,29 +463,26 @@ The following heatmaps show the active MEPs based on the entire dataset, the dat
   
 ```{r, fig.height=16}
 
-#Setup colors for RowSideColors and text in all heatmaps
-selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
-plateCol = selDark2(8)
- 
-setkey(l4, "ECMp")
-l4fv <- l4[!"blank"]
-l4fv <- l4fv[!"fiducial"]
-l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
+
+#Need dataset to be filtered for QA wells and still have HighSerum wells
+setkey(l4,Barcode,Well)
+l4QA <- merge(l4,passedQAWells)
+setkey(l4QA,ECMp)
+l4QA <- l4QA[!"blank"]
+l4QA <- l4QA[!"fiducial"]
 
 #Get numeric features
-fv <- grep("_CP_|_PA_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
-fv <- grep("Norm|Center", fv, value = TRUE, invert = TRUE)
-fvSS1 <- paste("Cytoplasm_CP_Intensity_IntegratedIntensity_Dapi",
-                "Cytoplasm_CP_Intensity_IntegratedIntensity_Dapi_MedNorm",
-                sep="|")
-fv <- grep(fvSS1, fv, value = TRUE, invert = TRUE)
+fv <- grep("_CP_|_PA_|SpotCellCount|Lineage|MEP$",colnames(l4QA),value=TRUE)
+
+#Remove the normalized features
+fv <- grep("Norm|Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
-fvDT <- l4fv[,fv,with = FALSE]
+fvDT <- l4QA[,fv,with = FALSE]
 #Get medians of high serum numeric features
-fvDTHS <- fvDT[grepl("FBS", fvDT$MEP)]
-hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
-#Replace all FBS rows with one row of medians as the last row
-fvDT<- rbind(fvDT[!grepl("FBS", fvDT$MEP)],hsMedians)
+fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
+hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
+#Replace all HighSerum rows with one row of medians as the last row
+fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
 
 #Normalize the feature vectors to the medians
 #to equally weight all features
@@ -282,7 +491,7 @@ fvDTNorm <- rbindlist(apply(fvDT[,grep("MEP",colnames(fvDT),invert=TRUE), with=F
 #Calculate the dist matrix with euclidean method
 dmm <- as.matrix(dist(fvDTNorm), labels=TRUE)
 #Extract the distance to the high serum medians
-distHS <- dmm[which(fvDT$MEP == "FBS"),]
+distHS <- dmm[which(fvDT$MEP == "HighSerum"),]
 #Name the distance values
 names(distHS) <- fvDT$MEP
 
@@ -291,7 +500,6 @@ dmmThresh <- quantile(distHS,probs = .95)
 activeMEPs <- distHS[distHS>dmmThresh]
 #browser()
 #Create an active MEP subset matrix of the normalized data
-#####DEbug there's a mismatch in the number of active MEP names and the MEPS pulled from the DT
 activeFV <- fvDT[fvDT$MEP %in% names(activeMEPs)]
 #Remove MEP column and convert to a matrix
 activeFVM <- as.matrix(activeFV[,grep("MEP",colnames(activeFV),invert=TRUE), with=FALSE])
@@ -302,7 +510,6 @@ rownames(activeFVM) <- names(activeMEPs)
 #get the barcode for each MEP and add color bar
 #get a datatable with columns of barcode and ligand to merge into 
 #activeFVM
-limma::strsplit2(rownames(activeFVM),"-")
  activeFVMDT <- data.table(Ligand =sub("[[:alnum:]]*-{1}","",rownames(activeFVM)), Index = 1:nrow(activeFVM))
  l4MEPs <- unique(l4[,list(Barcode,Ligand)])
  setkey(l4MEPs,"Ligand")
@@ -321,22 +528,18 @@ heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, ce
 The next heatmap shows the same analysis run on the dataset after removing NID1.
   
 ```{r, fig.height=16}
-setkey(l4, "ECMp")
-l4fv <- l4[!"blank"]
-l4fv <- l4fv[!"fiducial"]
-l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
 
 #Get numeric features
-fv <- grep("_CP_|_PA_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
+fv <- grep("_CP_|_PA_|SpotCellCount|Lineage|MEP$",colnames(l4QA),value=TRUE)
 fv <- grep("Norm|Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
 #Create numeric feature vectors
-fvDT <- l4fv[,fv,with = FALSE]
+fvDT <- l4QA[,fv,with = FALSE]
 fvDT <- fvDT[!grepl("NID1", fvDT$MEP)]
 #Get medians of high serum numeric features
-fvDTHS <- fvDT[grepl("FBS", fvDT$MEP)]
-hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
-#Replace all FBS rows with one row of medians as the last row
-fvDT<- rbind(fvDT[!grepl("FBS", fvDT$MEP)],hsMedians)
+fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
+hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
+#Replace all HighSerum rows with one row of medians as the last row
+fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
 
 #Normalize the feature vectors to the medians
 #to equally weight all features
@@ -345,7 +548,7 @@ fvDTNorm <- rbindlist(apply(fvDT[,grep("MEP",colnames(fvDT),invert=TRUE), with=F
 #Calculate the dist matrix with euclidean method
 dmm <- as.matrix(dist(fvDTNorm), labels=TRUE)
 #Extract the distance to the high serum medians
-distHS <- dmm[which(fvDT$MEP == "FBS"),]
+distHS <- dmm[which(fvDT$MEP == "HighSerum"),]
 #Name the distance values
 names(distHS) <- fvDT$MEP
 
@@ -381,22 +584,23 @@ heatmap.2(activeFVMF,scale="column", col = bluered, trace = "none", cexRow=.5, c
 The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
   
 ```{r, fig.height=16}
-setkey(l4, "ECMp")
-l4fv <- l4[!"blank"]
+setkey(l4F, "ECMp")
+l4fv <- l4F[!"blank"]
 l4fv <- l4fv[!"fiducial"]
 l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
 
 #Get the normalized numeric features
-fv <- grep("MedNorm|MEP$",colnames(l4fv),value=TRUE)
-fv <- grep("Center_X|Center_Y", fv, value = TRUE, invert = TRUE)
+fv <- grep("MedNorm|MEP$",colnames(l4QA),value=TRUE)
+fv <- grep("Center_X|Center_Y|SpotNorm", fv, value = TRUE, invert = TRUE)
+
 #Create numeric feature vectors
-fvDT <- l4fv[,fv,with = FALSE]
+fvDT <- l4QA[,fv,with = FALSE]
 fvDT <- fvDT[!grepl("NID1", fvDT$MEP)]
 #Get medians of high serum numeric features
-fvDTHS <- fvDT[grepl("FBS", fvDT$MEP)]
-hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
-#Replace all FBS rows with one row of medians as the last row
-fvDT<- rbind(fvDT[!grepl("FBS", fvDT$MEP)],hsMedians)
+fvDTHS <- fvDT[grepl("HighSerum", fvDT$MEP)]
+hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="HighSerum", stringsAsFactors = FALSE)
+#Replace all HighSerum rows with one row of medians as the last row
+fvDT<- rbind(fvDT[!grepl("HighSerum", fvDT$MEP)],hsMedians)
 
 #Normalize the feature vectors to the medians
 #to equally weight all features
@@ -405,7 +609,7 @@ fvDTNorm <- rbindlist(apply(fvDT[,grep("MEP",colnames(fvDT),invert=TRUE), with=F
 #Calculate the dist matrix with euclidean method
 dmm <- as.matrix(dist(fvDTNorm), labels=TRUE)
 #Extract the distance to the high serum medians
-distHS <- dmm[which(fvDT$MEP == "FBS"),]
+distHS <- dmm[which(fvDT$MEP == "HighSerum"),]
 #Name the distance values
 names(distHS) <- fvDT$MEP
 
@@ -450,15 +654,18 @@ The unbiased PCA analysis method is:
   
 
 ```{r, fig.height=12}
-setkey(l4, "ECMp")
-l4fv <- l4[!"blank"]
-l4fv <- l4fv[!"fiducial"]
-l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
+
+l4fv <- copy(l4QA)
 
 #Convert Barcode, ECMp, Ligand to factors so they can be used in #colors
 l4fv$Barcode <- as.factor(l4fv$Barcode)
 l4fv$ECMp <- as.factor(l4fv$ECMp)
 l4fv$Ligand <- as.factor(l4fv$Ligand)
+
+#Get the normalized numeric features
+fv <- grep("MedNorm|MEP$",colnames(l4QA),value=TRUE)
+fv <- grep("Center_X|Center_Y|SpotNorm", fv, value = TRUE, invert = TRUE)
+l4fv <- l4fv[,fv, with = FALSE]
 
 #Get the PCFVs
 l4PCAModel <- prcomp(as.formula(paste(" ~ ",paste(grep("MedNorm",colnames(l4fv),value=TRUE),collapse = "+"))),data = l4fv, scale= TRUE)
@@ -470,18 +677,18 @@ l4PCAModel <- prcomp(as.formula(paste(" ~ ",paste(grep("MedNorm",colnames(l4fv),
 l4pcv <- l4PCAModel$x[,1:9]
 
 #Get medians of high serum PCs
-l4pcvHS <- l4pcv[grepl("FBS", l4fv$MEP),]
+l4pcvHS <- l4pcv[grepl("HighSerum", l4fv$MEP),]
 hsMedians <- data.frame(t(as.matrix(apply(l4pcvHS,2,median))))
 
-#Replace all FBS rows with one row of medians as the last row
-l4pcvDT<- rbind(l4pcv[!grepl("FBS", l4fv$MEP),],hsMedians)
+#Replace all HighSerum rows with one row of medians as the last row
+l4pcvDT<- rbind(l4pcv[!grepl("HighSerum", l4fv$MEP),],hsMedians)
 
 #Calculate the dist matrix with euclidean method
 dmm <- as.matrix(dist(l4pcvDT), labels=TRUE)
 #Extract the distance to the last row which is the high serum medians
 distHS <- dmm[nrow(dmm),]
 #Name the distance values
-names(distHS) <- c(l4fv$MEP[!grepl("FBS", l4fv$MEP)],"FBS")
+names(distHS) <- c(l4fv$MEP[!grepl("HighSerum", l4fv$MEP)],"HighSerum")
 
 #Select the most active by distance from the median control fv
 dmmThresh <- quantile(distHS,probs = .95)
@@ -513,16 +720,20 @@ heatmap.2(activePC,scale="column", col = bluered, trace = "none", cexRow=.5, cex
 ####PCA Without NID1
 
 ```{r, fig.height=3,fig.width=4}
-setkey(l4, "ECMp")
-l4fv <- l4[!"blank"]
-l4fv <- l4fv[!"fiducial"]
+l4fv <- copy(l4QA)
+setkey(l4F, "ECMp")
 l4fv <- l4fv[!"NID1"]
-l4fv$MEP <- paste(l4fv$ECMp, l4fv$Ligand, sep="-")
+l4fvMD <- copy (l4fv)
 
 #Convert Barcode, ECMp, Ligand to factors so they can be used in #colors
-l4fv$Barcode <- as.factor(l4fv$Barcode)
-l4fv$ECMp <- as.factor(l4fv$ECMp)
-l4fv$Ligand <- as.factor(l4fv$Ligand)
+l4fvMD$Barcode <- as.factor(l4fvMD$Barcode)
+l4fvMD$ECMp <- as.factor(l4fvMD$ECMp)
+l4fvMD$Ligand <- as.factor(l4fvMD$Ligand)
+
+#Get the normalized numeric features
+fv <- grep("MedNorm|MEP$",colnames(l4fvMD),value=TRUE)
+fv <- grep("Center_X|Center_Y|SpotNorm", fv, value = TRUE, invert = TRUE)
+l4fv <- l4fv[,fv, with = FALSE]
 
 #Get the PCFVs
 l4PCAModel <- prcomp(as.formula(paste(" ~ ",paste(grep("MedNorm",colnames(l4fv),value=TRUE),collapse = "+"))),data = l4fv, scale= TRUE)
@@ -535,21 +746,21 @@ plot(l4PCAModel, main  = paste("PCA Scree Plot for",cellLine,ss), type = "lines"
 abline(h = 1, col = "blue")
 title(xlab = "Principal Component")
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fvMD$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4fv$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4fvMD$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4fv$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4fvMD$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
@@ -563,16 +774,10 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Nuclei_CP
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Nuclei_CP_AreaShape_Center_Y_MedNorm)) +
-  geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "Local Y")+
-  theme(legend.text=element_text(size = 6))+
-  guides(colour = guide_legend(override.aes = list(size=6)))
-print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4fv$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_MedNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4fv$Cytoplasm_CP_Intensity_MedianIntensity_KRT19_MedNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "MitoTracker")+
+  labs(colour = "KRT19")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
@@ -590,18 +795,18 @@ kable(l4PCAModel$rotation[,1:9], digits = 2)
 l4pcv <- l4PCAModel$x[,1:9]
 
 #Get medians of high serum PCs
-l4pcvHS <- l4pcv[grepl("FBS", l4fv$MEP),]
+l4pcvHS <- l4pcv[grepl("HighSerum", l4fv$MEP),]
 hsMedians <- data.frame(t(as.matrix(apply(l4pcvHS,2,median))))
 
-#Replace all FBS rows with one row of medians as the last row
-l4pcvDT<- rbind(l4pcv[!grepl("FBS", l4fv$MEP),],hsMedians)
+#Replace all HighSerum rows with one row of medians as the last row
+l4pcvDT<- rbind(l4pcv[!grepl("HighSerum", l4fv$MEP),],hsMedians)
 
 #Calculate the dist matrix with euclidean method
 dmm <- as.matrix(dist(l4pcvDT), labels=TRUE)
 #Extract the distance to the last row which is the high serum medians
 distHS <- dmm[nrow(dmm),]
 #Name the distance values
-names(distHS) <- c(l4fv$MEP[!grepl("FBS", l4fv$MEP)],"FBS")
+names(distHS) <- c(l4fv$MEP[!grepl("HighSerum", l4fv$MEP)],"HighSerum")
 
 #Select the most active by distance from the median control fv
 dmmThresh <- quantile(distHS,probs = .95)
@@ -654,7 +859,7 @@ p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
   theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
   scale_y_reverse()+
   xlab("")+ylab("")+
-  ggtitle(" \n\nLINCs MEMA A Row Layout")
+  ggtitle(" \n\nLINCS MEMA A Row Layout")
 print(p)
 
 ```
@@ -691,7 +896,7 @@ The loess model of a MEMA is the mean value of a weighted version of each spot's
 
 A MEMA's QA score is derived from the loess model of the control-well-normalized values by calculating the proportion of spots in low signal regions(LSR). A threshold for classifying spots as LSR is based on the median of each plate's control well. To have higher scores reflect increasing quality, the MEMA QA score is defined as the proportion of non-LSR spots to total spots. This value will be 1 for MEMAs with no low signal regions and approach 0 as the number of LSR spots increases.
 
-Below are plots showing data from well B01 from plate LI8X00110 from LINCs staining set 2. The LSR spots are those to the left of the blue vertical line at the threshold value of `r lthresh ` in the histogram. 
+Below are plots showing data from well B01 from plate LI8X00110 from LINCS staining set 2. The LSR spots are those to the left of the blue vertical line at the threshold value of `r lthresh ` in the histogram. 
 
 
 ```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4}
@@ -775,13 +980,13 @@ for (barcode in barcodes){
   p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
-  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
   suppressWarnings(print(p))
   
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
+    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
   suppressWarnings(print(p))
   
-  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
   suppressWarnings(print(p))
   
 }
@@ -790,9 +995,9 @@ for (barcode in barcodes){
 
 \newpage
 
-```{r SCCFBS_response}
+```{r SCCHighSerum_response}
 
-p <- ggplot(l3[l3$Ligand == "FBS"], aes(x = reorder(Ligand, SpotCellCount, FUN=median), y = SpotCellCount, colour = Barcode))+geom_boxplot()+
+p <- ggplot(l3[l3$Ligand == "HighSerum"], aes(x = reorder(Ligand, SpotCellCount, FUN=median), y = SpotCellCount, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nSpot Cell Count in High Serum Wells"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -853,7 +1058,7 @@ for (barcode in barcodes){
   p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_bar(binwidth = 2)+
     facet_wrap(~Ligand, nrow=2, scales="free_x")+
     #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
-    ggtitle(paste("\n\n","Total DAPI Signal"))+
+    ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
     ylab("Count")+xlab("Total Intensity DAPI")+
     theme(strip.text = element_text(size = 5))
   suppressWarnings(print(p))

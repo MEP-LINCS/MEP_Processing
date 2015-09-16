@@ -30,9 +30,9 @@ spotCellDensities<- function (spot, radius = (max(spot$Cells_Location_Center_X) 
     return(cellDensity)
 }
 
-cellNeighbors<- function (spot, radius = (max(spot$Cells_CP_AreaShape_Center_X) - min(spot$Cells_CP_AreaShape_Center_X))/5) 
+cellNeighbors<- function (spot, radius = (max(spot$Nuclei_CP_AreaShape_Center_X) - min(spot$Nuclei_CP_AreaShape_Center_X))/5) 
 {
-    distMatrix <- as.matrix(dist(spot[, list(Cells_CP_AreaShape_Center_X, Cells_CP_AreaShape_Center_Y)]))
+    distMatrix <- as.matrix(dist(spot[, list(Nuclei_CP_AreaShape_Center_X, Nuclei_CP_AreaShape_Center_Y)]))
     count <- apply(distMatrix, 2, function(x) {
         sum(x <= radius) - 1
     })
@@ -44,8 +44,8 @@ medianNorm <- function(DT, value){
 }
 
   normDataset <- function(dt){
-  parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount",colnames(dt),value = TRUE), function(parm){
-    dt <- dt[,paste0(parm,"_MedNorm") := normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+  parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount|Lineage",colnames(dt),value = TRUE), function(parm){
+    dt <- dt[,paste0(parm,"_MedNorm") := normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "FBS"), by="Barcode"]
 #     parmNormed <- pcDT[,normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
 #     parmNormed <- parmNormed[,Barcode := NULL]
     return(dt)
@@ -72,7 +72,7 @@ outerThresh <- 0.5
 
 #Filter out debris based on nuclear area
 nuclearAreaThresh <- 50
-nuclearAreaHiThresh <- 2500
+nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
 curatedOnly <- TRUE
@@ -91,7 +91,7 @@ The merging assumes that the actual, physical B row wells (B01-B04) have been pr
 ```{r Read and clean spotmetadata, echo=FALSE}
 
 #Read in the spot metadata from the gal file
-smd <- readSpotMetadata(paste0("./",cellLine,"/",ss,"/Metadata/20150515_LI8X001_v1_Curated.gal"))
+smd <- readSpotMetadata(paste0("./",cellLine,"/",ss,"/Metadata/20150515_LI8X001_v1.2.gal"))
 #Relabel the column Name to ECMpAnnotID
 setnames(smd, "Name", "ECMpAnnotID")
 
@@ -197,15 +197,14 @@ expDTList <- mclapply(barcodes, function(barcode){
   pcDT <- pcDT[,Barcode := barcode]
   #Count the cells at each spot
   pcDT<-pcDT[,SpotCellCount := .N,by="Barcode,Well,Spot"]
-  
-  #Normalized all measured parameters to their plate's control well
-  pcDT <- normDataset(pcDT)
+#Previous location for normalizing the dataset
+#################
   
   pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
   pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
   
   return(pcDT)
-}, mc.cores=4)
+}, mc.cores = 4)
 
 cDT <- rbindlist(expDTList, fill = TRUE)
 densityRadius <- median(cDT$Nuclei_CP_AreaShape_Area)
@@ -214,14 +213,14 @@ densityRadius <- median(cDT$Nuclei_CP_AreaShape_Area)
 #       Create short, unique display names for ECMp and Ligand
 #Add own as the uniprot ID for reagents without one
 #Find ECMps without uniprot IDs
-noID <- unique(grep("_",cDT$ECMpAnnotID, value=TRUE,invert=TRUE))
+#noID <- unique(grep("_",cDT$ECMpAnnotID, value=TRUE,invert=TRUE))
 #Add own as uniprot ID
-cDT[cDT$ECMpAnnotID %in% noID]$ECMpAnnotID <- paste(cDT[cDT$ECMpAnnotID %in% noID]$ECMpAnnotID,"own",sep="_")
-#Specifically curate PDGFAB and HighSerum
-cDT$LigandAnnotID <- gsub("PDGFAB-","PDGFAB_own-",cDT$LigandAnnotID)
-cDT$LigandAnnotID[cDT$LigandAnnotID == "HighSerum"] <- "HighSerum_own"
-#Remove spaces trailing underscores
-cDT$LigandAnnotID <- gsub("_ ","_", cDT$LigandAnnotID)
+#cDT[cDT$ECMpAnnotID %in% noID]$ECMpAnnotID <- paste(cDT[cDT$ECMpAnnotID %in% noID]$ECMpAnnotID,"own",sep="_")
+# #Specifically curate PDGFAB and HighSerum
+# cDT$LigandAnnotID <- gsub("PDGFAB-","PDGFAB_own-",cDT$LigandAnnotID)
+# cDT$LigandAnnotID[cDT$LigandAnnotID == "HighSerum"] <- "HighSerum_own"
+# #Remove spaces trailing underscores
+# cDT$LigandAnnotID <- gsub("_ ","_", cDT$LigandAnnotID)
 
 #Create short display names, then replace where not unique
 cDT$ECMp <- gsub("_.*","",cDT$ECMpAnnotID)
@@ -231,7 +230,6 @@ cDT$Ligand <- gsub("_.*","",cDT$LigandAnnotID)
 cDT$Ligand[cDT$Ligand == "NRG1"] <- cDT$LigandAnnotID[cDT$Ligand == "NRG1"]
 cDT$Ligand[cDT$Ligand == "TGFB1"] <- cDT$LigandAnnotID[cDT$Ligand == "TGFB1"]
 cDT$Ligand[cDT$Ligand == "CXCL12"] <- cDT$LigandAnnotID[cDT$Ligand == "CXCL12"]
-cDT$Ligand[cDT$Ligand == "IGF1"] <- cDT$LigandAnnotID[cDT$Ligand == "IGF1"]
 
 ```
 
@@ -307,7 +305,7 @@ The intensity values are normalized at each spot so that spot-level variations c
 # }
 
 #Add the local polar coordinates and Neighbor Count
-cDT <- cDT[, Cells_PA_AreaShape_Center_R :=  sqrt(Nuclei_CP_AreaShape_Center_X^2 + Nuclei_CP_AreaShape_Center_Y^2)]
+cDT <- cDT[, Nuclei_PA_AreaShape_Center_R :=  sqrt(Nuclei_CP_AreaShape_Center_X^2 + Nuclei_CP_AreaShape_Center_Y^2)]
 cDT <- cDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_CP_AreaShape_Center_X, Nuclei_CP_AreaShape_Center_Y)]
 cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*3), by = "Barcode,Well,Spot"]
 cDT$MEP <- paste(cDT$ECMp,cDT$Ligand,sep = "_")
@@ -321,16 +319,13 @@ for(intensityName in intensityNames){
 }
 
 #Create staining set specific derived parameters
-if(ss %in% c("SS1", "SS3")){
+if(ss %in% c("SS1")){
   
 } else if (ss == "SS2"){
   
-   cDT <- cDT[,EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu_MedNorm", ctrlLigand = "HighSerum"), by="Barcode"]
+   cDT <- cDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
   #Calculate the EdU Positive Percent at each spot
-  cDT <- cDT[,EduPositiveProportion := sum(EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
-  
-  #Add plate level normalization of EduPositiveProportion 
-cDT <- cDT[,EduPositiveProportion_MedNorm := normWellsWithinPlate(.SD, value="EduPositiveProportion", baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+  cDT <- cDT[,EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
   
 } else if (ss == "SS3"){
 #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
@@ -343,6 +338,9 @@ endpointNames <- grep("End",colnames(cDT), value=TRUE)
 endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
 setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
 
+#Normalized all measured parameters to their plate's control well
+cDT <- normDataset(cDT)
+  
 #Cell cycle on total DNA under developent and not implemented
 # MclustCluster <- function(x){
 #   #browser()
@@ -382,7 +380,6 @@ The cell-level data is median summarized to the spot level and coefficients of v
 #Summarize cell data to spot level (sl) by taking the medians of the parameters
 parameterNames<-grep(pattern="(AreaShape|Children|Intensity|SpotCellCount|Loess|Barcode|Proportion|LineageRatio|^Spot$|^Well$)",x=names(cDT),value=TRUE)
 
-
 #Remove any spot-normalized parameters
 parameterNames <- grep("SpotNorm",parameterNames,value=TRUE,invert=TRUE)
 
@@ -413,7 +410,7 @@ write.table(format(slDT, digits = 4), paste0("./",cellLine,"/", ss,"/AnnotatedDa
 
 ```
 
-The spot level data is median summarized to the replicate level is stored as Level 4 data and metadata.
+The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
 ```{r MEPLevelData, echo=FALSE}
   
   
@@ -423,7 +420,7 @@ The spot level data is median summarized to the replicate level is stored as Lev
   mepKeep<-slDT[,mepNames,with=FALSE]
   mepDT<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
   #Merge back in the replicate metadata
-  mDT <- slDT[,list(Well,CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ReplicateCount,ECMp),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
+  mDT <- slDT[,list(Well,CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
   mepDT <- mDT[mepDT, mult="first"]
   
   
