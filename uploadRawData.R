@@ -9,14 +9,12 @@ repo <- getRepo("kdaily/MEP_LINCS_Pilot", ref="branch", refName="usesynapse")
 thisScript <- getPermlink(repo, "uploadRawData.R")
 
 dataDir <- "/home/kdaily/Projects/LINCS/data/Pilot/Raw_Data"
-# synapseRawDataDir <- "syn4624343"
-
-# For testing
-synapseRawDataDir <- "syn4942497"
+synapseRawDataDir <- "syn4624343"
 
 # Take file names and turn into basic annotation set
 dataFiles <- data.frame(filename=list.files(path=dataDir, full.names = TRUE)) %>%
-  mutate(filename=as.character(filename),
+  mutate(level=0,
+         filename=as.character(filename),
          basename=str_replace(filename, ".*/", "")) %>% 
   mutate(basename=str_replace(basename, "\\.txt", "")) %>% 
   separate(basename, c("Barcode", "Well", "number", "CellLine", "ls", "StainingSet", "index", "dataSubType")) %>% 
