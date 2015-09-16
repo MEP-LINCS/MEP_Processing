@@ -29,12 +29,12 @@ outerThresh <- 0.5
 nuclearAreaThresh <- 1000
 
 # Find GAL file
-q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='gal' and cell_line=='%s' and staining_set=='%s'", cl, ss)
+q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='gal' and CellLine=='%s' and StainingSet=='%s'", cl, ss)
 qr <- synQuery(q)
 galId <- qr$file.id
 
 # Find XML file
-q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='xml' and cell_line=='%s' and staining_set=='%s'", cl, ss)
+q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='xml' and CellLine=='%s' and StainingSet=='%s'", cl, ss)
 qr <- synQuery(q)
 xmlId <- qr$file.id
 ```
@@ -84,69 +84,72 @@ Next, the data is filtered to remove objects with a nuclear area less than `r nu
 
 ```{r ScanR merge_normalize and QA, echo=FALSE}
 #The next steps are to bring in the well metadata, the print order and the ScanR data
-q <- sprintf("select id,name,well,barcode,dataSubType from file where parentId=='syn4624343' and level==0 and cell_line=='%s' and staining_set=='%s'", cl, ss)
+q <- sprintf("select id,name,Well,Barcode,dataSubType from file where parentId=='syn4624343' and level==0 and CellLine=='%s' and StainingSet=='%s'", cl, ss)
 
 qdata <- synQuery(q)
 
-barcodes <- qdata$file.barcode
-wells <- qdata$file.well
+barcodes <- qdata$file.Barcode
+wells <- qdata$file.Well
 
-expDTList <- mclapply(barcodes, function(barcode){
-  plateDataFiles <- filter(qdata, file.barcode == barcode)
-  wells <- unique(plateDataFiles$file.well)
+processByWell <- function(well, plateDataFiles) {
+  #browser()
+  # print(well)
+  wellDataFiles <- filter(plateDataFiles, file.Well == well)
+  mainDataFile <- filter(wellDataFiles, file.dataSubType == "Main") 
+  cytoDataFile <- filter(wellDataFiles, file.dataSubType == "Cyto")
   
-  wellDataList <- lapply(wells, function(well){
-    #browser()
-    wellDataFiles <- filter(plateDataFiles, file.well == well)
-    mainDataFile <- filter(wellDataFiles, file.dataSubType == "Main") 
-    cytoDataFile <- filter(wellDataFiles, file.dataSubType == "Cyto")
-    
-    #Read in and merge the main and cyto data for each well
-    mainDT <- convertColumnNames(fread(getFileLocation(synGet(mainDataFile$file.id)),
-                                       stringsAsFactors=FALSE))
-    
-    #Add the stain location for each wavelength in the 'main' file
-    waveLengths <- grep("Intensity", colnames(mainDT), value=TRUE)
+  #Read in and merge the main and cyto data for each well
+  mainDT <- convertColumnNames(fread(getFileLocation(synGet(mainDataFile$file.id)),
+                                     stringsAsFactors=FALSE))
+  
+  #Add the stain location for each wavelength in the 'main' file
+  waveLengths <- grep("Intensity", colnames(mainDT), value=TRUE)
+  
+  for(waveLength in waveLengths){
+    mainDT <- mainDT[,paste0("Location",waveLength) := "Nucleus", with=FALSE]
+  }
+  
+  if (nrow(cytoDataFile) > 0) {
+  cytoDT <- convertColumnNames(fread(getFileLocation(synGet(cytoDataFile)),
+                                     stringsAsFactors=FALSE))
+  
+  #Add the stain location for each wavelength in the 'Cyto' file
+  waveLengths <- grep("Intensity",colnames(cytoDT), value=TRUE)
+  
+  for(waveLength in waveLengths){
+    cytoDT <- cytoDT[,paste0("Location",waveLength) := "Cytoplasm", with=FALSE]
+  }
+  #Merge the cyto data to the main data using  ParentObjectIDMO
+  # in the cyto file and ObjectID in the main file
+  setkey(mainDT,key="ObjectID")
+  setkey(cytoDT,key="ParentObjectIDMO")
+  DT <- mainDT[cytoDT]
+  } else {
+  DT <- mainDT
+  }
+  
+  #clean up the column names
+  deleteNames <- colnames(DT)[colnames(DT) %in% c("Position","ParentObjectIDWell","ParentTraceID","i.ObjectID","i.ParentTraceID", "i.Area")]
+  DT <- DT[,deleteNames :=NULL, with = FALSE]
+  
+  setnames(DT,"Well","Spot")
+  #Add the well name as a parameter
+  DT$Well <- well
+  #Merge the data with its metadata based on the row it's in
+  m <- regexpr("[[:alpha:]]",well)
+  row <- regmatches(well,m)
+  setkey(DT,Spot)
+  DT <- switch(row,A = merge(DT,spotMetadata,all=TRUE),B = merge(DT,spotMetadata180,all=TRUE))
+  #Add the well name again to fill in NA values
+  DT$Well <- well
+  return(DT)
+}
 
-    for(waveLength in waveLengths){
-      mainDT <- mainDT[,paste0("Location",waveLength) := "Nucleus", with=FALSE]
-    }
-    
-    if (nrow(cytoDataFile) > 0) {
-      cytoDT <- convertColumnNames(fread(getFileLocation(synGet(cytoDataFile)),
-                                         stringsAsFactors=FALSE))
-
-      #Add the stain location for each wavelength in the 'Cyto' file
-      waveLengths <- grep("Intensity",colnames(cytoDT), value=TRUE)
-      
-      for(waveLength in waveLengths){
-        cytoDT <- cytoDT[,paste0("Location",waveLength) := "Cytoplasm", with=FALSE]
-      }
-      #Merge the cyto data to the main data using  ParentObjectIDMO
-      # in the cyto file and ObjectID in the main file
-      setkey(mainDT,key="ObjectID")
-      setkey(cytoDT,key="ParentObjectIDMO")
-      DT <- mainDT[cytoDT]
-    } else {
-      DT <- mainDT
-    }
-    
-    #clean up the column names
-    deleteNames <- colnames(DT)[colnames(DT) %in% c("Position","ParentObjectIDWell","ParentTraceID","i.ObjectID","i.ParentTraceID", "i.Area")]
-    DT <- DT[,deleteNames :=NULL, with = FALSE]
-    
-    setnames(DT,"Well","Spot")
-    #Add the well name as a parameter
-    DT$Well <- well
-    #Merge the data with its metadata based on the row it's in
-    m <- regexpr("[[:alpha:]]",well)
-    row <- regmatches(well,m)
-    setkey(DT,Spot)
-    DT <- switch(row,A = merge(DT,spotMetadata,all=TRUE),B = merge(DT,spotMetadata180,all=TRUE))
-    #Add the well name again to fill in NA values
-    DT$Well <- well
-    return(DT)
-  })
+processByBarcode <- function(barcode) {
+  plateDataFiles <- filter(qdata, file.Barcode == barcode)
+  wells <- unique(plateDataFiles$file.Well)
+  # print(barcode)
+  wellDataList <- lapply(wells, processByWell, plateDataFiles=plateDataFiles)
   
   #Create the cell data.table with spot metadata for the plate 
   pcDT <- rbindlist(wellDataList, fill = TRUE)
@@ -180,7 +183,9 @@ expDTList <- mclapply(barcodes, function(barcode){
   }
   pcDT <- pcDT[pcDT$Area >nuclearAreaThresh,]
   return(pcDT)
-})
+}
+
+expDTList <- lapply(barcodes[1:2], processByBarcode)
 cDT <- rbindlist(expDTList, fill = TRUE)
 
 ```
