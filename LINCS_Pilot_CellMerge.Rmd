@@ -84,31 +84,41 @@ Next, the data is filtered to remove objects with a nuclear area less than `r nu
 
 ```{r ScanR merge_normalize and QA, echo=FALSE}
 #The next steps are to bring in the well metadata, the print order and the ScanR data
+q <- sprintf("select id,name,well,barcode,dataSubType from file where parentId=='syn4624343' and level==0 and cell_line=='%s' and staining_set=='%s'", cl, ss)
 
-cellDataFiles <- dir(paste0(ss,"/Raw Data"),full.names = TRUE)
-splits <- strsplit2(strsplit2(cellDataFiles,split = "_")[,1],"/")
-barcodes <- unique(splits[,ncol(splits)])
+qdata <- synQuery(q)
+
+barcodes <- qdata$file.barcode
+wells <- qdata$file.well
+
 expDTList <- mclapply(barcodes, function(barcode){
-  plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
-  wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
-  wellDataList <- lapply(wells,function(well){
+  plateDataFiles <- filter(qdata, file.barcode == barcode)
+  wells <- unique(plateDataFiles$file.well)
+  
+  wellDataList <- lapply(wells, function(well){
     #browser()
-    wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
-    mainDataFile <- grep("main",wellDataFiles,value=TRUE,ignore.case = TRUE)
-    cytoDataFile <- grep("Cyto",wellDataFiles,value=TRUE,ignore.case = TRUE)
+    wellDataFiles <- filter(plateDataFiles, file.well == well)
+    mainDataFile <- filter(wellDataFiles, file.dataSubType == "Main") 
+    cytoDataFile <- filter(wellDataFiles, file.dataSubType == "Cyto")
     
     #Read in and merge the main and cyto data for each well
-    mainDT <- convertColumnNames(fread(mainDataFile,stringsAsFactors=FALSE))
+    mainDT <- convertColumnNames(fread(getFileLocation(synGet(mainDataFile$file.id)),
+                                       stringsAsFactors=FALSE))
+    
     #Add the stain location for each wavelength in the 'main' file
-    waveLengths <- grep("Intensity",colnames(mainDT), value=TRUE)
+    waveLengths <- grep("Intensity", colnames(mainDT), value=TRUE)
+
     for(waveLength in waveLengths){
       mainDT <- mainDT[,paste0("Location",waveLength) := "Nucleus", with=FALSE]
     }
     
-    if(length(cytoDataFile)) {
-      cytoDT <- convertColumnNames(fread(cytoDataFile,stringsAsFactors=FALSE))
+    if (nrow(cytoDataFile) > 0) {
+      cytoDT <- convertColumnNames(fread(getFileLocation(synGet(cytoDataFile)),
+                                         stringsAsFactors=FALSE))
+
       #Add the stain location for each wavelength in the 'Cyto' file
       waveLengths <- grep("Intensity",colnames(cytoDT), value=TRUE)
+      
       for(waveLength in waveLengths){
         cytoDT <- cytoDT[,paste0("Location",waveLength) := "Cytoplasm", with=FALSE]
       }
@@ -140,14 +150,19 @@ expDTList <- mclapply(barcodes, function(barcode){
   
   #Create the cell data.table with spot metadata for the plate 
   pcDT <- rbindlist(wellDataList, fill = TRUE)
-  #Read the well metadata from a multi-sheet Excel file
-  wellMetadata <- data.table(readMetadata(paste0(ss,"/Metadata/",barcode,".xlsx")), key="Well")
+  
+  #Read the well metadata
+  wellQ <- sprintf("SELECT DISTINCT CellLine,Barcode,Well,LigandAnnotID,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI FROM syn4876459 WHERE Barcode='%s'", barcode)
+  wellMetadata <- synTableQuery(wellQ)@values
+  
   #Create a ligand display name by removing the first underscore and all trailing text
   wellMetadata$Ligand <- gsub("_.*","",wellMetadata$LigandAnnotID)
+  
   #merge well metadata with the data and spot metadata
   #browser()
   pcDT <- merge(pcDT,wellMetadata,by = "Well")
   pcDT <- pcDT[,Barcode := barcode]
+  
   #Count the cells at each spot
   pcDT<-pcDT[,SpotCellCount := length(ObjectID),by="Barcode,Well,Spot"]
   
@@ -230,8 +245,22 @@ if (ss == "SS1") {
   cDTLevel2 <- cDT[,c(coreMetadataColumns, coreLevel2DataColumns,"EdUPositive"), with=FALSE]
   
 }
-write.table(format(cDTLevel1, digits=4), paste0(ss,"/Annotated Data/",unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-write.table(format(cDTLevel2, digits=4), paste0(ss,"/Annotated Data/",unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+
+write.table(format(cDTLevel1, digits=4), 
+            paste0(cl, "_", ss,"_","Level1.txt"), 
+            sep = "\t",row.names = FALSE, quote=FALSE)
+
+cDTLevel1SynFile <- File(paste0(cl, "_", ss,"_","Level1.txt"), parentId='syn4624344')
+
+cDTLevel1SynFile <- synStore(cDTLevel1SynFile, used=qf$file.id, executed=thisScript)
+
+write.table(format(cDTLevel2, digits=4), 
+            paste0(cl,"_",ss,"_","Level2.txt"),
+            sep = "\t", row.names = FALSE, quote=FALSE)
+
+cDTLevel2SynFile <- File(paste0(cl, "_", ss,"_","Level2.txt"), parentId='syn4624344')
+
+cDTLevel2SynFile <- synStore(cDTLevel2SynFile, used=cDTLevel1SynFile, executed=thisScript)
 
 ```
 
@@ -275,7 +304,7 @@ lthresh <- 0.6
 
 ```{r, echo=FALSE, eval=TRUE}
   
-write.table(format(slDT, digits = 4), paste0(ss,"/Annotated Data/",unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+write.table(format(slDT, digits = 4), paste0(unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
 
 ```
 
