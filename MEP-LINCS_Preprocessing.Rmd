@@ -20,7 +20,7 @@ library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
 
 #Select a staining set
-ss <- "SS1"
+ss <- "SS2"
 #Select a CellLine
 cellLine <- "PC3"
 #select analysis version
@@ -223,6 +223,12 @@ setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
 cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
 cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
 
+# #Set 2N and 4N DNA status
+cDT <- cDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
+
+cDT <- cDT[,Nuclei_PA_Cycle_2NProportion := sum(Nuclei_PA_Cycle_State==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+cDT <- cDT[,Nuclei_PA_Cycle_4NProportion := sum(Nuclei_PA_Cycle_State==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+
 #Add spot level normalizations for selected intensities
 if(normToSpot){
   intensityNamesAll <- grep("_CP_Intensity_Median",colnames(cDT), value=TRUE)
@@ -253,9 +259,15 @@ endpointNames <- grep("End",colnames(cDT), value=TRUE)
 endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
 setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
 
+#Identify parameters that shouldn't be normalized
+normParameters <- grep("Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE,invert=TRUE)
+
+#Save the un-normalized parameters to merge in later
+mdKeep <- cDT[,grep("Barcode|Well|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
+
 #Normalized all measured parameters to their plate's control well
-normParameters <- grep("Sparse|Wedge|OuterCell|Spot_PA_Perimeter",colnames(cDT),value=TRUE,invert=TRUE)
 cDT <- normDataset(cDT[,normParameters,with=FALSE])
+cDT <- merge(cDT,mdKeep)
 
 ```
 
@@ -264,7 +276,7 @@ The cell-level data is median summarized to the spot level and coefficients of v
 ```{r Level3, echo=FALSE}
 
 #Summarize cell data to spot level (sl) by taking the medians of the parameters
-parameterNames<-grep(pattern="(Children|Intensity|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
+parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
 
 #Remove any spot-normalized and cell level parameters
 parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_MedNorm$",parameterNames,value=TRUE,invert=TRUE)
