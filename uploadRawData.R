@@ -12,6 +12,8 @@ dataDir <- "/home/kdaily/Projects/LINCS/data/Pilot/Raw_Data"
 synapseRawDataDir <- "syn4624343"
 
 # Take file names and turn into basic annotation set
+# Replace this with a better way to get basic annotations from 
+# a standardized source
 dataFiles <- data.frame(filename=list.files(path=dataDir, full.names = TRUE)) %>%
   mutate(level=0,
          filename=as.character(filename),
