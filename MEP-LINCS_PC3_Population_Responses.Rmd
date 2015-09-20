@@ -1,0 +1,98 @@
+---
+output: html_document
+---
+
+---
+title: "Spot Population Responses"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+```{r }
+#Author: Mark Dane, copyright 2015
+
+source("MEPLINCSFunctions.R")
+  
+#Set the cell line to be analyzed (PC3|MCF7|YAPC)
+cellLine <- "PC3"
+extremePercent<- 1
+
+
+```
+
+
+
+
+```{r setup, fig.height=200}
+library("ggplot2")
+library("data.table")
+library("MEMA")
+library("grid")
+library(knitr)
+library("gplots")
+library("RColorBrewer")
+
+
+l2 <- fread(paste0("./",cellLine,"/SS3/AnnotatedData/",cellLine,"_SS3_Level2.txt"), showProgress = FALSE)
+l2$Spot_PA_OuterCell <- as.logical(gsub(" ","",l2$Spot_PA_OuterCell))
+l2$Spot_PA_Sparse <- as.logical(gsub(" ","",l2$Spot_PA_Sparse))
+l2$Spot_PA_Perimeter <- as.logical(gsub(" ","",l2$Spot_PA_Perimeter))
+
+barcodes <- unique(l2$Barcode)
+lthresh <- 0.6
+
+DT <- copy(l2)
+#Remove the fiducial entries
+setkey(DT,ECMp)
+DT <- DT[!"fiducial"]
+DT <- DT[!"blank"]
+
+DT <- DT[,LineageOuterRatio := calcGroupRatios(.SD, "Spot_PA_OuterCell", "Cytoplasm_PA_Intensity_LineageRatio_MedNorm"), by = MEP ]
+
+diffOuterLineageMEPS <- unique(DT$MEP[DT$LineageOuterRatio < quantile(DT$LineageOuterRatio, extremePercent*.005) | DT$LineageOuterRatio > quantile(DT$LineageOuterRatio, 1-extremePercent*.005)])
+p  <- ggplot(DT[DT$MEP %in% diffOuterLineageMEPS], aes(x = Spot_PA_OuterCell, y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+
+  geom_boxplot()+
+  ggtitle(paste("Lineage Ratios in Outer vs. Inner Cells\nin Extreme",extremePercent, "Percent Differential Response (True is Outer)"))+
+  facet_wrap(~MEP, ncol = 10)+
+  theme(strip.text = element_text(size = rel(.5)))
+print(p)
+
+```
+
+```{r}
+
+
+
+l2 <- fread(paste0("./",cellLine,"/SS2/AnnotatedData/",cellLine,"_SS2_Level2.txt"), showProgress = FALSE)
+l2$Spot_PA_OuterCell <- as.logical(gsub(" ","",l2$Spot_PA_OuterCell))
+l2$Spot_PA_Sparse <- as.logical(gsub(" ","",l2$Spot_PA_Sparse))
+l2$Spot_PA_Perimeter <- as.logical(gsub(" ","",l2$Spot_PA_Perimeter))
+
+barcodes <- unique(l2$Barcode)
+lthresh <- 0.6
+
+DT <- copy(l2)
+#Remove the fiducial entries
+setkey(DT,ECMp)
+DT <- DT[!"fiducial"]
+DT <- DT[!"blank"]
+
+DT <- DT[,EdUPPSparseRatio := calcGroupRatios(.SD, "Spot_PA_Sparse", "Nuclei_PA_Gated_EduPositiveProportion_MedNorm"), by = MEP ]
+
+diffSparseEdUMEPS <- unique(DT$MEP[DT$EdUPPSparseRatio < quantile(DT$EdUPPSparseRatio, extremePercent*.005) | DT$EdUPPSparseRatio > quantile(DTEdUPPSparseRatio, 1-extremePercent*.005)])
+p  <- ggplot(DT[DT$MEP %in% diffSparseEdUMEPS], aes(x = Spot_PA_Sparse, y = Nuclei_PA_Gated_EduPositiveProportion_MedNorm))+
+  geom_boxplot()+
+  ggtitle(paste("EdU Positive Proportion Ratios in Sparse vs. Dense Cells\nin Extreme",extremePercent, "Percent Differential Response (True is Sparse)"))+
+  facet_wrap(~MEP, ncol = 10)+
+  theme(strip.text = element_text(size = rel(.5)))
+print(p)
+
+```
+
+
