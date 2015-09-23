@@ -302,7 +302,14 @@ p <- ggplot(l4F, aes(x=Cytoplasm_PA_Intensity_LineageRatio_MedNorm_RobustZ))+geo
 suppressWarnings(print(p))
 
 p <- ggplot(l4F, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_MedNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized LineageRatio by Ligand"))+
+  ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+p <- ggplot(l4F, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_MedNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
+  ylim(.6,1.2)+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -735,75 +742,3 @@ if (ss == "SS1"){
 } 
 ```
 
-
-
-```{r Perimeter_Median_Ratios, echo=FALSE,fig.width=8, eval=FALSE}
-
-
-if(ss=="SS1"){
-  
-l2 <- l2[, MitoPerimeterRatio := calcGroupRatios(.SD,group="Perimeter",signal="MeanIntensityAlexa647MedNorm"), by="Ligand,ECMp"]
-
-l2 <- l2[, MitoSparseRatio := calcGroupRatios(.SD,group="Sparse",signal="MeanIntensityAlexa647MedNorm"), by="Ligand,ECMp"]
-
-
-setkey(l2,MitoPerimeterRatio)
-MEP <- unique(l2[,list(ECMp,Ligand,MitoPerimeterRatio,MitoSparseRatio,Barcode,Well,ArrayRow,ArrayColumn,Spot_PA_SpotCellCount,MeanIntensityAlexa647SpotNorm)])
-
-p <- ggplot(l2, aes(x=factor(Perimeter), y=log2(MeanIntensityAlexa647MedNorm)))+geom_boxplot(notch=TRUE)+
-      xlab("Perimeter")+ylab(paste(unique(l2$Endpoint647), "Mean Intensity (log2)"))+
-    ggtitle(paste("\n\n",unique(l2$Endpoint647), "Mean Intensity in Interior vs. Perimeter Cells"))
-  suppressWarnings(print(p))
-  
-  p <- ggplot(l2, aes(x=factor(Sparse), y=log2(MeanIntensityAlexa647MedNorm)))+geom_boxplot(notch=FALSE)+
-    xlab("Sparse")+ylab(paste(unique(l2$Endpoint647), "Mean Intensity (log2)"))+
-    ggtitle(paste("\n\n",unique(l2$Endpoint647), "Mean Intensity in Dense vs. Sparse Cells"))
-  suppressWarnings(print(p))
-  
-  p <- ggplot(l2, aes_string(x="factor(ECMp)",y=paste0("MitoPerimeterRatio"), colour="Ligand"))+geom_point(size=3)+
-    ggtitle(paste("\n\n","Perimeter vs Interior Ratios in ",unique(l2$Endpoint647), "Signal by MEP"))+
-    ylab(paste(unique(l2$Endpoint647),"Perimeter to Interior Ratio"))+xlab("")+
-    theme(strip.text = element_text(size = 5), axis.text.x = element_text(angle = 90),
-          axis.ticks.x = element_blank())
-  suppressWarnings(print(p))
-  
-} else if (ss=="SS2"){
-
-l2 <- l2[, EdUPerimeterRatio := calcGroupRatios(.SD,group="Perimeter",signal="MeanIntensityAlexa647MedNorm"), by="Ligand,ECMp"]
-
-l2 <- l2[, EdUSparseRatio := calcGroupRatios(.SD,group="Sparse",signal="MeanIntensityAlexa647MedNorm"), by="Ligand,ECMp"]
-
-
-}
-
-```
-
-```{r EdU_Perimeter_1st, echo=FALSE,fig.width=8, fig.height=11, eval=FALSE}
-nrLigands <- length(unique(l2$Ligand))
-for(ligand in unique(l2$Ligand)[1:floor(nrLigands/2)]){
-  mDT <- l2[l2$Ligand == ligand]
-  p <- ggplot(mDT, aes(x=1,y=log2(MeanIntensityAlexa647SpotNorm), colour=Perimeter))+geom_boxplot(notch=FALSE)+
-  facet_wrap(~ECMp, nrow=3)+
-    ylim(-4,4)+
-    ggtitle(paste("\n\n","Perimeter vs Interior",unique(mDT$Endpoint647), "Signal for",ligand, "Paired MEPs"))+
-    ylab(paste("Spot Normalized",unique(mDT$Endpoint647)))+xlab("")+
-    theme(strip.text = element_text(size = 5), axis.text.x = element_blank(),
-          axis.ticks.x = element_blank())
-  suppressWarnings(print(p))
-}
-```
-
-```{r EdU_Perimeter_2nd, echo=FALSE,fig.width=8, fig.height=10, eval=FALSE}
-
-for(ligand in unique(l2$Ligand)[floor(nrLigands/2):nrLigands]){
-  mDT <- l2[l2$Ligand == ligand]
-  p <- ggplot(mDT, aes(x=1,y=log2(MeanIntensityAlexa647SpotNorm), colour=Perimeter))+geom_boxplot(notch=FALSE)+
-  facet_wrap(~ECMp, nrow=3)+
-    ylim(-4,4)+
-    ggtitle(paste("\n\n","Perimeter vs Interior",unique(mDT$Endpoint647), "Signal for",ligand, "Paired MEPs"))+
-    ylab(paste("Spot Normalized",unique(mDT$Endpoint647)))+xlab("")+
-    theme(strip.text = element_text(size = 5), axis.text.x = element_blank(),
-          axis.ticks.x = element_blank())
-  suppressWarnings(print(p))
-}
-```

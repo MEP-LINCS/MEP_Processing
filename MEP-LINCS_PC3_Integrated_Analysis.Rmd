@@ -234,6 +234,7 @@ PC3DT <- integrateSSs(SSs, cellLine = "PC3")
 #to equally weight all features
 setkey(PC3DT,"MEP")
 parms <- colnames(PC3DT)[unlist(lapply(PC3DT,class)) %in% c("numeric","integer")]
+parms <- grep("Center",parms,value = TRUE, invert = TRUE)
 PC3DTNorm <- rbindlist(apply(PC3DT[,parms, with=FALSE], 1, scaleToMedians, normBase = PC3DT["FBS",parms,with=FALSE]))
 
 #Calculate the dist matrix with euclidean method
@@ -261,7 +262,7 @@ setkey(PC3DT,ECMp)
 colnames(distM) <-  unique(PC3DT$ECMp[!is.na(PC3DT$ECMp)])
 rownames(distM) <- unique(PC3DT$Ligand[!PC3DT$Ligand == "FBS"])
 #Plot full bio heatmap
-distBreaks <- seq(3.5,7,.1)
+distBreaks <- seq(3.5,6,.1)
 heatmap.2(distM,  col = selReds, breaks = distBreaks, trace = "none", cexRow=.8, cexCol=.8, cex.main=1, key=TRUE, keysize = .1, key.title = NA, key.ylab = NA, density.info="none", 
           main = paste("MEP Distance From Control"), lhei=c(.8,5.0), lwid=c(.1,1.5),mar=c(14,9)) 
 
@@ -278,15 +279,25 @@ The following plots ranks each MEP along the x axis by their lineage ratio and E
 SSs = c("SS1","SS2","SS3")
 PC3DT <- integrateSSs(SSs, cellLine = "PC3")
 
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_MedNorm), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point(size = .8)+
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_MedNorm), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point(size = 3)+
 xlab("MEP")+ylab("Lineage Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
    ggtitle("MEPs Ordered by Keratin Lineage Ratio")
+
 print(p)
 
-kable(data.frame(PC3DT$MEP[PC3DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm > quantile(PC3DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm,.995)],PC3DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm[PC3DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm > quantile(PC3DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm,.995)]), col.names = c("MEP","Keratin Lineage Ratio"), digits = 2, align = c("l"))
+PC3DTExtremes <- PC3DT[PC3DT$Spot_PA_SpotCellCount > 20]
 
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion), y = Nuclei_PA_Gated_EduPositiveProportion))+geom_point(size = .8)+
+PC3DTExtremes <- PC3DTExtremes[PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm > quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm,.995) | PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm < quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm,.005)]
+
+setkey(PC3DTExtremes,Cytoplasm_PA_Intensity_LineageRatio_MedNorm)
+
+kable(data.frame(PC3DTExtremes$MEP,PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm), col.names = c("MEP","Keratin Lineage Ratio"), digits = 2, align = c("l"))
+
+#unique(PC3DTExtremes[PC3DTExtremes$MEP=="DSG2_LYVE1",list(Barcode,Well,ArrayRow,ArrayColumn)])
+
+
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion), y = Nuclei_PA_Gated_EduPositiveProportion))+geom_point(size = 3)+
 xlab("MEP")+ylab("EdU Positive Proportion")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by EdU Positive Proportion")
@@ -303,10 +314,38 @@ print(p)
 
 p <- ggplot(PC3DT[PC3DT$Spot_PA_SpotCellCount > 10], aes(x =Nuclei_PA_Gated_EduPositiveProportion, y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point()+
 xlab("EdU Positive Proportion")+ylab("Keratin Lineage Ratio")+
-  theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
+  theme( panel.grid.major = element_blank())+
   ggtitle("Keratin Lineage vs. EdU Positive Proportion\nFiltered for Spot Cell Count > 10")
+
 print(p)
 
+```
+
+```{r LowLineageLowEdUpp}
+#Load level 2 data to get spot locations
+l2 <- fread(paste0("./",cellLine,"/SS2/AnnotatedData/",cellLine,"_SS2_Level2.txt"), showProgress = FALSE)
+l2$Spot_PA_OuterCell <- as.logical(gsub(" ","",l2$Spot_PA_OuterCell))
+l2$Spot_PA_Sparse <- as.logical(gsub(" ","",l2$Spot_PA_Sparse))
+l2$Spot_PA_Perimeter <- as.logical(gsub(" ","",l2$Spot_PA_Perimeter))
+
+barcodes <- unique(l2$Barcode)
+lthresh <- 0.6
+
+DTl2 <- copy(l2)
+#Remove the fiducial entries
+setkey(DTl2,ECMp)
+DTl2 <- DTl2[!"fiducial"]
+DTl2 <- DTl2[!"blank"]
+DTl2 <- DTl2[!"NID1"]
+
+DT <- PC3DT[PC3DT$Spot_PA_SpotCellCount > 10]
+
+lowLineageLowEdUPPDT <- DT[(DT$Nuclei_PA_Gated_EduPositiveProportion < 0.05) & (DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm <.75)]
+kable(lowLineageLowEdUPPDT[,list(MEP)], caption = "MEPs with low EdU Positive Proportion and Low Lineage Ratio")
+
+#unique(DT[DT$MEP=="DCN_LYVE1",list(Barcode,Well,Spot,ArrayRow,ArrayColumn)])
+# 
+# kable(unique(DTl2[DTl2$MEP %in% lowLineageLowEdUPPDT$MEP,list(MEP, Barcode,Well,ArrayRow,ArrayColumn, Spot, Nuclei_PA_Gated_EduPositiveProportion)]), digits = 2,align = "l")
 
 ```
 

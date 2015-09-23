@@ -122,15 +122,16 @@ for (barcode in barcodes){
   DT <- DT[!"fiducial"]
   DT <- DT[!"blank"]
   
-  p <- create8WellPseudoImage(DT, pr = "SpotCellCount",prDisplay = "Spot Cell Count")
+ 
+  p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count")
   suppressWarnings(print(p))
 
   wellScores <- unique(DT[,list(Well, QAScore=sprintf("%.2f",QAScore))])
 
-  p <- ggplot(DT, aes(x=LoessSCC))+
+  p <- ggplot(DT, aes(x=Spot_PA_LoessSCC))+
     geom_histogram(binwidth=.04)+
     geom_vline(xintercept=lthresh, colour="blue")+
-    geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 1.5, y = 40, size = rel(3), colour="red")+
+    geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
     ggtitle(paste("\n\n\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Normalized Spot Cell Count")+xlim(0,3)+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.x = element_text( size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.title.y = element_text( size=rel(.5)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=4)
@@ -143,34 +144,13 @@ for (barcode in barcodes){
 
 
 ```{r Filtering, echo=FALSE}
-
 passedQAWells <- unique(l3[l3$QAScore > wellQAThresh,list(Barcode,Well)])
 
-setkey(l1,Barcode,Well)
-l1F <- merge(l1,passedQAWells)
-setkey(l2,Barcode,Well)
-l2F <- merge(l2,passedQAWells)
+#Remove failed QA wells
 setkey(l3,Barcode,Well)
 l3F <- merge(l3,passedQAWells)
 
-#Remove the fiducial, blank and control data
-setkey(l1F,Ligand)
-l1F <- l1F[!"FBS"]
-setkey(l1F,ECMp)
-l1F <- l1F[!"fiducial"]
-l1F <- l1F[!"blank"]
-#Remove the high serum and fiducial data
-setkey(l2F,Ligand)
-l2F <- l2F[!"FBS"]
-setkey(l2F,ECMp)
-l2F <- l2F[!"fiducial"]
-l2F <- l2F[!"blank"]
-
-
-#Create a dataset of spots with greater than 20 cells
-l2FSCC <- l2F[l2F$SpotCellCount >= 20]
-
-#Remove the high serum and fiducial data
+#Remove the FBS, fiducial and blank data
 setkey(l3F,Ligand)
 l3F <- l3F[!"FBS"]
 setkey(l3F,ECMp)
@@ -178,26 +158,60 @@ l3F <- l3F[!"fiducial"]
 l3F <- l3F[!"blank"]
 
 #Summarize spot level data to MEP level by taking the medians of the parameters
-  mepNames<-grep("AreaShape|Children|Intensity|SpotCellCount|Loess|EduPositiveProportion|Population|Neighbors|ReplicateCount|LigandAnnotID|ECMpAnnotID", x=names(l3F),value=TRUE)
+mepNames<-grep("AreaShape|Children|Intensity|Spot_PA_SpotCellCount|Loess|Proportion|Population|Nuclei_PA_AreaShape_Neighbors|Spot_PA_ReplicateCount|Cytoplasm_PA_Intensity_LineageRatio|LigandAnnotID|ECMpAnnotID", x=names(l3F),value=TRUE)
 
 mepKeep<-l3F[,mepNames,with=FALSE]
 l4F<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID"]
-
+  
 #Merge back in the replicate metadata
-mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp),keyby="LigandAnnotID,ECMpAnnotID"]
+mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,Spot_PA_ReplicateCount),keyby="LigandAnnotID,ECMpAnnotID"]
 l4F <- mDT[l4F, mult="first"]
 
 #Add Robust Z Score of the normalized Spot Cell Count
-SCCMedian <- median(l4F$SpotCellCount_MedNorm, na.rm=TRUE)
-SCCmad <-mad(l4F$SpotCellCount_MedNorm, na.rm=TRUE)
-l4F$SpotCellCount_MedNorm_RobustZ <- (l4F$SpotCellCount_MedNorm-SCCMedian)/SCCmad
+SCCMedian <- median(l4F$Spot_PA_SpotCellCount_MedNorm, na.rm=TRUE)
+SCCmad <-mad(l4F$Spot_PA_SpotCellCount_MedNorm, na.rm=TRUE)
+l4F$Spot_PA_SpotCellCount_MedNorm_RobustZ <- (l4F$Spot_PA_SpotCellCount_MedNorm-SCCMedian)/SCCmad
+
+#Add Robust Z Score of the raw Spot Cell Count
+SCCMedian <- median(l4F$Spot_PA_SpotCellCount, na.rm=TRUE)
+SCCmad <-mad(l4F$Spot_PA_SpotCellCount, na.rm=TRUE)
+l4F$Spot_PA_SpotCellCount_RobustZ <- (l4F$Spot_PA_SpotCellCount-SCCMedian)/SCCmad
+
+if (ss == "SS2"){
+  #Add Robust Z Score of the Edu Signal
+  EduPPMedian <- median(l4F$Nuclei_PA_Gated_EduPositiveProportion_MedNorm, na.rm=TRUE)
+  EduPPmad <-mad(l4F$Nuclei_PA_Gated_EduPositiveProportion_MedNorm, na.rm=TRUE)
+  if(EduPPmad == 0) { l4F$Nuclei_PA_Gated_EduPositiveProportion_MedNorm_RobustZ <- 0
+  } else {
+    l4F$Nuclei_PA_Gated_EduPositiveProportion_MedNorm_RobustZ <- (l4F$Nuclei_PA_Gated_EduPositiveProportion_MedNorm-EduPPMedian)/EduPPmad
+  }
+}
+
+if (ss == "SS3"){
+  #Add Robust Z Score of the Cytoplasm_PA_Intensity_LineageRatio Signal
+  lrMedian <- median(l4F$Cytoplasm_PA_Intensity_LineageRatio, na.rm=TRUE)
+  lrMad <-mad(l4F$Cytoplasm_PA_Intensity_LineageRatio, na.rm=TRUE)
+  if(lrMad == 0) { l4F$Cytoplasm_PA_Intensity_LineageRatio_RobustZ <- 0
+  } else {
+    l4F$Cytoplasm_PA_Intensity_LineageRatio_RobustZ <- (l4F$Cytoplasm_PA_Intensity_LineageRatio-lrMedian)/lrMad
+  }
+
+  #Add Robust Z Scores of the normalized lineage ratios
+  lrMedian <- median(l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm, na.rm=TRUE)
+  lrMad <-mad(l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm, na.rm=TRUE)
+  if(lrMad == 0) { l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm_RobustZ <- 0
+  } else {
+    l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm_RobustZ <- (l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm-lrMedian)/lrMad
+  }
+  
+}
 
 ```
 
 \newpage
 
 ##Filtering
-Wells with QA scores below `r wellQAThresh ` and the FBS control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))` ligands in the dataset. 
+Wells with QA scores below `r wellQAThresh ` and the HighSerum control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))` ligands in the dataset. 
 
 Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
@@ -207,7 +221,7 @@ The spot cell count analysis uses robust Z scores to identify MEPs with extreme 
 
 ```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
 
-p <- ggplot(l4F, aes(x=SpotCellCount_MedNorm_RobustZ))+geom_bar(binwidth = .1)+
+p <- ggplot(l4F, aes(x=Spot_PA_SpotCellCount_MedNorm_RobustZ))+geom_bar(binwidth = .1)+
   geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Median Normalized Spot Cell Count Robust Z Scores Distribution"))+
   ylab("Count")+xlab("Median Normalized Spot Cell Count Robust Z Scores")+
@@ -219,7 +233,7 @@ suppressWarnings(print(p))
 
 ```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE}
 
-p <- ggplot(l4F, aes(x = reorder(Ligand, SpotCellCount_MedNorm_RobustZ, FUN=median), y = SpotCellCount_MedNorm_RobustZ, colour = Barcode))+geom_boxplot()+
+p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_MedNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_MedNorm_RobustZ, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Median Normalized Spot Cell Count Robust Z Scores by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -227,7 +241,7 @@ suppressWarnings(print(p))
 ```
 
 ```{r, fig.width=8,  fig.height=3.5, echo=FALSE}
-p <- ggplot(l4F, aes(x = reorder(ECMp, SpotCellCount_MedNorm_RobustZ, FUN=median), y = SpotCellCount_MedNorm_RobustZ))+geom_boxplot()+
+p <- ggplot(l4F, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_MedNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_MedNorm_RobustZ))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Median Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -236,7 +250,6 @@ suppressWarnings(print(p))
 ```
 
 \newpage
-
 ##Unbiased Analysis
 
 The unbiased approach is:  
@@ -248,6 +261,46 @@ The unbiased approach is:
   Perform hierarchical clustering on the active MEPs 
   
 The following heatmaps show the active MEPs based on the entire dataset, the dataset without NID1 and the normalized dataset without NID1. The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
+  
+```{r, fig.height=16}
+
+setkey(l4,Barcode,Well)
+l4QA <- merge(l4,passedQAWells)
+setkey(l4QA, "ECMp")
+l4QA <- l4QA[!"blank"]
+l4QA <- l4QA[!"fiducial"]
+l4QA <- l4QA[,grep("Center_X|Center_Y|Center_Theta",colnames(l4QA),value = TRUE, invert = TRUE), with = FALSE]
+l4QA <- l4QA[,Nuclei_PA_Cycle_2NProportion_MedNorm := NULL]
+
+
+#Get numeric features
+fv <- grep("_CP_|_PA_|SpotCellCount|MEP$",colnames(l4fv),value=TRUE)
+fv <- grep("Norm|Center", fv, value = TRUE, invert = TRUE)
+fvSS1 <- paste("Cytoplasm_CP_Intensity_IntegratedIntensity_Dapi",
+                "Cytoplasm_CP_Intensity_IntegratedIntensity_Dapi_MedNorm",
+                sep="|")
+fv <- grep(fvSS1, fv, value = TRUE, invert = TRUE)
+
+#Define features for clustering
+fvSS2 <- paste("Barcode","MEP",
+               "Cytopla_CP_Intensity_IntegratedIntensity_H3",
+               "Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin",
+               "Nuclei_CP_Intensity_MedianIntensity_H3",
+               "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",
+               "Nuclei_CP_Intensity_IntegratedIntensity_Dapi",
+               "Nuclei_CP_Intensity_MedianIntensity_Dapi",
+               "Nuclei_CP_AreaShape_Area",
+               "Nuclei_CP_AreaShape_Eccentricity",
+               "Nuclei_CP_AreaShape_Perimeter",
+               "Spot_PA_SpotCellCount",
+               "Nuclei_PA_AreaShape_Neighbors",
+               #"Nuclei_PA_Cycle_2NProportion",
+               "Nuclei_PA_Cycle_4NProportion",
+               sep="|")
+
+fv <- grep(fvSS2, colnames(l4QA), value = TRUE)
+#Create numeric feature vectors datatable
+fvDT <- l4QA[,fv,with = FALSE]
   
 ```{r, fig.height=16}
 

@@ -20,7 +20,7 @@ library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
 
 #Select a staining set
-ss <- "SS2"
+ss <- "SS3"
 #Select a CellLine
 cellLine <- "PC3"
 #select analysis version
@@ -40,7 +40,7 @@ curatedOnly <- TRUE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Do not normalized to Spot level
-normToSpot <- FALSE
+normToSpot <- TRUE
 
 ```
 
@@ -169,7 +169,7 @@ expDTList <- mclapply(barcodes, function(barcode){
 }, mc.cores = 4)
 
 cDT <- rbindlist(expDTList, fill = TRUE)
-densityRadius <- median(cDT$Nuclei_CP_AreaShape_Area)
+densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
 
 #Create short display names, then replace where not unique
 cDT$ECMp <- gsub("_.*","",cDT$ECMpAnnotID)
@@ -201,9 +201,11 @@ The cell level raw data and metadata is saved as Level 1 data. Normalized vaules
 ```{r, echo=FALSE, message=FALSE, warnings=FALSE}
 
 #Add the local polar coordinates and Neighbor Count
-cDT <- cDT[, Nuclei_PA_AreaShape_Center_R :=  sqrt(Nuclei_CP_AreaShape_Center_X^2 + Nuclei_CP_AreaShape_Center_Y^2)]
-cDT <- cDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_CP_AreaShape_Center_X, Nuclei_CP_AreaShape_Center_Y)]
-cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*3), by = "Barcode,Well,Spot"]
+cDT <- cDT[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
+cDT <- cDT[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
+cDT <- cDT[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
+cDT <- cDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
+cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*7), by = "Barcode,Well,Spot"]
 
 #Rules for classifying perimeter cells
 cDT <- cDT[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
