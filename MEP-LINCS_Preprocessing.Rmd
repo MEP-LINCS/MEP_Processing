@@ -36,7 +36,7 @@ nuclearAreaThresh <- 50
 nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
-curatedOnly <- TRUE
+curatedOnly <- FALSE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Do not normalized to Spot level

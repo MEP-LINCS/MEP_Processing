@@ -278,7 +278,7 @@ The following plots ranks each MEP along the x axis by their lineage ratio and E
 #Get a datatable of the normalized values across the staining set
 SSs = c("SS1","SS2","SS3")
 PC3DT <- integrateSSs(SSs, cellLine = "PC3")
-
+PC3DT<- PC3DT[PC3DT$Spot_PA_SpotCellCount >20]
 p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_MedNorm), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point(size = 3)+
 xlab("MEP")+ylab("Lineage Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
