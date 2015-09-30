@@ -181,3 +181,11 @@ lm_eqn <- function(df){
                         r2 = format(summary(m)$r.squared, digits = 3)))
   as.character(as.expression(eq));                 
 }
+
+simplifyLigandAnnotID <- function(ligand,annotIDs){
+  if(length(annotIDs)){
+  splits <- strsplit2(annotIDs, split = "_")
+  ligands <- paste(ligand,splits[,ncol(splits)], sep = "_")
+  } else ligands <- annotIDs
+  return(ligands)
+}

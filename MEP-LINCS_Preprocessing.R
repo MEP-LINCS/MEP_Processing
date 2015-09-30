@@ -4,13 +4,12 @@
 # 9/30/2015
 
 ##Introduction
-  
+
 #   The MEP-LINCs dataset contains imaging data from a Nikon automated microscope that is analyzed with a CellProfiler pipeline.
 # 
 # This preprocessing of the dataset will be deprecated when the merging of the data and metadata happens within the CellProfiler part of the pipeline. For now, the metadata about the ECM proteins is read from the GAL file and the metadata about the wells (cell line, stains and ligands) is read from Excel spreadsheets.
 
 source("MEPLINCSFunctions.R")
-
 library("limma")#read GAL file and strsplit2
 library("MEMA")#merge, annotate and normalize functions
 library("data.table")#fast file reads, data merges and subsetting
@@ -35,6 +34,12 @@ nuclearAreaHiThresh <- 4000
 #Only process a curated set of the data
 curatedOnly <- FALSE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
+
+#Flag to control files updates
+writeFiles <- FALSE
+
+#Process a subset of the data to speed development
+limitBarcodes <- 2
 
 #Do not normalized to Spot level
 normToSpot <- TRUE
@@ -74,7 +79,11 @@ BRowMetadata <- data.table(spotMetadata180,Well=rep(c("B01", "B02","B03","B04"),
 
 cellDataFiles <- dir(paste0("./",cellLine,"/", ss,"/RawData/",analysisVersion),full.names = TRUE)
 splits <- strsplit2(strsplit2(cellDataFiles,split = "_")[,1],"/")
-barcodes <- unique(splits[,ncol(splits)])
+
+if(limitBarcodes) {
+  barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes] 
+  } else barcodes <- unique(splits[,ncol(splits)])
+
 expDTList <- mclapply(barcodes, function(barcode){
   #browser()
   plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
@@ -168,12 +177,11 @@ cDT$ECMp <- gsub("_.*","",cDT$ECMpAnnotID)
 cDT$Ligand <- gsub("_.*","",cDT$LigandAnnotID)
 
 #Use entire AnnotID for ligands with same uniprot IDs
-cDT$Ligand[cDT$Ligand == "NRG1"] <- cDT$LigandAnnotID[cDT$Ligand == "NRG1"]
-cDT$Ligand[cDT$Ligand == "TGFB1"] <- cDT$LigandAnnotID[cDT$Ligand == "TGFB1"]
-cDT$Ligand[cDT$Ligand == "CXCL12"] <- cDT$LigandAnnotID[cDT$Ligand == "CXCL12"]
+cDT$Ligand[grepl("NRG1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = cDT$LigandAnnotID[grepl("NRG1",cDT$Ligand)])
+cDT$Ligand[grepl("TGFB1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = cDT$LigandAnnotID[grepl("TGFB1",cDT$Ligand)])
+cDT$Ligand[grepl("CXCL12",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = cDT$LigandAnnotID[grepl("CXCL12",cDT$Ligand)])
 
 cDT$MEP <- paste(cDT$ECMp,cDT$Ligand,sep = "_")
-
 
 # After merging the metadata with the cell-level data, several types of derived parameters are added. These include:
 #   
@@ -302,13 +310,15 @@ mepDT <- mDT[mepDT, mult="first"]
 
 #WriteData
 
-#Write out cDT without normalized values as level 1 dataset
-level1Names <- grep("Norm",colnames(cDT),value=TRUE,invert=TRUE)
-write.table(format(cDT[,level1Names, with=FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-
-#Write out cDT with normalized values as level 2 dataset
-write.table(format(cDT, digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-
-write.table(format(slDT, digits = 4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-
-write.table(format(mepDT, digits = 4), paste0("./",cellLine,"/",ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+if(writeFiles){
+  #Write out cDT without normalized values as level 1 dataset
+  level1Names <- grep("Norm",colnames(cDT),value=TRUE,invert=TRUE)
+  write.table(format(cDT[,level1Names, with=FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+  
+  #Write out cDT with normalized values as level 2 dataset
+  write.table(format(cDT, digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+  
+  write.table(format(slDT, digits = 4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+  
+  write.table(format(mepDT, digits = 4), paste0("./",cellLine,"/",ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+}
