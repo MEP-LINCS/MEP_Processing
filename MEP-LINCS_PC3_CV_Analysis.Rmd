@@ -22,7 +22,7 @@ source("MEPLINCSFunctions.R")
 #Set the cell line to be analyzed (PC3|MCF7|YAPC)
 cellLine <- "PC3"
 
-permNumber <- 100 #Used to create null hypotheses distributions
+permNumber <- 1000 #Used to create null hypotheses distributions
 
 ```
 
@@ -286,8 +286,10 @@ calculateZPrime<-function(pos,neg){
 ```{r, fig.height=16, eval=TRUE}
 
 #Start with the full combined dataset
-DT <- integrateSSCommon(SSs = c("SS1","SS2","SS3"), level = 3, cellLine = "PC3")
-DT4 <- integrateSSCommon(SSs = c("SS1","SS2","SS3"), level = 4, cellLine = "PC3")
+l3 <- integrateSSCommon(SSs = c("SS1","SS2","SS3"), level = 3, cellLine = "PC3")
+DT <- copy(l3)
+l4 <- integrateSSCommon(SSs = c("SS1","SS2","SS3"), level = 4, cellLine = "PC3")
+DT4 <- copy(l4)
 
 #Keep only the FBS wells
 setkey(DT,"Ligand")
@@ -299,11 +301,11 @@ DT4 <- DT4["FBS"]
 numericParameters <- colnames(DT)[unlist(lapply(DT,class)) %in% c("numeric","integer")]
 
 #Remove these parameters
-CVParameters <- grep("Center|MedNorm|_PA_",grep("Nuclei",numericParameters, value = TRUE),value = TRUE, invert = TRUE)
+CVParameters <- grep("Center|MedNorm|_PA_|Euler|Orientation|Solidity",grep("Nuclei",numericParameters, value = TRUE),value = TRUE, invert = TRUE)
 CVParameters <- c(CVParameters,"Spot_PA_SpotCellCount")
 
 #Keep these metadata parameters
-metadataNames <- grep("Barcode|ECMpAnnotID|Array|Block|PrintOrder",colnames(DT), value = TRUE)
+metadataNames <- grep("Barcode|ECMpAnnotID|Array|Block|PrintOrder|SS",colnames(DT), value = TRUE)
 DT <- cbind(DT[,metadataNames, with = FALSE],DT[,CVParameters, with = FALSE])
 
 CVDT <- DT[,lapply(.SD, CV), by="Barcode,ECMpAnnotID"]
@@ -325,20 +327,22 @@ CVDT <- rbind(CVDT,ranCVDT)
 featureVector <- CVParameters
 ```
 
+##Dataset
+This data includes all of the image analysis features that are common across the three PC3 staining sets. Feature classes are DAPI intensities and nuclear morphologies.
 
 ###CV Exploration
-The A03 wells in each plate have replicate MEMAs containing 46 identically arranged printed ECM proteins paired with FBS in solution. Coefficients of Variation (CVs) are calculated on the feature vectors of each set of ~15 replicates in each well and on `r permNumber' permutations that randomize the assignments of ECM proteins to the same well data to create null hypotheses datasets. 
+The A03 wells in each plate have replicate MEMAs containing 46 identically arranged printed ECM proteins paired with FBS in solution. Coefficients of Variation (CVs) are calculated on the feature vectors of each set of ~15 replicates in each well and on `r permNumber` permutations that randomize the assignments of ECM proteins to the same well data to create null hypotheses datasets. 
 
-Density plots of the CVs show the experimental data in black and the null hypotheses distributions in blue. Features with actual CV distributions (eccentricity, extent, median DAPI, perimeter) that are to the left of the null hypothesis show evidence of good signals. Features with CV distribitions that overlap the null hypothesis (area and integrated intensity DAPI) are poor quality signal. 
+Density plots of the CVs show the experimental data in black and the null hypotheses distributions in blue. Features with actual CV distributions that are to the left of the null hypothesis show evidence of good signals. Features with CV distribitions that overlap the null hypothesis are poor quality signals. 
 
-The CVs for Spot Cell Count and many of the signals dependent on integrated DAPI intensity (total DAPI) are to the right of the null hypothesis. This is suspected to be caused by the regions of high and low cell number regions and perhaps uneven staining in the arrays. The replicates are in a randomly distributed pattern that minimizes the number of repeat replicates in each 5x5 pin block. This means that each set of replicates will have spots in high and low region cell counts leading to higher CVs than the randomly chosen, null hypothesis 'replicates'.  
+An hypothesis for a difference in signal quality is that the variance in the identification of the nuclear boundary is of the same magnitude as the response induced by the ECM proteins. This variance is ~squared in signals that include area (integrated intensity, area,…) and is reduced in ‘shape’ signals (eccentricity, extent,…) that include ratios.
 
 ```{r, eval = TRUE}
 for(feature in featureVector){
   titleName <- gsub("NA","", paste(strsplit2(feature, split = "_")[4], strsplit2(feature, split = "_")[5]))
   p <-  ggplot(CVDT[CVDT$Order == "Actual"], aes_string(x = feature))+
     geom_density(fill = "black",binwidth = .02, alpha = .5)+
-    geom_density(data = CVDT[CVDT$Order == "Random"], aes(x = Nuclei_CP_AreaShape_Area), fill = "blue", binwidth = .02, alpha = .5)+
+    geom_density(data = CVDT[CVDT$Order == "Random"], aes_string(x = feature), fill = "blue", binwidth = .02, alpha = .5)+
     xlim(0,1)+
     facet_wrap(~Barcode, ncol=4)+
     ggtitle(titleName)
@@ -348,7 +352,7 @@ for(feature in featureVector){
 ```
 
 ##Plate Heat Maps
-The following are plate heat maps of selected features. 
+The following are plate heat maps of selected features. The higher quality signals such as eccentricity show less spatial variation.
 
 
 ```{r, fig.height=20,fig.width=12}
@@ -368,7 +372,7 @@ for(feature in curatedFeatureVector){
 ```
 
 ##Plate Level Boxplots
-The following boxplots show the curated feature vectors stratified by plate. Observations include high variance in the area and spot cell count signals and lower variance in the eccentricity and median intensity signal.
+The following boxplots show the curated feature vectors stratified by plate. Each boxplot summarizes every spot in a plate. Observations include high variance in the area and spot cell count signals and lower variance in the eccentricity and median intensity signal. There are also obvious staining set effects and high variance plate effects in the DAPI signals of plates 411,413, 416, 426 and 427.
 
 
 ```{r, eval = TRUE}
@@ -376,7 +380,7 @@ The following boxplots show the curated feature vectors stratified by plate. Obs
 for(feature in curatedFeatureVector){
   titleName <- gsub("NA","", paste(strsplit2(feature, split = "_")[4], strsplit2(feature, split = "_")[5]))
   
-  p <-  ggplot(DT, aes_string(x="Barcode", y = paste("log2(",feature,")")))+
+  p <-  ggplot(DT, aes_string(x="Barcode", y = paste("log2(",feature,")"), colour = "SS"))+
     geom_boxplot()+
     ggtitle(titleName)+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
@@ -387,67 +391,23 @@ for(feature in curatedFeatureVector){
 
 
 ##Plate Level Boxplots by ECM Protein
-The following boxplots show the indivdual ECM protein responses of selected feature vectors stratified by plate.
+The following boxplots show the individual ECM protein responses of selected feature vectors stratified by plate.
 
 ```{r, fig.height=20}
-p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity))+
+p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity, colour = SS))+
   geom_boxplot()+
   facet_wrap(~Barcode, ncol=4)+
+  xlab("")+ylab("Eccentricity")+
   ggtitle("Eccentricity In Control Wells")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
 print(p)
 ```
 
-###Eccentricity Variance
-
-
-```{r}
-DT <- DT[, EccentricityVariance := var(Nuclei_CP_AreaShape_Eccentricity), by="Barcode,ECMpAnnotID"]
-
-p <-  ggplot(DT, aes(x=as.factor(Barcode), y = EccentricityVariance, colour = ECMpAnnotID))+
-  geom_point(size = rel(1.5), alpha = .8)+
-  ggtitle("Eccentricity Variance In Control Wells")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-print(p)
-
-
-```
-
-##Selected Well  Boxplots by ECM Protein
-The following boxplots show the individual ECM protein responses of selected feature vectors stratified by ECM protein in a selected well.
-
-Eccentricity: The eccentricity of the ellipse that has the same second-moments as the region. The eccentricity is the ratio of the distance between the foci of the ellipse and its major axis length. The value is between 0 and 1. (0 and 1 are degenerate cases; an ellipse whose eccentricity is 0 is actually a circle, while an ellipse whose eccentricity is 1 is a line segment.)   
-
-Extent: The proportion of the pixels in the bounding box that are also in the region. Computed as the Area divided by the area of the bounding box.  
-
-```{r}
-p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity))+
-  geom_boxplot()+
-  #xlim(1,20)+ylim(35,1)
-  #scale_color_gradient(low="white",high="red")+
-  facet_wrap(~Barcode, ncol=4)+
-  ggtitle("Eccentricity In Control Wells")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-
-print(p)
-
-
-p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Extent, FUN=median), y = Nuclei_CP_AreaShape_Extent))+
-  geom_boxplot()+
-  #xlim(1,20)+ylim(35,1)
-  #scale_color_gradient(low="white",high="red")+
-  facet_wrap(~Barcode, ncol=4)+
-  ggtitle("Extent In Control Wells")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-
-print(p)
-
-```
 
 
 ```{r, fig.height=20,fig.width=12}
 
-p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID,Nuclei_CP_AreaShape_Area,FUN = median), y = Nuclei_CP_AreaShape_Area))+
+p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID,Nuclei_CP_AreaShape_Area,FUN = median), y = Nuclei_CP_AreaShape_Area, colour = SS))+
   geom_boxplot()+
   #xlim(1,20)+ylim(35,1)+
   #scale_color_gradient(low="white",high="red")+
@@ -459,8 +419,117 @@ print(p)
 
 ```
 
+###Eccentricity Variance
+
+
+```{r}
+DT <- DT[, EccentricityVariance := var(Nuclei_CP_AreaShape_Eccentricity), by="Barcode,ECMpAnnotID"]
+
+p <-  ggplot(DT, aes(x=as.factor(Barcode), y = EccentricityVariance, colour = ECMpAnnotID))+
+  geom_point(size = rel(1.5), alpha = .8)+
+  ggtitle("Eccentricity Variance In Control Wells")+
+  xlab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+print(p)
+
+p <-  ggplot(DT, aes(x=as.factor(Barcode), y = log2(EccentricityVariance), colour = SS))+
+  geom_violin()+
+  ggtitle("Eccentricity Variance In Control Wells")+
+  xlab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+print(p)
+
+
+```
+
+###Area Variance
+
+
+```{r}
+DT <- DT[, AreaVariance := var(Nuclei_CP_AreaShape_Area), by="Barcode,ECMpAnnotID"]
+
+p <-  ggplot(DT, aes(x=as.factor(Barcode), y = AreaVariance, colour = ECMpAnnotID))+
+  geom_point(size = rel(1.5), alpha = .8)+
+  ggtitle("Area Variance In Control Wells")+
+  xlab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+print(p)
+
+p <-  ggplot(DT, aes(x=as.factor(Barcode), y = log2(AreaVariance), colour = SS))+
+  geom_violin()+
+  ggtitle("Area Variance In Control Wells")+
+  xlab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+print(p)
+
+```
+
+
+###Median DAPI Intensity Variance
+
+
+```{r}
+DT <- DT[, MedianDAPIVariance := var(Nuclei_CP_Intensity_MedianIntensity_Dapi), by="Barcode,ECMpAnnotID"]
+
+p <-  ggplot(DT, aes(x=as.factor(Barcode), y = log2(MedianDAPIVariance), colour = ECMpAnnotID))+
+  geom_point(size = rel(1.5), alpha = .8)+
+  xlab("")+
+  #ylim(0,.01)+
+  ggtitle("Median DAPI Intensity Variance In Control Wells")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+print(p)
+
+
+```
+
+
+```{r}
+
+p <-  ggplot(DT, aes(x=as.factor(Barcode), y = log2(MedianDAPIVariance), colour = SS))+
+  geom_violin()+
+  xlab("")+
+    #ylim(0,.005)+
+  ggtitle("Median DAPI Intensity Variance In Control Wells")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+print(p)
+
+```
+
+##Selected Well  Boxplots by ECM Protein
+The following boxplots show the rank-ordered individual ECM protein responses of selected feature vectors stratified by ECM protein in a selected well.
+
+Eccentricity: The eccentricity of the ellipse that has the same second-moments as the region. The eccentricity is the ratio of the distance between the foci of the ellipse and its major axis length. The value is between 0 and 1. (0 and 1 are degenerate cases; an ellipse whose eccentricity is 0 is actually a circle, while an ellipse whose eccentricity is 1 is a line segment.)   
+
+Extent: The proportion of the pixels in the bounding box that are also in the region. Computed as the Area divided by the area of the bounding box.  
+
+```{r}
+p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity, colour = SS))+
+  geom_boxplot()+
+  #xlim(1,20)+ylim(35,1)
+  #scale_color_gradient(low="white",high="red")+
+  facet_wrap(~Barcode, ncol=4)+
+  ggtitle("Eccentricity In Control Wells")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+
+print(p)
+
+
+p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Extent, FUN=median), y = Nuclei_CP_AreaShape_Extent, colour = SS))+
+  geom_boxplot()+
+  #xlim(1,20)+ylim(35,1)
+  #scale_color_gradient(low="white",high="red")+
+  facet_wrap(~Barcode, ncol=4)+
+  ggtitle("Extent In Control Wells")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+
+print(p)
+
+```
+
 ##Cell Count
-The following plots show spot cell count vs the array rows and then the array columns. These show the location and magnitude of the differences in cell counts.
+The following plots show spot cell count vs the array rows and then the array columns. These show the location and magnitude of the differences in cell counts.  
+
+
 ```{r, eval = TRUE, fig.height=20, fig.width=12}
 
 p <-  ggplot(DT, aes(x=Spot_PA_SpotCellCount, y = ArrayRow))+
@@ -509,6 +578,7 @@ print(p)
 ```{r zPrimeOfWells, eval = TRUE}
 
 ZPFList <- lapply(unique(CVDT$Barcode), function(barcode, features, dt){
+  #browser()
   setkey(dt,Barcode)
   bDT <-dt[barcode]
   zpList <- lapply(features, function(feature, bDT){
@@ -525,28 +595,30 @@ ZPFList <- lapply(unique(CVDT$Barcode), function(barcode, features, dt){
   zpDT$Barcode <- barcode
   return(zpDT)
 },dt = CVDT,
-features =grep("Eccentricity|Extent|MedianIntensity_Dapi|Area$",colnames(CVDT), value = TRUE))
+features =grep("Eccentricity|Extent|MedianIntensity_Dapi|Area$|SpotCellCount$",colnames(CVDT), value = TRUE))
 
 ZPFDT <- rbindlist(ZPFList)
 
 
 p <- ggplot(ZPFDT, aes(x = as.factor(Barcode), y = ZPrimeFactor, colour = Feature))+
-  geom_point()+
+  geom_point(size = 5, alpha = .8)+
   ggtitle("Z Prime Factors of CVs In Control Wells")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+  ylim(-200,1)+
+  xlab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)),axis.title.x = element_text(size=rel(1)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.8)),legend.title=element_text(size = rel(1)))
 print(p)
 
 
 p <- ggplot(ZPFDT, aes(x = as.factor(Barcode), y = KSPvalue, colour = Feature))+
-  geom_point()+
+  geom_point(size = 5, alpha = .8)+
   ggtitle("KS P-values of CVs In Control Wells")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.8)),legend.title=element_text(size = rel(.8)))
 print(p)
 
 p <- ggplot(ZPFDT, aes(x = as.factor(Barcode), y = bh.distance, colour = Feature))+
-  geom_point()+
+  geom_point(size = 5, alpha = .8)+
   ggtitle("BH Distance of CVs In Control Wells")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.8)),legend.title=element_text(size = rel(.8)))
 print(p)
 
 ```
@@ -587,5 +659,48 @@ p <- ggplot(DT[DT$Barcode=="LI8X00402"], aes(x = Nuclei_CP_AreaShape_Eccentricit
 
 p <-  p+ geom_density(data = DT[DT$Barcode=="LI8X00402" & DT$ECMpAnnotID == "COL1_Own"], aes(x = Nuclei_CP_AreaShape_Eccentricity), fill = "black", binwidth = .02, alpha = .5)
 print(p)
+
+```
+
+```{r}
+ss <- "SS1"
+l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
+setkey(l1, Ligand)
+l1 <- l1["FBS"]
+    setkey(l1,"ECMp")
+    l1 <- l1[!"fiducial"]
+    l1 <- l1[!"blank"]
+
+p <- ggplot(l1, aes(x = log2(Cytoplasm_CP_Intensity_MedianIntensity_Actin), y = log2(Nuclei_CP_Intensity_MedianIntensity_Dapi)))+
+  geom_point(size = rel(.4))+
+  facet_wrap(~Barcode, ncol = 4)
+print(p)
+
+ss <- "SS2"
+l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
+setkey(l1, Ligand)
+l1 <- l1["FBS"]
+    setkey(l1,"ECMp")
+    l1 <- l1[!"fiducial"]
+    l1 <- l1[!"blank"]
+
+p <- ggplot(l1, aes(x = log2(Nuclei_CP_Intensity_MedianIntensity_H3), y = log2(Nuclei_CP_Intensity_MedianIntensity_Dapi)))+
+  geom_point(size = rel(.4))+
+  facet_wrap(~Barcode, ncol = 4)
+print(p)
+
+ss <- "SS3"
+l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
+setkey(l1, Ligand)
+l1 <- l1["FBS"]
+    setkey(l1,"ECMp")
+    l1 <- l1[!"fiducial"]
+    l1 <- l1[!"blank"]
+
+p <- ggplot(l1, aes(x = log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5), y = log2(Nuclei_CP_Intensity_MedianIntensity_Dapi)))+
+  geom_point(size = rel(.4))+
+  facet_wrap(~Barcode, ncol = 4)
+print(p)
+
 
 ```
