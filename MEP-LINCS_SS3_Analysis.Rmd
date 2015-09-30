@@ -41,6 +41,11 @@ l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Leve
 l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
 l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
 
+#Work around issue in fread about logicals read as characters
+l1$Spot_PA_Perimeter <- as.logical(gsub(" ","",l1$Spot_PA_Perimeter))
+l1$Spot_PA_Sparse <- as.logical(gsub(" ","",l1$Spot_PA_Sparse))
+l1$Spot_PA_OuterCell <- as.logical(gsub(" ","",l1$Spot_PA_OuterCell))
+
 barcodes <- sort(unique(l3$Barcode))
 
 #Set a threshold for filtering wells on their QA score
@@ -126,7 +131,9 @@ setkey(l3F,ECMp)
 l3F <- l3F[!"fiducial"]
 l3F <- l3F[!"blank"]
 
-#Summarize spot level data to MEP level by taking the medians of the parameters
+#After filtering, summarize spot level data to MEP level by taking 
+#the medians of the parameters
+
 mepNames<-grep("AreaShape|Children|Intensity|Spot_PA_SpotCellCount|Loess|EdUPositiveProportion|Population|Nuclei_PA_AreaShape_Neighbors|Spot_PA_ReplicateCount|Cytoplasm_PA_Intensity_LineageRatio|LigandAnnotID|ECMpAnnotID", x=names(l3F),value=TRUE)
 
 mepKeep<-l3F[,mepNames,with=FALSE]
@@ -136,41 +143,29 @@ l4F<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID"]
 mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,Spot_PA_ReplicateCount),keyby="LigandAnnotID,ECMpAnnotID"]
 l4F <- mDT[l4F, mult="first"]
 
-#Add Robust Z Score of the normalized Spot Cell Count
-SCCMedian <- median(l4F$Spot_PA_SpotCellCount_MedNorm, na.rm=TRUE)
-SCCmad <-mad(l4F$Spot_PA_SpotCellCount_MedNorm, na.rm=TRUE)
-l4F$Spot_PA_SpotCellCount_MedNorm_RobustZ <- (l4F$Spot_PA_SpotCellCount_MedNorm-SCCMedian)/SCCmad
-
-#Add Robust Z Score of the raw Spot Cell Count
-SCCMedian <- median(l4F$Spot_PA_SpotCellCount, na.rm=TRUE)
-SCCmad <-mad(l4F$Spot_PA_SpotCellCount, na.rm=TRUE)
-l4F$Spot_PA_SpotCellCount_RobustZ <- (l4F$Spot_PA_SpotCellCount-SCCMedian)/SCCmad
+#Add Robust Z Scores of the normalized Spot Cell Counts across
+#the entire staining set
+SCCMedian <- median(l4F$Spot_PA_SpotCellCount_RZSNorm, na.rm=TRUE)
+SCCmad <-mad(l4F$Spot_PA_SpotCellCount_RZSNorm, na.rm=TRUE)
+l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ <- (l4F$Spot_PA_SpotCellCount_RZSNorm-SCCMedian)/SCCmad
 
 if (ss == "SS2"){
   #Add Robust Z Score of the Edu Signal
-  EduPPMedian <- median(l4F$EduPositiveProportion_MedNorm, na.rm=TRUE)
-  EduPPmad <-mad(l4F$EduPositiveProportion_MedNorm, na.rm=TRUE)
-  if(EduPPmad == 0) { l4F$EduPP_MedNorm_RobustZ <- 0
+  EduPPMedian <- median(l4F$EduPositiveProportion_RZSNorm, na.rm=TRUE)
+  EduPPmad <-mad(l4F$EduPositiveProportion_RZSNorm, na.rm=TRUE)
+  if(EduPPmad == 0) { l4F$EduPP_RZSNorm_RobustZ <- 0
   } else {
-    l4F$EduPositiveProportion_MedNorm_RobustZ <- (l4F$EduPositiveProportion_MedNorm-EduPPMedian)/EduPPmad
+    l4F$EduPositiveProportion_RZSNorm_RobustZ <- (l4F$EduPositiveProportion_RZSNorm-EduPPMedian)/EduPPmad
   }
 }
 
 if (ss == "SS3"){
-  #Add Robust Z Score of the Cytoplasm_PA_Intensity_LineageRatio Signal
-  lrMedian <- median(l4F$Cytoplasm_PA_Intensity_LineageRatio, na.rm=TRUE)
-  lrMad <-mad(l4F$Cytoplasm_PA_Intensity_LineageRatio, na.rm=TRUE)
-  if(lrMad == 0) { l4F$Cytoplasm_PA_Intensity_LineageRatio_RobustZ <- 0
-  } else {
-    l4F$Cytoplasm_PA_Intensity_LineageRatio_RobustZ <- (l4F$Cytoplasm_PA_Intensity_LineageRatio-lrMedian)/lrMad
-  }
-
   #Add Robust Z Scores of the normalized lineage ratios
-  lrMedian <- median(l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm, na.rm=TRUE)
-  lrMad <-mad(l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm, na.rm=TRUE)
-  if(lrMad == 0) { l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm_RobustZ <- 0
+  lrMedian <- median(l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, na.rm=TRUE)
+  lrMad <-mad(l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, na.rm=TRUE)
+  if(lrMad == 0) { l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ <- 0
   } else {
-    l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm_RobustZ <- (l4F$Cytoplasm_PA_Intensity_LineageRatio_MedNorm-lrMedian)/lrMad
+    l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ <- (l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm-lrMedian)/lrMad
   }
   
 }
@@ -184,13 +179,18 @@ Wells with QA scores below `r wellQAThresh ` and the FBS control wells are remov
 
 Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
+##Normalization
+The raw data is normalized to the control well in each plate as follows:
+
+For each feature, the median and median absolute deviation (MAD) of each plate's control well were calculated.
+Feature values for all cells in a plate were normalized by subtracting the plate's control well median and dividing by the plate's control well MAD*1.48.
 
 ##Spot Cell Count Analysis
-The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. First, the count of cells at each spot is normalized by dividing it by the median cell count of all spots in the same plate's high serum well.  The normalized spot cell counts are then summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. The blue lines at +/- 2 show thresholds for selecting MEPs of interest. Below the distribtion plot are plots with Z scores stratified by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.
+The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. The blue lines at +/- 2 show thresholds for selecting MEPs of interest. Below the distribtion plot are plots with Z scores stratified by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.
 
 ```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
 
-p <- ggplot(l4F, aes(x=Spot_PA_SpotCellCount_MedNorm_RobustZ))+geom_bar(binwidth = .1)+
+p <- ggplot(l4F, aes(x=Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_bar(binwidth = .1)+
   geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Median Normalized Spot Cell Count Robust Z Scores Distribution"))+
   ylab("Count")+xlab("Median Normalized Spot Cell Count Robust Z Scores")+
@@ -202,16 +202,16 @@ suppressWarnings(print(p))
 
 ```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE}
 
-p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_MedNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_MedNorm_RobustZ, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Median Normalized Spot Cell Count Robust Z Scores by Ligand"))+
+p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_RZSNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_RZSNorm_RobustZ, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 ```
 
 ```{r, fig.width=8,  fig.height=3.5, echo=FALSE}
-p <- ggplot(l4F, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_MedNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_MedNorm_RobustZ))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Median Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
+p <- ggplot(l4F, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_RZSNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -226,95 +226,32 @@ This staining set includes the lineage markers KRT5 which is associated with bas
 
 ```{r LineageMarkers, echo=FALSE}
 
-p <- ggplot(l4F, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_MedNorm,
-                     y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_MedNorm,
-                     colour = Ligand))+
+p <- ggplot(l4F, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm, colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("KRT5")+ylab("KRT19")+
   ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
 print(p)
 
-p <- ggplot(l4F, aes(x=Cytoplasm_PA_Intensity_LineageRatio))+
-  geom_bar(binwidth = .1)+
-  ggtitle("Histogram of Lineage Ratios")
-print(p)
-
-p <- ggplot(l4F, aes(x=Cytoplasm_PA_Intensity_LineageRatio_RobustZ))+geom_bar(binwidth = .1)+
-  geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Lineage Ratio Robust Z Scores Distribution"))+
-  ylab("Count")+xlab("Lineage Ratio Robust Z Scores")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
-
-```
-
-```{r, echo=FALSE}
-
-p <- ggplot(l4F, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP LineageRatio by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP LineageRatio by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-The ligand-stratified boxplots of the lineage ratios show batch effects likely due to each ligand being in a different well with no replicates. These can also be seen in the following boxplots of the lineage ratios in the control wells.
-
-```{r, echo = FALSE}
-
-#Plot lineage ratios of control wells in each plate
-p <- ggplot(l4[l4$Ligand == "FBS"], aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nLineageRatio in Control Wells"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-#Plot lineage ratios of control wells in each plate
-p <- ggplot(l4[l4$Ligand == "FBS"], aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT19, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nKRT19 Intensity in Control Wells"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-#Plot lineage ratios of control wells in each plate
-p <- ggplot(l4[l4$Ligand == "FBS"], aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT5, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT5, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nKRT 5 Intensity in Control Wells"))+
-  #xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
 ```
 The lineage ratio analysis is rerun using normalized data. The normalized data is calculated by dividing each lineage ratio by the lineage ratio of its corresponding control well.
 
 ```{r}
 
-p <- ggplot(l4F, aes(x=Cytoplasm_PA_Intensity_LineageRatio_MedNorm_RobustZ))+geom_bar(binwidth = .1)+
+p <- ggplot(l4F, aes(x=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ))+geom_bar(binwidth = .1)+
   geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized Lineage Ratio Robust Z Scores Distribution"))+
   ylab("Count")+xlab("Normalized Lineage Ratio Robust Z Scores")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 
-p <- ggplot(l4F, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_MedNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(l4F, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
-p <- ggplot(l4F, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_MedNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
-  ylim(.6,1.2)+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatio_MedNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_boxplot()+
+p <- ggplot(l4F, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -325,20 +262,12 @@ suppressWarnings(print(p))
 
 ```{r}
 
-p <- ggplot(l4F, aes(x=Nuclei_PA_AreaShape_Neighbors_MedNorm,
-                     y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+
+p <- ggplot(l4F, aes(x=Nuclei_PA_AreaShape_Neighbors_RZSNorm,
+                     y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+
   geom_point(alpha=.5)+
   stat_smooth(method="gam")+
   facet_wrap(~ECMp)+
   xlab("Normalized Number of Neighbors")+ylab("KRT19/KRT5")
-print(p)
-
-p <- ggplot(l4F, aes(x=Nuclei_PA_AreaShape_Neighbors_MedNorm,
-                     y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+
-  geom_point(alpha=.5)+
-  stat_smooth(method="gam")+
-  facet_wrap(~Ligand)+
-  xlab("Number of Neighbors")+ylab("KRT19/KRT5")
 print(p)
 
 ```
@@ -440,9 +369,13 @@ The unbiased PCA analysis method is:
   
 
 ```{r, fig.height=12}
+l4QA <- l4QA[!grepl("NID1",l4QA$ECMp)]
+
+PCFVNames <- grep("RZSNorm",colnames(l4QA),value=TRUE)
+PCFVNames <- grep("Euler|MaximumRadius",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(grep("MedNorm",colnames(l4QA),value=TRUE), collapse = "+"))), data = l4QA, scale= TRUE)
+l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4QA, scale= TRUE)
 
 #Extract the first PCs of each MEP into a matrix
 l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4QA$Barcode, MEP = l4QA$MEP)
@@ -454,9 +387,9 @@ activeMEPs <- ubHeatmap(l4pcvDT, title = "MEP PCA Vectors", cols = plateCol, act
 
 ```{r, fig.height=3, fig.width=4}
 
-plot(l4PCAModel, main  = paste("PCA Scree Plot for",cellLine,ss), type = "lines")
-abline(h = 1, col = "blue")
-title(xlab = "Principal Component")
+var <- l4PCAModel$sd[1:nrPCs]^2
+var.percent <- var/sum(var) * 100
+barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main  = paste("PCA Scree Plot for",cellLine,ss))
 
 p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
@@ -479,7 +412,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4QA$Barcode))
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cytoplasm_CP_Intensity_IntegratedIntensity_KRT19_MedNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cytoplasm_CP_Intensity_IntegratedIntensity_KRT19_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Total KRT19")+
   theme(legend.text=element_text(size = 6))+
@@ -487,14 +420,14 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cytoplasm
 print(p)
 
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4QA$Cytoplasm_PA_Intensity_LineageRatio_MedNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4QA$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Lineage Ratio")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cells_CP_AreaShape_Perimeter_MedNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Perimeter ProportionStatus")+
   theme(legend.text=element_text(size = 6))+
@@ -683,9 +616,9 @@ suppressWarnings(print(p))
 
 ```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 
-setkey(l4F, Spot_PA_SpotCellCount_MedNorm_RobustZ)
-kable(l4F[l4F$Spot_PA_SpotCellCount_MedNorm_RobustZ >=2| 
-            l4F$Spot_PA_SpotCellCount_MedNorm_RobustZ <=-2, list(Ligand,ECMp,Spot_PA_SpotCellCount_MedNorm_RobustZ, Spot_PA_SpotCellCount)],digits = 2)
+setkey(l4F, Spot_PA_SpotCellCount_RZSNorm_RobustZ)
+kable(l4F[l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=2| 
+            l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ <=-2, list(Ligand,ECMp,Spot_PA_SpotCellCount_RZSNorm_RobustZ, Spot_PA_SpotCellCount)],digits = 2)
 ```
 
 \newpage
@@ -695,22 +628,6 @@ The table below shows the active MEPs and their euclidean distance from the feat
 
 ```{r ActiveMeps, echo = FALSE}
 kable(activeMEPs, digits = 2)
-
-```
-
-
-####PCA Without NID1
-
-```{r, fig.height=12}
-
-#Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(grep("MedNorm",colnames(l4QA),value=TRUE), collapse = "+"))), data = l4QA[!grepl("NID1",l4QA$MEP)], scale= TRUE)
-
-#Extract the first 9 PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4QA$Barcode[!grepl("NID1",l4QA$MEP)], MEP = l4QA$MEP[!grepl("NID1",l4QA$MEP)])
-
-#Plot the heat map of the entire dataset
-activeMEPs <- ubHeatmap(l4pcvDT, title = "MEP PCA Vectors\n(Without NID1)", cols = plateCol, activeThresh = 0 )
 
 ```
 

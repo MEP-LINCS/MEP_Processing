@@ -16,7 +16,7 @@ library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
 
 #Select a staining set
-ss <- "SS3"
+ss <- "SS2"
 #Select a CellLine
 cellLine <- "PC3"
 #select analysis version
@@ -32,17 +32,17 @@ nuclearAreaThresh <- 50
 nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
-curatedOnly <- FALSE
+curatedOnly <- TRUE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Flag to control files updates
 writeFiles <- FALSE
 
 #Process a subset of the data to speed development
-limitBarcodes <- 2
+limitBarcodes <- 1
 
 #Do not normalized to Spot level
-normToSpot <- TRUE
+normToSpot <- FALSE
 
 ##Summary
 # This script prepares cell-level data and metadata for the MEP LINCs Analysis Pipeline. 
@@ -262,8 +262,11 @@ normParameters <- grep("Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle
 #Save the un-normalized parameters to merge in later
 mdKeep <- cDT[,grep("Barcode|Well|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
 
-#Normalized all measured parameters to their plate's control well
-cDT <- normDataset(cDT[,normParameters,with=FALSE])
+#Normalized each feature by dividing by the median of its plate's FBS value well
+#cDT <- normDataset(cDT[,normParameters,with=FALSE])
+#Normalize each feature by subtracting the median of its plate's FBS value
+# and divding by its plates MAD
+cDT <- normRZSDataset(cDT[,normParameters, with = FALSE])
 cDT <- merge(cDT,mdKeep)
 
 #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.

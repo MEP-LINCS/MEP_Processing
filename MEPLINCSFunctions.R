@@ -189,3 +189,27 @@ simplifyLigandAnnotID <- function(ligand,annotIDs){
   } else ligands <- annotIDs
   return(ligands)
 }
+
+normRZSWellsWithinPlate <- function(DT, value, baseECM, baseGF) {
+  if(!c("ECMpAnnotID") %in% colnames(DT)) stop(paste("DT must contain a ECMpAnnotID column."))
+  if(!c(value) %in% colnames(DT)) stop(paste("DT must contain a", value, "column."))
+  if("LigandAnnotID" %in% colnames(DT)){
+    valueMedian <- median(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$LigandAnnotID)),value, with=FALSE]), na.rm = TRUE)
+    valueMAD <- mad(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$LigandAnnotID)),value, with=FALSE]), na.rm = TRUE)
+  } else if (c("Growth.Factors") %in% colnames(DT)) {
+    valueMedian <- median(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$Growth.Factors)),value, with=FALSE]), na.rm = TRUE)
+    valueMAD <- mad(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$Growth.Factors)),value, with=FALSE]), na.rm = TRUE)
+  } else stop (paste("DT must contain a Growth.Factors or LigandAnnotID column."))
+  normedValues <- (DT[,value,with=FALSE]-valueMedian)/valueMAD
+  return(normedValues)
+}
+
+normRZSDataset <- function(dt){
+  parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount|Lineage",colnames(dt),value = TRUE), function(parm){
+    dt <- dt[,paste0(parm,"_RZSNorm") := normRZSWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "FBS"), by="Barcode"]
+    #     parmNormed <- pcDT[,normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+    #     parmNormed <- parmNormed[,Barcode := NULL]
+    return(dt)
+  })
+  return(parmNormedList[[length(parmNormedList)]])
+}
