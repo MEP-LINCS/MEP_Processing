@@ -234,7 +234,7 @@ p <- ggplot(l4F, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = 
 print(p)
 
 ```
-The lineage ratio analysis is rerun using normalized data. The normalized data is calculated by dividing each lineage ratio by the lineage ratio of its corresponding control well.
+The lineage ratio analysis is run using normalized data. The normalized data is calculated by dividing each lineage ratio by the lineage ratio of its corresponding control well.
 
 ```{r}
 
@@ -296,7 +296,19 @@ l4QA <- l4QA[!"blank"]
 l4QA <- l4QA[!"fiducial"]
 l4QA <- l4QA[,grep("Center_X|Center_Y|Center_Theta",colnames(l4QA),value = TRUE, invert = TRUE), with = FALSE]
 
+
 #Define features for clustering
+fvSS1 <- paste("Barcode","MEP",
+               "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",
+               "Nuclei_CP_AreaShape_Area",
+              "Nuclei_CP_AreaShape_Eccentricity",
+              "Nuclei_CP_AreaShape_Perimeter",
+              "Nuclei_CP_Intensity_MedianIntensity_Dapi",
+              "Spot_PA_SpotCellCount",
+              "Nuclei_PA_AreaShape_Neighbors",
+              "Nuclei_PA_Cycle_2NProportion",
+                sep="|")
+
 fvSS3 <- paste("Barcode","MEP",
                "Cytoplasm_CP_Intensity_IntegratedIntensity_KRT19",
                "Cytoplasm_CP_Intensity_IntegratedIntensity_KRT5",
@@ -313,6 +325,7 @@ fvSS3 <- paste("Barcode","MEP",
               "Nuclei_PA_Cycle_4NProportion",
               "Cytoplasm_PA_Intensity_LineageRatio", 
                 sep="|")
+
 
 fv <- grep(fvSS3, colnames(l4QA), value = TRUE)
 #Create numeric feature vectors datatable

@@ -87,16 +87,16 @@ ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
   DT$Barcode <- as.factor(DT$Barcode)
   #Get medians of high serum numeric features
   fvDTHS <- DT[grepl("FBS", DT$MEP)]
-  hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP|Barcode", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median))),MEP="FBS", Barcode = NA, stringsAsFactors = FALSE)
+  hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP|Barcode", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median, na.rm = TRUE))),MEP="FBS", Barcode = NA, stringsAsFactors = FALSE)
   #Replace all FBS rows with one row of medians as the last row
   DT<- rbind(DT[!grepl("FBS", DT$MEP)],hsMedians)
-  
-  #Normalize the feature vectors to the medians
-  #to equally weight all features
-  fvDTNorm <- rbindlist(apply(DT[,grep("MEP|Barcode",colnames(DT),invert=TRUE), with=FALSE], 1, scaleToMedians, normBase = hsMedians[,grep("MEP|Barcode",colnames(hsMedians),invert=TRUE)]))
+#   
+#   #Normalize the feature vectors to the medians
+#   #to equally weight all features
+#   fvDTNorm <- rbindlist(apply(DT[,grep("MEP|Barcode",colnames(DT),invert=TRUE), with=FALSE], 1, scaleToMedians, normBase = hsMedians[,grep("MEP|Barcode",colnames(hsMedians),invert=TRUE)]))
   
   #Calculate the dist matrix with euclidean method
-  dmm <- as.matrix(dist(fvDTNorm), labels=TRUE)
+  dmm <- as.matrix(dist(DT[,grep("MEP|Barcode",colnames(DT),invert=TRUE), with=FALSE]), labels=TRUE)
   #Extract the distance to the high serum medians
   distHS <- dmm[which(DT$MEP == "FBS"),]
   #Name the distance values
@@ -163,6 +163,7 @@ kmeansDNACluster <- function (x, centers = 2)
   #browser()
   x <- data.frame(x)
   xkmeans <- kmeans(x, centers = centers)
+  #Swap cluster IDs to make sure cluster 2 has higher values
   if(centers==2){
     if(xkmeans$centers[1] > xkmeans$centers[2]){
       tmp <- xkmeans$cluster == 1
@@ -170,7 +171,7 @@ kmeansDNACluster <- function (x, centers = 2)
       xkmeans$cluster[tmp] <- 2L
     }
   }
-  return(xkmeans[["cluster"]])
+  return(xkmeans$cluster)
 }
 
 lm_eqn <- function(df){
@@ -207,9 +208,18 @@ normRZSWellsWithinPlate <- function(DT, value, baseECM, baseGF) {
 normRZSDataset <- function(dt){
   parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount|Lineage",colnames(dt),value = TRUE), function(parm){
     dt <- dt[,paste0(parm,"_RZSNorm") := normRZSWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "FBS"), by="Barcode"]
-    #     parmNormed <- pcDT[,normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
-    #     parmNormed <- parmNormed[,Barcode := NULL]
     return(dt)
   })
   return(parmNormedList[[length(parmNormedList)]])
+}
+
+
+calc2NProportion <- function(x){
+  #x numeric vector of cycle states with values of 1 for 2n and 2 for 4N
+  #return proportion of cells in x that are in 2N
+  if(!length(x)) stop("Calculating 2N/4N proportion on an empty group")
+  if(sum(x==1)) {
+    proportion2N <- sum(x==1)/length(x)
+  } else proportion2N <- 0
+  return(proportion2N)
 }

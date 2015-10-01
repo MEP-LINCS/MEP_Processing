@@ -16,7 +16,7 @@ library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
 
 #Select a staining set
-ss <- "SS2"
+ss <- "SS3"
 #Select a CellLine
 cellLine <- "PC3"
 #select analysis version
@@ -32,17 +32,32 @@ nuclearAreaThresh <- 50
 nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
-curatedOnly <- TRUE
+curatedOnly <- FALSE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Flag to control files updates
-writeFiles <- FALSE
+writeFiles <- TRUE
 
 #Process a subset of the data to speed development
-limitBarcodes <- 1
+limitBarcodes <- 0
 
 #Do not normalized to Spot level
-normToSpot <- FALSE
+normToSpot <- TRUE
+
+#QA flags are used to enable analyses that require minimum cell and
+#replicate counts
+
+#Set a threshold for the lowSpotCellCount flag
+lowSpotCellCountThreshold <- 5
+ 
+#Set a threshold for the lowRegionCellCount flag
+lowRegionCellCountThreshold <- .4
+
+#Set a threshold for lowWellQA flag
+lowWellQAThreshold <- .7
+
+#Set a threshold for the lowSpotReplicates flag
+lowReplicateCount <- 3
 
 ##Summary
 # This script prepares cell-level data and metadata for the MEP LINCs Analysis Pipeline. 
@@ -170,6 +185,7 @@ expDTList <- mclapply(barcodes, function(barcode){
 }, mc.cores = 4)
 
 cDT <- rbindlist(expDTList, fill = TRUE)
+#TODO delete unwanted columns here such as Euler Number
 densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
 
 #Create short display names, then replace where not unique
@@ -220,16 +236,15 @@ setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
 cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
 cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
 
-# #Set 2N and 4N DNA status
+#Set 2N and 4N DNA status
 cDT <- cDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
-
-cDT <- cDT[,Nuclei_PA_Cycle_2NProportion := sum(Nuclei_PA_Cycle_State==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-cDT <- cDT[,Nuclei_PA_Cycle_4NProportion := sum(Nuclei_PA_Cycle_State==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+cDT <- cDT[,Nuclei_PA_Cycle_2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
+cDT$Nuclei_PA_Cycle_4NProportion <- cDT$Nuclei_PA_Cycle_2NProportion
 
 #Add spot level normalizations for selected intensities
 if(normToSpot){
   intensityNamesAll <- grep("_CP_Intensity_Median",colnames(cDT), value=TRUE)
-  intensityNames <- grep("MedNorm",intensityNamesAll,invert=TRUE,value=TRUE)
+  intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
   for(intensityName in intensityNames){
     #Median normalize the median intensity at each spot
     cDT <- cDT[,paste0(intensityName,"_SpotNorm") := medianNorm(.SD,intensityName),by="Barcode,Well,Spot"]
@@ -269,25 +284,33 @@ mdKeep <- cDT[,grep("Barcode|Well|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spo
 cDT <- normRZSDataset(cDT[,normParameters, with = FALSE])
 cDT <- merge(cDT,mdKeep)
 
+
 #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
 
-# Level3
+  
+#### Level3 ####
 
-#Summarize cell data to spot level (sl) by taking the medians of the parameters
+#Summarize cell data to medians of the spot parameters
 parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
 
 #Remove any spot-normalized and cell level parameters
-parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_MedNorm$",parameterNames,value=TRUE,invert=TRUE)
+parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_RZSNorm$",parameterNames,value=TRUE,invert=TRUE)
+#Remove any raw parameters
+parameterNames <- grep("Barcode|^Spot$|^Well$|Norm", parameterNames, value = TRUE)
+se <- function(x) sqrt(var(x,na.rm=TRUE)/length(na.omit(x)))
 
 cDTParameters<-cDT[,parameterNames,with=FALSE]
-slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
 
+slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
+slDTse <- cDTParameters[,lapply(.SD,se),keyby="Barcode,Well,Spot"]
+setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
 #Merge back in the spot and well metadata
-metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
+metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$|^Spot_PA_SpotCellCount$)", x=colnames(cDT), value=TRUE)
 setkey(cDT,Barcode, Well,Spot)
 mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
 slDT <- mDT[slDT, mult="first"]
-
+#Merge in the standard errr values
+slDT <- slDTse[slDT]
 #Add a count of replicates
 slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
 
@@ -298,18 +321,40 @@ slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount",
 lthresh <- 0.6
 slDT <- slDT[,QAScore := calcQAScore(.SD,threshold=lthresh,maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
 
+
 #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
 
 #Level4Data
 
 #Summarize spot level data to MEP level by taking the medians of the parameters
-mepNames<-grep("AreaShape|Children|Intensity|_PA_|LigandAnnotID|ECMpAnnotID|Barcode", x=names(slDT),value=TRUE)
+mepNames<-grep("Norm|LigandAnnotID|ECMpAnnotID|Barcode|ReplicateCount", x=names(slDT),value=TRUE)
+#remove the _SE values
+mepNames <- grep("_SE",mepNames, value = TRUE, invert = TRUE)
 
 mepKeep<-slDT[,mepNames,with=FALSE]
 mepDT<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
+mepDTse <- mepKeep[,lapply(.SD,se),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
 #Merge back in the replicate metadata
 mDT <- slDT[,list(Well,CellLine,Ligand,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,MEP),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
 mepDT <- mDT[mepDT, mult="first"]
+mepDT <- mepDTse[mepDT]
+
+#Manually create a list of wells with low quality DAPI signals
+
+#Write QA flags into all data levels?
+#Level 2
+cDT$QA_LowSpotCellCount <- cDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
+
+#Manually flag low quality DAPI wells
+cDT$QA_LowDAPIQuality <- FALSE
+cDT$QA_LowDAPIQuality[cDT$Barcode=="LI8X00420"&cDT$Well=="B01"] <- TRUE
+
+#Level 3
+mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
+
+#Level 4
+slDT$QA_LowWellQA <- slDT$QAScore < lowWellQAThreshold
+slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
 
 #WriteData
 
@@ -318,10 +363,36 @@ if(writeFiles){
   level1Names <- grep("Norm",colnames(cDT),value=TRUE,invert=TRUE)
   write.table(format(cDT[,level1Names, with=FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
   
+  normParmameterNames <- grep("Norm",colnames(cDT), value=TRUE)
+  rawParameterNames <- gsub("_?[[:alnum:]]*?Norm$", "", normParmameterNames)
+  metadataNormNames <- colnames(cDT)[!colnames(cDT) %in% rawParameterNames]
+  
   #Write out cDT with normalized values as level 2 dataset
-  write.table(format(cDT, digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+  write.table(format(cDT[,metadataNormNames, with = FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
   
   write.table(format(slDT, digits = 4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
   
   write.table(format(mepDT, digits = 4), paste0("./",cellLine,"/",ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+  
+  #Write the pipeline parameters to  tab-delimited file
+  write.table(c(
+    ss=ss,
+    cellLine = cellLine,
+    analysisVersion = analysisVersion,
+    neighborsThresh = neighborsThresh,
+    wedgeAngs = wedgeAngs,
+    outerThresh = outerThresh,
+    nuclearAreaThresh = nuclearAreaThresh,
+    nuclearAreaHiThresh = nuclearAreaHiThresh,
+    curatedOnly = curatedOnly,
+    curatedCols = curatedCols,
+    writeFiles = writeFiles,
+    limitBarcodes = limitBarcodes,
+    normToSpot = normToSpot,
+    lowSpotCellCountThreshold = lowSpotCellCountThreshold,
+    lowRegionCellCountThreshold = lowRegionCellCountThreshold,
+    lowWellQAThreshold = lowWellQAThreshold,
+    lowReplicateCount =lowReplicateCount
+  ),
+  paste0("./",cellLine,"/",ss, "/AnnotatedData/", cellLine,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
 }
