@@ -22,7 +22,7 @@ source("MEPLINCSFunctions.R")
 #Set the cell line to be analyzed (PC3|MCF7|YAPC)
 cellLine <- "PC3"
 
-permNumber <- 1000 #Used to create null hypotheses distributions
+permNumber <- 100 #Used to create null hypotheses distributions
 
 ```
 
@@ -301,14 +301,13 @@ DT4 <- DT4["FBS"]
 numericParameters <- colnames(DT)[unlist(lapply(DT,class)) %in% c("numeric","integer")]
 
 #Remove these parameters
-CVParameters <- grep("Center|MedNorm|_PA_|Euler|Orientation|Solidity",grep("Nuclei",numericParameters, value = TRUE),value = TRUE, invert = TRUE)
-CVParameters <- c(CVParameters,"Spot_PA_SpotCellCount")
+CVParameters <- grep("Center|MedNorm|_PA_|_SE|Euler|Orientation|Solidity",grep("Nuclei",numericParameters, value = TRUE),value = TRUE, invert = TRUE)
 
 #Keep these metadata parameters
 metadataNames <- grep("Barcode|ECMpAnnotID|Array|Block|PrintOrder|SS",colnames(DT), value = TRUE)
 DT <- cbind(DT[,metadataNames, with = FALSE],DT[,CVParameters, with = FALSE])
 
-CVDT <- DT[,lapply(.SD, CV), by="Barcode,ECMpAnnotID"]
+CVDT <- DT[,lapply(.SD, CV), by="Barcode,ECMpAnnotID", .SDcols = CVParameters]
 CVDT$Order <- "Actual"
 
 #Create a null hypothesis dataset by randomizing the values within each well
@@ -316,7 +315,7 @@ CVDT$Order <- "Actual"
 ranCVDTList <- mclapply(1:permNumber, function(x, dt){
   set.seed(x)
   dt$ECMpAnnotID <- dt$ECMpAnnotID[sample(1:nrow(DT),replace = FALSE)]
-  ranCVDT <- dt[,lapply(.SD, CV), by="Barcode,ECMpAnnotID"]
+  ranCVDT <- dt[,lapply(.SD, CV), by="Barcode,ECMpAnnotID", .SDcols = CVParameters]
   ranCVDT$Order <- "Random"
   return(ranCVDT)
 }, dt = DT, mc.cores = 4)
@@ -325,6 +324,7 @@ ranCVDT <- rbindlist(ranCVDTList)
 CVDT <- rbind(CVDT,ranCVDT)
 
 featureVector <- CVParameters
+
 ```
 
 ##Dataset
@@ -337,7 +337,7 @@ Density plots of the CVs show the experimental data in black and the null hypoth
 
 An hypothesis for a difference in signal quality is that the variance in the identification of the nuclear boundary is of the same magnitude as the response induced by the ECM proteins. This variance is ~squared in signals that include area (integrated intensity, area,…) and is reduced in ‘shape’ signals (eccentricity, extent,…) that include ratios.
 
-```{r, eval = TRUE}
+```{r, eval = FALSE}
 for(feature in featureVector){
   titleName <- gsub("NA","", paste(strsplit2(feature, split = "_")[4], strsplit2(feature, split = "_")[5]))
   p <-  ggplot(CVDT[CVDT$Order == "Actual"], aes_string(x = feature))+
@@ -360,7 +360,7 @@ curatedFeatureVector <- grep("Eccentricity|Area^|MedianIntensity|IntegratedInten
 for(feature in curatedFeatureVector){
   titleName <- gsub("NA","", paste(strsplit2(feature, split = "_")[4], strsplit2(feature, split = "_")[5]))
   
-  p <-  ggplot(DT, aes_string(x = "ArrayColumn", y = "ArrayRow", color = paste("log2(",feature,")")))+
+  p <-  ggplot(DT, aes_string(x = "ArrayColumn", y = "ArrayRow", color = feature))+
     geom_point(size =3)+
     xlim(1,20)+ylim(35,1)+
     scale_color_gradient(low="white",high="red")+
@@ -380,7 +380,7 @@ The following boxplots show the curated feature vectors stratified by plate. Eac
 for(feature in curatedFeatureVector){
   titleName <- gsub("NA","", paste(strsplit2(feature, split = "_")[4], strsplit2(feature, split = "_")[5]))
   
-  p <-  ggplot(DT, aes_string(x="Barcode", y = paste("log2(",feature,")"), colour = "SS"))+
+  p <-  ggplot(DT, aes_string(x="Barcode", y = feature, colour = "SS"))+
     geom_boxplot()+
     ggtitle(titleName)+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
@@ -394,7 +394,7 @@ for(feature in curatedFeatureVector){
 The following boxplots show the individual ECM protein responses of selected feature vectors stratified by plate.
 
 ```{r, fig.height=20}
-p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity, colour = SS))+
+p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity_RZSNorm, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity_RZSNorm, colour = SS))+
   geom_boxplot()+
   facet_wrap(~Barcode, ncol=4)+
   xlab("")+ylab("Eccentricity")+
@@ -407,7 +407,7 @@ print(p)
 
 ```{r, fig.height=20,fig.width=12}
 
-p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID,Nuclei_CP_AreaShape_Area,FUN = median), y = Nuclei_CP_AreaShape_Area, colour = SS))+
+p <-  ggplot(DT, aes(x=reorder(ECMpAnnotID,Nuclei_CP_AreaShape_Area_RZSNorm,FUN = median), y = Nuclei_CP_AreaShape_Area_RZSNorm, colour = SS))+
   geom_boxplot()+
   #xlim(1,20)+ylim(35,1)+
   #scale_color_gradient(low="white",high="red")+
@@ -423,7 +423,7 @@ print(p)
 
 
 ```{r}
-DT <- DT[, EccentricityVariance := var(Nuclei_CP_AreaShape_Eccentricity), by="Barcode,ECMpAnnotID"]
+DT <- DT[, EccentricityVariance := var(Nuclei_CP_AreaShape_Eccentricity_RZSNorm), by="Barcode,ECMpAnnotID"]
 
 p <-  ggplot(DT, aes(x=as.factor(Barcode), y = EccentricityVariance, colour = ECMpAnnotID))+
   geom_point(size = rel(1.5), alpha = .8)+
@@ -446,7 +446,7 @@ print(p)
 
 
 ```{r}
-DT <- DT[, AreaVariance := var(Nuclei_CP_AreaShape_Area), by="Barcode,ECMpAnnotID"]
+DT <- DT[, AreaVariance := var(Nuclei_CP_AreaShape_Area_RZSNorm), by="Barcode,ECMpAnnotID"]
 
 p <-  ggplot(DT, aes(x=as.factor(Barcode), y = AreaVariance, colour = ECMpAnnotID))+
   geom_point(size = rel(1.5), alpha = .8)+
@@ -469,7 +469,7 @@ print(p)
 
 
 ```{r}
-DT <- DT[, MedianDAPIVariance := var(Nuclei_CP_Intensity_MedianIntensity_Dapi), by="Barcode,ECMpAnnotID"]
+DT <- DT[, MedianDAPIVariance := var(Nuclei_CP_Intensity_MedianIntensity_Dapi_RZSNorm), by="Barcode,ECMpAnnotID"]
 
 p <-  ggplot(DT, aes(x=as.factor(Barcode), y = log2(MedianDAPIVariance), colour = ECMpAnnotID))+
   geom_point(size = rel(1.5), alpha = .8)+
@@ -503,7 +503,7 @@ Eccentricity: The eccentricity of the ellipse that has the same second-moments a
 Extent: The proportion of the pixels in the bounding box that are also in the region. Computed as the Area divided by the area of the bounding box.  
 
 ```{r}
-p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity, colour = SS))+
+p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Eccentricity_RZSNorm, FUN=median), y = Nuclei_CP_AreaShape_Eccentricity_RZSNorm, colour = SS))+
   geom_boxplot()+
   #xlim(1,20)+ylim(35,1)
   #scale_color_gradient(low="white",high="red")+
@@ -512,9 +512,11 @@ p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
 
 print(p)
+```
 
+```{r, eval = FALSE}
 
-p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Extent, FUN=median), y = Nuclei_CP_AreaShape_Extent, colour = SS))+
+p <-  ggplot(DT[DT$Barcode == "LI8X00402"], aes(x=reorder(ECMpAnnotID, Nuclei_CP_AreaShape_Extent_RZSNorm, FUN=median), y = Nuclei_CP_AreaShape_Extent_RZSNorm, colour = SS))+
   geom_boxplot()+
   #xlim(1,20)+ylim(35,1)
   #scale_color_gradient(low="white",high="red")+
@@ -530,7 +532,7 @@ print(p)
 The following plots show spot cell count vs the array rows and then the array columns. These show the location and magnitude of the differences in cell counts.  
 
 
-```{r, eval = TRUE, fig.height=20, fig.width=12}
+```{r, eval = TRUE, fig.height=20, fig.width=12, eval = FALSE}
 
 p <-  ggplot(DT, aes(x=Spot_PA_SpotCellCount, y = ArrayRow))+
   geom_point(size = .8)+
@@ -543,7 +545,7 @@ print(p)
 ```
 
 
-```{r, eval = TRUE, fig.height=20, fig.width=12}
+```{r, eval = TRUE, fig.height=20, fig.width=12, eval = FALSE}
 
 p <-  ggplot(DT, aes(x = ArrayColumn, y=Spot_PA_SpotCellCount))+
   geom_point(size = .8)+
@@ -630,14 +632,14 @@ print(p)
 This table lists the ECM proteins in the 402 A03 well, ordered by summarized eccentricity response. This table identifies ECM proteins that cause different eccentricity responses. It is followed by a table that ranks each spot by eccentricity and gives the coordinates of the images.  
 
 ```{r}
-setkey(DT4,Nuclei_CP_AreaShape_Eccentricity)
-kable(DT4[DT4$Barcode=="LI8X00402", list(ECMpAnnotID,Spot_PA_SpotCellCount,Nuclei_CP_AreaShape_Eccentricity)], digits = 2)
+setkey(DT4,Nuclei_CP_AreaShape_Eccentricity_RZSNorm)
+kable(DT4[DT4$Barcode=="LI8X00402", list(ECMpAnnotID,Nuclei_CP_AreaShape_Eccentricity_RZSNorm)], digits = 2)
 ```
 
 ```{r}
 
-setkey(DT,Nuclei_CP_AreaShape_Eccentricity)
-kable(DT[DT$Barcode=="LI8X00402", list(ECMpAnnotID,ArrayRow,ArrayColumn,Spot_PA_SpotCellCount,Nuclei_CP_AreaShape_Eccentricity)], digits = 2)
+setkey(DT,Nuclei_CP_AreaShape_Eccentricity_RZSNorm)
+kable(DT[DT$Barcode=="LI8X00402", list(ECMpAnnotID,ArrayRow,ArrayColumn,Nuclei_CP_AreaShape_Eccentricity_RZSNorm)], digits = 2)
 ```
 
 
@@ -662,7 +664,7 @@ print(p)
 
 ```
 
-```{r}
+```{r, eval = FALSE}
 ss <- "SS1"
 l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 setkey(l1, Ligand)
