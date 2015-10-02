@@ -1,0 +1,336 @@
+---
+title: "Annotate Cell-Level MEP-LINCs Data"
+author: "Mark Dane"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+#Author: Mark Dane, copyright 8/2015
+library("limma")#read GAL file and strsplit2
+library("MEMA")#merge, annotate and normalize functions
+library("data.table")#fast file reads, data merges and subsetting
+library("parallel")#use multiple cores for faster processing
+library(tidyr)
+library(dplyr)
+library(synapseClient)
+
+synapseLogin()
+
+# Select a cell line
+cl <- "PC3"
+
+# Select a staining set
+ss <- "SS2"
+densityThresh <- 0.4
+outerThresh <- 0.5
+
+#Filter out debris based on nuclear area
+nuclearAreaThresh <- 1000
+
+# Find GAL file
+q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='gal' and CellLine=='%s' and StainingSet=='%s'", cl, ss)
+qr <- synQuery(q)
+galId <- qr$file.id
+
+# Find XML file
+q <- sprintf("select id from file where parentId=='syn4624341' and fileType=='xml' and CellLine=='%s' and StainingSet=='%s'", cl, ss)
+qr <- synQuery(q)
+xmlId <- qr$file.id
+```
+
+
+##Summary
+This script prepares cell-level data and metadata for the Pilot MEP LINCs Analysis Pipeline. 
+
+In the code, the variable ss determines which staining set (SS1, SS2 or SS3) to merge and the variable cellLine determines the cell line. All .txt data files in the "./Raw Data" folder will be merged with the well (xlsx) and log (XML) data from the "./Metadata" folder.
+
+The merging assumes that the actual, physical B row wells (B01-B04) have been printed upside-down. That is, rotated 180 degrees resulting in the spot 1, 1 being in the lower right corner instead of the upper left corner. The metadata is matched to the actual printed orientation.
+
+```{r Read and clean spotmetadata, echo=FALSE}
+
+#Read in the spot metadata from the gal file
+smdFile <- synGet(galId)
+smd <- readSpotMetadata(getFileLocation(smdFile))
+
+#Relabel the column Name to ECMpAnnotID
+setnames(smd, "Name", "ECMpAnnotID")
+
+#Make a short name for display of ECMpAnnotID
+#Remove the first underscore and all text after it
+smd$ECMp <- gsub("_.*","",smd$ECMpAnnotID)
+#Replace any dashes with the word blank
+smd$ECMp <- gsub("-","blank",smd$ECMp)
+
+#Add the print order and deposition number to the metadata
+ldfFile <- synGet(xmlId)
+ldf <- readLogData(getFileLocation(ldfFile))
+
+spotMetadata <- merge(smd,ldf, all=TRUE)
+setkey(spotMetadata,Spot)
+#Make a rotated version of the spot metadata to match the print orientation
+spotMetadata180 <- rotateMetadata(spotMetadata)
+ARowMetadata <- data.table(spotMetadata,Well=rep(c("A01", "A02","A03","A04"),each=nrow(spotMetadata)))
+BRowMetadata <- data.table(spotMetadata180,Well=rep(c("B01", "B02","B03","B04"),each=nrow(spotMetadata180)))
+
+```
+
+The well metadata describes the cell line, ligands and staining endpoints that are all added on a per well basis. There is one mutlisheet .xlsx file for each plate. Each filename is the plate's barcode.
+
+The raw data files are stored in a "Raw Data" folder inside a folder for each staining set.There is a main raw data file for each well. Staining sets with cytoplasmic data include raw data files with the word "Cyto" inplace of the word "Main".
+
+The raw data from all wells in all plates in the dataset are read in and merged with their spot and well metadata. The number of nuclei at each spot are counted and a loess model of the spot cell count is added. Then all intensity values are normalized through dividing them by the median intensity value of the control well in the same plate.
+Next, the data is filtered to remove objects with a nuclear area less than `r nuclearAreaThresh` pixels.
+
+```{r ScanR merge_normalize and QA, echo=FALSE}
+#The next steps are to bring in the well metadata, the print order and the ScanR data
+q <- sprintf("select id,name,Well,Barcode,dataSubType from file where parentId=='syn4624343' and level==0 and CellLine=='%s' and StainingSet=='%s'", cl, ss)
+
+qdata <- synQuery(q)
+
+barcodes <- qdata$file.Barcode
+wells <- qdata$file.Well
+
+processByWell <- function(well, plateDataFiles) {
+  #browser()
+  # print(well)
+  wellDataFiles <- filter(plateDataFiles, file.Well == well)
+  mainDataFile <- filter(wellDataFiles, file.dataSubType == "Main") 
+  cytoDataFile <- filter(wellDataFiles, file.dataSubType == "Cyto")
+  
+  #Read in and merge the main and cyto data for each well
+  mainDT <- convertColumnNames(fread(getFileLocation(synGet(mainDataFile$file.id)),
+                                     stringsAsFactors=FALSE))
+  
+  #Add the stain location for each wavelength in the 'main' file
+  waveLengths <- grep("Intensity", colnames(mainDT), value=TRUE)
+  
+  for(waveLength in waveLengths){
+    mainDT <- mainDT[,paste0("Location",waveLength) := "Nucleus", with=FALSE]
+  }
+  
+  if (nrow(cytoDataFile) > 0) {
+  cytoDT <- convertColumnNames(fread(getFileLocation(synGet(cytoDataFile)),
+                                     stringsAsFactors=FALSE))
+  
+  #Add the stain location for each wavelength in the 'Cyto' file
+  waveLengths <- grep("Intensity",colnames(cytoDT), value=TRUE)
+  
+  for(waveLength in waveLengths){
+    cytoDT <- cytoDT[,paste0("Location",waveLength) := "Cytoplasm", with=FALSE]
+  }
+  #Merge the cyto data to the main data using  ParentObjectIDMO
+  # in the cyto file and ObjectID in the main file
+  setkey(mainDT,key="ObjectID")
+  setkey(cytoDT,key="ParentObjectIDMO")
+  DT <- mainDT[cytoDT]
+  } else {
+  DT <- mainDT
+  }
+  
+  #clean up the column names
+  deleteNames <- colnames(DT)[colnames(DT) %in% c("Position","ParentObjectIDWell","ParentTraceID","i.ObjectID","i.ParentTraceID", "i.Area")]
+  DT <- DT[,deleteNames :=NULL, with = FALSE]
+  
+  setnames(DT,"Well","Spot")
+  #Add the well name as a parameter
+  DT$Well <- well
+  #Merge the data with its metadata based on the row it's in
+  m <- regexpr("[[:alpha:]]",well)
+  row <- regmatches(well,m)
+  setkey(DT,Spot)
+  DT <- switch(row,A = merge(DT,spotMetadata,all=TRUE),B = merge(DT,spotMetadata180,all=TRUE))
+  #Add the well name again to fill in NA values
+  DT$Well <- well
+  return(DT)
+}
+
+processByBarcode <- function(barcode) {
+  plateDataFiles <- filter(qdata, file.Barcode == barcode)
+  wells <- unique(plateDataFiles$file.Well)
+  # print(barcode)
+  wellDataList <- lapply(wells, processByWell, plateDataFiles=plateDataFiles)
+  
+  #Create the cell data.table with spot metadata for the plate 
+  pcDT <- rbindlist(wellDataList, fill = TRUE)
+  
+  #Read the well metadata
+  wellQ <- sprintf("SELECT DISTINCT CellLine,Barcode,Well,LigandAnnotID,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI FROM syn4876459 WHERE Barcode='%s'", barcode)
+  wellMetadata <- synTableQuery(wellQ)@values
+  
+  #Create a ligand display name by removing the first underscore and all trailing text
+  wellMetadata$Ligand <- gsub("_.*","",wellMetadata$LigandAnnotID)
+  
+  #merge well metadata with the data and spot metadata
+  #browser()
+  pcDT <- merge(pcDT,wellMetadata,by = "Well")
+  pcDT <- pcDT[,Barcode := barcode]
+  
+  #Count the cells at each spot
+  pcDT<-pcDT[,SpotCellCount := length(ObjectID),by="Barcode,Well,Spot"]
+  
+  #Add a total DAPI column
+  pcDT$TotalIntensityDAPI <- pcDT$Area*pcDT$MeanIntensityDAPI
+  #If there is a highSerum well in the plate, use it for normalization
+  if(sum(pcDT$Ligand=="HighSerum")){
+    intensityNames <- grep("^MeanIntensity|^TotalIntensity",colnames(pcDT), value=TRUE)
+    for(intensityName in intensityNames){
+      #Median normalize to the plate's control well for each channel's value
+      pcDT <- pcDT[,paste0(intensityName,"MedNorm") := normWellsWithinPlate(.SD, value=intensityName, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+    }
+    
+    pcDT <- pcDT[,SpotCellCountMedNorm := normWellsWithinPlate(.SD, value="SpotCellCount", baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
+  }
+  pcDT <- pcDT[pcDT$Area >nuclearAreaThresh,]
+  return(pcDT)
+}
+
+expDTList <- lapply(barcodes[1:2], processByBarcode)
+cDT <- rbindlist(expDTList, fill = TRUE)
+
+```
+
+
+
+After merging the metadata with the cell-level data, several types of derived parameters are added. These include:
+
+The origin of coordinate system is placed at the median X and Y of each spot and the local cartesian and polar coordinates are added to the dataset.
+
+Each spot is divided into wedge-shaped bins and the wedge bin value for each cell is added to the dataset. The density around each cell is calculated from the number of nuclear centers within a radius around each nuclei. The Density value is thresholded to classify each cell as Sparse or not.The distance from the local origin is used to classify each cell as an OuterCell or not. The Sparse, OutCell and Wedge classifications are used to classify each cell as a Perimeter cell or not. 
+
+For staining set 2, each cell is classified as EdU+ or EdU-. The threshold for EdU+ is based on kmeans threshold of the mean EdU intensity from the control well of each plate.
+
+The intensity values are normalized at each spot so that spot-level variations can be analyzed.
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE}
+
+#Add the local cartesian and polar coordinates, Wedge, Density and classifications for Sparse, OuterCell and Perimeter
+setkey(cDT,Barcode,Well,Spot,ObjectID)
+cDT <- merge(cDT,setkey(positionParms(cDT),Barcode,Well,Spot,ObjectID))
+
+#Add a spot level normalizations on the intensity values
+cDT <- cDT[,MeanIntensityAlexa488SpotNorm := MeanIntensityAlexa488/median(MeanIntensityAlexa488, na.rm=TRUE), by="Barcode,Well,Spot"]
+cDT <- cDT[,MeanIntensityAlexa555SpotNorm := MeanIntensityAlexa555/median(MeanIntensityAlexa555, na.rm=TRUE), by="Barcode,Well,Spot"]
+cDT <- cDT[,MeanIntensityAlexa647SpotNorm := MeanIntensityAlexa647/median(MeanIntensityAlexa647, na.rm=TRUE), by="Barcode,Well,Spot"]
+
+#Create staining set specific derived parameters
+if(ss %in% c("SS1", "SS3")){
+  
+} else if (ss == "SS2"){
+  
+  cDT <- cDT[,EdUPositive := kmeansCluster(.SD, value="MeanIntensityAlexa647MedNorm", ctrlLigand = "HighSerum"), by="Barcode"]
+  #Calculate the EdU Positive Percent at each spot
+  cDT <- cDT[,EdUPositiveProportion := sum(EdUPositive)/length(ObjectID),by="Barcode,Well,Spot"]
+} else stop("Invalid ss parameter")
+
+# Eliminate Variations in the Endpoint metadata
+endpointNames <- grep("End",colnames(cDT), value=TRUE)
+endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
+setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
+
+```
+
+The cell level raw data and metadata is saved as Level 1 data. The plate and spot normalized values and the metadata is saved as Level 2 data.
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, eval=TRUE}
+
+#Select the columns and order for saving in the cell-level annotated data file
+coreLevel1DataColumns <- c("X","Y","Z","XLocal","YLocal","RadialPosition","Theta","TotalIntensityDAPI","MeanIntensityDAPI","MeanIntensityAlexa488","MeanIntensityAlexa555","MeanIntensityAlexa647","Area","ElongationFactor")
+
+coreLevel2DataColumns<- c("X","Y","Z","XLocal","YLocal","RadialPosition","Theta","SpotCellCount","TotalIntensityDAPIMedNorm","MeanIntensityDAPIMedNorm","MeanIntensityAlexa488MedNorm","MeanIntensityAlexa555MedNorm","MeanIntensityAlexa647MedNorm","SpotCellCountMedNorm","MeanIntensityAlexa488SpotNorm","MeanIntensityAlexa555SpotNorm","MeanIntensityAlexa647SpotNorm","Density","Wedge","Sparse","OuterCell","Perimeter")
+
+coreMetadataColumns <- c("Barcode","Well","Spot","ArrayRow","ArrayColumn","Block","Row","Column","ObjectID","LocationMeanIntensityDAPI","LocationMeanIntensityAlexa488","LocationMeanIntensityAlexa555","LocationMeanIntensityAlexa647","CellLine","EndpointDAPI","Endpoint488","Endpoint555","Endpoint647","LigandAnnotID","Ligand","ECMpAnnotID","ECMp","PrintOrder")
+
+
+if (ss == "SS1") {
+  cDTLevel1 <- cDT[,c(coreMetadataColumns, coreLevel1DataColumns), with=FALSE]
+  cDTLevel2 <- cDT[,c(coreMetadataColumns, coreLevel2DataColumns), with=FALSE]
+  
+} else if(ss=="SS2"){
+  cDTLevel1 <- cDT[,c(coreMetadataColumns, coreLevel1DataColumns), with=FALSE]
+  cDTLevel2 <- cDT[,c(coreMetadataColumns, coreLevel2DataColumns,"EdUPositive"), with=FALSE]
+  
+}
+
+write.table(format(cDTLevel1, digits=4), 
+            paste0(cl, "_", ss,"_","Level1.txt"), 
+            sep = "\t",row.names = FALSE, quote=FALSE)
+
+cDTLevel1SynFile <- File(paste0(cl, "_", ss,"_","Level1.txt"), parentId='syn4624344')
+
+cDTLevel1SynFile <- synStore(cDTLevel1SynFile, used=qf$file.id, executed=thisScript)
+
+write.table(format(cDTLevel2, digits=4), 
+            paste0(cl,"_",ss,"_","Level2.txt"),
+            sep = "\t", row.names = FALSE, quote=FALSE)
+
+cDTLevel2SynFile <- File(paste0(cl, "_", ss,"_","Level2.txt"), parentId='syn4624344')
+
+cDTLevel2SynFile <- synStore(cDTLevel2SynFile, used=cDTLevel1SynFile, executed=thisScript)
+
+```
+
+The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data, CVs and metadata are saved as Level 3 data.
+```{r Level3, echo=FALSE}
+
+#Summarize cell data to spot level (sl) by taking the medians of the parameters
+parameterNames<-grep(pattern="(^Total|^Mean|Elongation|Area|SpotCellCount|EdUPositiveProportion|RadialPosition|Population|Density|Z|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
+
+#Remove any spot-normalized parameters
+parameterNames <- grep("SpotNorm",parameterNames,value=TRUE,invert=TRUE)
+
+cDTParameters<-cDT[,parameterNames,with=FALSE]
+slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
+
+#Merge back in the spot and well metadata
+metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|Location|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
+mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
+slDT <- mDT[slDT, mult="first"]
+
+#Calculate CVs for each set of replicates in the ScanR data
+cvNames<-grep(pattern="(^Total|^Mean|Elongation|Area|SpotCellCount|EdUPositiveProportion|RadialPosition|Population|Density|Z|Barcode|^Well$|ECMpAnnotID)",x=colnames(slDT),value=TRUE)
+cvParameters<-slDT[,cvNames,with=FALSE]
+cv<-cvParameters[,lapply(.SD,CV),by="Barcode,Well,ECMpAnnotID"]
+data.table::setnames(cv,colnames(cv), paste0("CV",colnames(cv)))
+data.table::setkey(cv,CVWell,CVECMpAnnotID, CVBarcode)
+data.table::setkey(slDT,Well,ECMpAnnotID,Barcode)
+slDT <- slDT[cv]
+
+#Add a count of replicates
+slDT <- slDT[,ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
+
+#Add the loess model of the SpotCellCount on a per well basis
+  suppressWarnings(slDT <- slDT[,LoessSCC := loessModel(.SD,value="SpotCellCount",span=.1), by="Barcode,Well"])
+
+#Add well level QA Scores
+lthresh <- 0.6
+  slDT <- slDT[,QAScore := calcQAScore(.SD,threshold=lthresh,maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="LoessSCC"),by="Barcode,Well"]
+
+```
+
+```{r, echo=FALSE, eval=TRUE}
+  
+write.table(format(slDT, digits = 4), paste0(unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+
+```
+
+The spot level data is median summarized to the replicate level is stored as Level 4 data and metadata.
+```{r MEPLevelData, echo=FALSE}
+  
+  
+  #Summarize spot level data to MEP level by taking the medians of the parameters
+  mepNames<-grep(pattern="(^Total|^Mean|Elongation|^Area|Z|^SpotCellCount|Loess|RadialPosition|EdUPositiveProportion|Population|Density|LigandAnnotID|ECMpAnnotID)",x=names(slDT),value=TRUE)
+  
+  mepKeep<-slDT[,mepNames,with=FALSE]
+  mepDT<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID"]
+  
+  #Merge back in the replicate metadata
+  mDT <- slDT[,list(Well,CellLine,Ligand,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ReplicateCount,ECMp),keyby="LigandAnnotID,ECMpAnnotID"]
+  mepDT <- mDT[mepDT, mult="first"]
+  
+```
+
+```{r, echo=FALSE, eval=TRUE}
+  
+write.table(format(mepDT, digits = 4), paste0(ss,"/Annotated Data/",unique(slDT$CellLine),"_",ss,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+
+```
