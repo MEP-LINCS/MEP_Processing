@@ -153,18 +153,18 @@ DT <- DT[!grepl("FBS",DT$Ligand)]
 setkey(DT,Ligand)
 DT$LigandType <- as.factor(toupper(substring(DT$Ligand, 1,2)))
 
-#Build the feature set to keep
-fullBio <- DT[,grep("MedNorm|MEP|Ligand|ECMp",colnames(DT), value=TRUE), with = FALSE]
+#Build the feature set to keep:Normed values and MEP info
+fullBio <- DT[,grep("RZSNorm|MEP|Ligand|ECMp",colnames(DT), value=TRUE), with = FALSE]
 #Delete repeated columns, keeping the first one only
 #TODO: Take medians of parameters that are common across staining sets
 #such as SpotCellCount, Area, perimeter, DNA4n
 #Reduce to biologically likely relevant
-fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
+fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT|_SE", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 #Reduce to biologically minimal choice
 fullBio <- fullBio[,grep("Actin|Integrated|Dapi", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 
 # Minimize column names
-fullBio <- setnames(fullBio,colnames(fullBio),gsub("_MedNorm|.*_CP_|.*_PA_|Intensity_|AreaShape_|Cycle_|Gated_","",colnames(fullBio)))
+fullBio <- setnames(fullBio,colnames(fullBio),gsub("_RZSNorm|.*_CP_|.*_PA_|Intensity_|AreaShape_|Cycle_|Gated_","",colnames(fullBio)))
 
 m <- as.matrix(fullBio[,grep("Ligand|ECMp|MEP",x = colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE])
 rownames(m) <- fullBio$MEP
@@ -221,8 +221,7 @@ Median summarize the control (FBS) responses on a per feature basis
 Compute the euclidean distance in feature space (215 dimensions) between each MEP and the control  
 
 
-```{r MEPDistanceHeatMap, fig.height=10, fig.width=14,eval=TRUE}
-
+```{r MEPDistanceHeatMap, fig.height=10, fig.width=14,eval=FALSE}
 
 #Get a datatable of the normalized values across the staining set
 SSs = c("SS1","SS2","SS3")
@@ -234,7 +233,7 @@ PC3DT <- integrateSSs(SSs, cellLine = "PC3")
 #to equally weight all features
 setkey(PC3DT,"MEP")
 parms <- colnames(PC3DT)[unlist(lapply(PC3DT,class)) %in% c("numeric","integer")]
-parms <- grep("Center",parms,value = TRUE, invert = TRUE)
+parms <- grep("Center|_SE",parms,value = TRUE, invert = TRUE)
 PC3DTNorm <- rbindlist(apply(PC3DT[,parms, with=FALSE], 1, scaleToMedians, normBase = PC3DT["FBS",parms,with=FALSE]))
 
 #Calculate the dist matrix with euclidean method
@@ -256,7 +255,9 @@ distDT <- data.table(Dist = distToFBS, MEP =PC3DT$MEP, ECMp = PC3DT$ECMp, Ligand
 
 #Need to remove FBS row to make into a rectangulat matrix
 dFBS <- distToFBS[!names(distToFBS)=="FBS"]
-distM <- matrix(dFBS,nrow=56)
+#######This code needs logic that deals with missing ligands and ECMps
+
+distM <- matrix(dFBS,nrow=length(unique(PC3DT$Ligand)))
 setkey(PC3DT,ECMp)
 
 colnames(distM) <-  unique(PC3DT$ECMp[!is.na(PC3DT$ECMp)])
@@ -278,44 +279,44 @@ The following plots ranks each MEP along the x axis by their lineage ratio and E
 #Get a datatable of the normalized values across the staining set
 SSs = c("SS1","SS2","SS3")
 PC3DT <- integrateSSs(SSs, cellLine = "PC3")
-PC3DT<- PC3DT[PC3DT$Spot_PA_SpotCellCount >20]
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_MedNorm), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point(size = 3)+
+PC3DT<- PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -2]
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_point(size = 3)+
 xlab("MEP")+ylab("Lineage Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
    ggtitle("MEPs Ordered by Keratin Lineage Ratio")
 
 print(p)
 
-PC3DTExtremes <- PC3DT[PC3DT$Spot_PA_SpotCellCount > 20]
+PC3DTExtremes <- PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -2]
 
-PC3DTExtremes <- PC3DTExtremes[PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm > quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm,.995) | PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm < quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm,.005)]
+PC3DTExtremes <- PC3DTExtremes[PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm > quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,.995) | PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm < quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,.005)]
 
-setkey(PC3DTExtremes,Cytoplasm_PA_Intensity_LineageRatio_MedNorm)
+setkey(PC3DTExtremes,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)
 
-kable(data.frame(PC3DTExtremes$MEP,PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_MedNorm), col.names = c("MEP","Keratin Lineage Ratio"), digits = 2, align = c("l"))
+kable(data.frame(PC3DTExtremes$MEP,PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), col.names = c("MEP","Keratin Lineage Ratio"), digits = 2, align = c("l"))
 
 #unique(PC3DTExtremes[PC3DTExtremes$MEP=="DSG2_LYVE1",list(Barcode,Well,ArrayRow,ArrayColumn)])
 
 
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion), y = Nuclei_PA_Gated_EduPositiveProportion))+geom_point(size = 3)+
-xlab("MEP")+ylab("EdU Positive Proportion")+
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_point(size = 3)+
+xlab("MEP")+ylab("Normalized EdU Positive Proportion")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by EdU Positive Proportion")
 print(p)
 
-kable(data.frame(PC3DT$MEP[PC3DT$Nuclei_PA_Gated_EduPositiveProportion > quantile(PC3DT$Nuclei_PA_Gated_EduPositiveProportion,.995)],PC3DT$Nuclei_PA_Gated_EduPositiveProportion[PC3DT$Nuclei_PA_Gated_EduPositiveProportion > quantile(PC3DT$Nuclei_PA_Gated_EduPositiveProportion,.995)]), col.names = c("MEP","Edu Positive Proportion"), digits = 2, align = c("l"))
+kable(data.frame(PC3DT$MEP[PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm > -1.5], PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm[PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm > -1.5]), col.names = c("MEP","Edu Positive Proportion"), digits = 2, align = c("l"))
 
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion), y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point()+
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_point()+
 xlab("Rank Ordered EdU Positive Proportion")+ylab("Keratin Lineage Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("Keratin Lineage Ratio by Ordered EdU Positive Proportion")
 print(p)
 
 
-p <- ggplot(PC3DT[PC3DT$Spot_PA_SpotCellCount > 10], aes(x =Nuclei_PA_Gated_EduPositiveProportion, y = Cytoplasm_PA_Intensity_LineageRatio_MedNorm))+geom_point()+
+p <- ggplot(PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -1.8], aes(x =Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_point()+
 xlab("EdU Positive Proportion")+ylab("Keratin Lineage Ratio")+
   theme( panel.grid.major = element_blank())+
-  ggtitle("Keratin Lineage vs. EdU Positive Proportion\nFiltered for Spot Cell Count > 10")
+  ggtitle("Keratin Lineage vs. EdU Positive Proportion\nFiltered for Spot Cell Count")
 
 print(p)
 
@@ -338,61 +339,10 @@ DTl2 <- DTl2[!"fiducial"]
 DTl2 <- DTl2[!"blank"]
 DTl2 <- DTl2[!"NID1"]
 
-DT <- PC3DT[PC3DT$Spot_PA_SpotCellCount > 10]
+DT <- PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -2]
 
-lowLineageLowEdUPPDT <- DT[(DT$Nuclei_PA_Gated_EduPositiveProportion < 0.05) & (DT$Cytoplasm_PA_Intensity_LineageRatio_MedNorm <.75)]
+lowLineageLowEdUPPDT <- DT[(DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm < -1.9) & (DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm < -.375)]
 kable(lowLineageLowEdUPPDT[,list(MEP)], caption = "MEPs with low EdU Positive Proportion and Low Lineage Ratio")
-
-#unique(DT[DT$MEP=="DCN_LYVE1",list(Barcode,Well,Spot,ArrayRow,ArrayColumn)])
-# 
-# kable(unique(DTl2[DTl2$MEP %in% lowLineageLowEdUPPDT$MEP,list(MEP, Barcode,Well,ArrayRow,ArrayColumn, Spot, Nuclei_PA_Gated_EduPositiveProportion)]), digits = 2,align = "l")
-
-```
-
-##QA Example
-The following is an example of the QA process on a poor quality well
-
-```{r, fig.width=2.5,fig.height=4, eval=TRUE}
-
-l3 <- fread(paste0("./",cellLine,"/SS3/AnnotatedData/",cellLine,"_SS3_Level3.txt"), showProgress = FALSE)
-barcodes <- unique(l3$Barcode)
-lthresh <- 0.6
-
-setkey(l3,Barcode,Well)
-DT <-l3[.(barcodes[6],"A03")]
-#Remove the fiducial entries
-setkey(DT,ECMp)
-DT <- DT[!"fiducial"]
-DT <- DT[!"blank"]
-
-p <- ggplot(DT, aes(x=ArrayColumn, y=ArrayRow,colour=Spot_PA_SpotCellCount))+
-  geom_point(size=1.8)+
-  scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
-  scale_colour_gradient(low = "white", high = "red")+
-  guides(colour = guide_legend("Spot Cell\nCount", keywidth = .5, keyheight = .5))+
-  ggtitle(paste("\n\n","Spot Cell Count for",unique(DT$CellLine), "cells \nin plate",unique(DT$Barcode)))+
-  xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-p <- ggplot(DT, aes(x=ArrayColumn, y=ArrayRow,colour=Spot_PA_LoessSCC))+
-  geom_point(size=1.8)+
-  scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
-  scale_colour_gradient(low = "white", high = "red")+
-  guides(colour = guide_legend("Normalized \nSpot Cell \nCount", keywidth = .5, keyheight = .5))+
-  ggtitle(paste("\n\n","Loess Model of Spot Cell Count \nfor",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
-  xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-  DT <- DT[,QAScore := calcQAScore(.SD,threshold=lthresh,value="Spot_PA_LoessSCC"),by="Well"]
-  wellScores <- unique(DT[,list(Well,QAScore=sprintf("%.2f",QAScore))])
-
-  p <- ggplot(DT, aes(x=Spot_PA_LoessSCC))+
-  geom_histogram(binwidth=.02)+
-  geom_vline(xintercept=lthresh, colour="blue")+
-  geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = .9, y = 11, size = rel(5), colour="red")+
-  ggtitle(paste("\n\n","Loess Model of Spot Cell Count \nfor",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Spot Cell Count")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
 
 
 ```
@@ -404,10 +354,10 @@ suppressWarnings(print(p))
 
 Each of the 56 ligands is paired with each of the 46 ECM proteins creating 2576 different MEPs. The plots below show the  MEPs median Spot Cell Counts for the 46 FBS MEPs in each staining set. Raw and normalized (median centered) values along with R squared values are shown.  
 
-```{r,fig.height= 3.5, fig.width=3.5, eval=TRUE}
+```{r,fig.height= 3.5, fig.width=3.5, eval=FALSE}
 
 
-DT <- combineSSs(SSs = c("SS1","SS2","SS3"))[,list(MEP, Spot_PA_SpotCellCount,Spot_PA_SpotCellCount_MedNorm, Spot_PA_SpotCellCount.1,Spot_PA_SpotCellCount_MedNorm.1, Spot_PA_SpotCellCount.2,Spot_PA_SpotCellCount_MedNorm.2)]
+DT <- combineSSs(SSs = c("SS1","SS2","SS3"))[,list(MEP, Spot_PA_SpotCellCount,Spot_PA_SpotCellCount_RZSNorm, Spot_PA_SpotCellCount.1,Spot_PA_SpotCellCount_RZSNorm.1, Spot_PA_SpotCellCount.2,Spot_PA_SpotCellCount_RZSNorm.2)]
 
 DT <- DT[grepl("FBS", DT$MEP)]
 
@@ -423,13 +373,13 @@ p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount.1))+
   geom_text(x = 20, y = 35, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount,  y=Spot_PA_SpotCellCount.1)]), parse = TRUE)
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_MedNorm, y = Spot_PA_SpotCellCount_MedNorm.1))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_RZSNorm, y = Spot_PA_SpotCellCount_RZSNorm.1))+
   geom_point(siz = rel(.4), alpha = .6)+
   stat_smooth(method = "lm")+
   xlim(0,1.5)+ylim(0,1.5)+
   xlab("SS1 Spot Cell Count")+ylab("SS2 Spot Cell Count")+
   ggtitle("Normalized Spot Cell Count\nAcross Staining Sets")+
-  geom_text(x = .7, y = 1.2, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount_MedNorm,  y=Spot_PA_SpotCellCount_MedNorm.1)]), parse = TRUE)
+  geom_text(x = .7, y = 1.2, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount_RZSNorm,  y=Spot_PA_SpotCellCount_RZSNorm.1)]), parse = TRUE)
 print(p)
 
 p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount.2))+ 
@@ -441,13 +391,13 @@ p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount.2))+
   geom_text(x = 20, y = 35, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount,  y=Spot_PA_SpotCellCount.2)]), parse = TRUE)
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_MedNorm, y = Spot_PA_SpotCellCount_MedNorm.2))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_RZSNorm, y = Spot_PA_SpotCellCount_RZSNorm.2))+
   geom_point(siz = rel(.4), alpha = .6)+
 stat_smooth(method = "lm")+
     xlim(0,1.5)+ylim(0,1.5)+
   xlab("SS1 Spot Cell Count")+ylab("SS3 Spot Cell Count")+
   ggtitle("Normalized Spot Cell Count \nAcross Staining Sets")+
-  geom_text(x = .7, y = 1.2, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount_MedNorm,  y=Spot_PA_SpotCellCount_MedNorm.2)]), parse = TRUE)
+  geom_text(x = .7, y = 1.2, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount_RZSNorm,  y=Spot_PA_SpotCellCount_RZSNorm.2)]), parse = TRUE)
 print(p)
 
 p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount.1, y = Spot_PA_SpotCellCount.2))+
@@ -459,13 +409,13 @@ stat_smooth(method = "lm")+
   geom_text(x = 20, y = 35, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount.1,  y=Spot_PA_SpotCellCount.2)]), parse = TRUE)
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_MedNorm.1, y = Spot_PA_SpotCellCount_MedNorm.2))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_RZSNorm.1, y = Spot_PA_SpotCellCount_RZSNorm.2))+
   geom_point(siz = rel(.4), alpha = .6)+
 stat_smooth(method = "lm")+
     xlim(0,1.5)+ylim(0,1.5)+
   xlab("SS2 Spot Cell Count")+ylab("SS3 Spot Cell Count")+
   ggtitle("Normalized Spot Cell Count \nAcross Staining Sets")+
-  geom_text(x = .7, y = 1.2, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount_MedNorm.1,  y=Spot_PA_SpotCellCount_MedNorm.2)]), parse = TRUE)
+  geom_text(x = .7, y = 1.2, label = lm_eqn(DT[,list(x=Spot_PA_SpotCellCount_RZSNorm.1,  y=Spot_PA_SpotCellCount_RZSNorm.2)]), parse = TRUE)
 print(p)
 
 ```
@@ -475,7 +425,7 @@ print(p)
 
 Each of the 56 ligands is paired with each of the 46 ECM proteins creating . The plots below show the MEPs median Spot Cell Counts for the all 56 ligands. Raw and normalized (median centered) values are shown. Coloring is by plate, each having seven ligand wells and one FBS control well.
 
-```{r,fig.height= 3.5, fig.width=3.5, eval=TRUE}
+```{r,fig.height= 3.5, fig.width=3.5, eval=FALSE}
 
 
 DT <- combineSSs(SSs = c("SS1","SS2","SS3"))
@@ -490,7 +440,7 @@ p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount.1, colo
   guides(colour=FALSE)
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_MedNorm, y = Spot_PA_SpotCellCount_MedNorm.1, colour=Barcode))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_RZSNorm, y = Spot_PA_SpotCellCount_RZSNorm.1, colour=Barcode))+
   geom_point(siz = rel(.4), alpha = .6)+
   stat_smooth(method = "loess",se=FALSE)+
   xlim(0,1.5)+ylim(0,1.5)+
@@ -508,7 +458,7 @@ p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount.2, colo
   guides(colour=FALSE)
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_MedNorm, y = Spot_PA_SpotCellCount_MedNorm.2, colour=Barcode))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_RZSNorm, y = Spot_PA_SpotCellCount_RZSNorm.2, colour=Barcode))+
   geom_point(siz = rel(.4), alpha = .6)+
   stat_smooth(method = "loess",se=FALSE)+
   xlim(0,1.5)+ylim(0,1.5)+
@@ -526,7 +476,7 @@ p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount.1, y = Spot_PA_SpotCellCount.2, co
   guides(colour=FALSE)
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_MedNorm.1, y = Spot_PA_SpotCellCount_MedNorm.2, colour=Barcode))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount_RZSNorm.1, y = Spot_PA_SpotCellCount_RZSNorm.2, colour=Barcode))+
   geom_point(siz = rel(.4), alpha = .6)+
   stat_smooth(method = "loess",se=FALSE)+
   xlim(0,1.5)+ylim(0,1.5)+
@@ -538,17 +488,17 @@ print(p)
 ```
 
 
-```{r,fig.height= 3.5, fig.width=3.5, eval=TRUE}
+```{r,fig.height= 3.5, fig.width=3.5, eval=FALSE}
 
 
-DT <- combineSSs(SSs = c("SS1","SS2","SS3"))[,list(MEP, Spot_PA_SpotCellCount,Spot_PA_SpotCellCount_MedNorm, Spot_PA_SpotCellCount.1,Spot_PA_SpotCellCount_MedNorm.1, Spot_PA_SpotCellCount.2,Spot_PA_SpotCellCount_MedNorm.2)]
+DT <- combineSSs(SSs = c("SS1","SS2","SS3"))[,list(MEP, Spot_PA_SpotCellCount,Spot_PA_SpotCellCount_RZSNorm, Spot_PA_SpotCellCount.1,Spot_PA_SpotCellCount_RZSNorm.1, Spot_PA_SpotCellCount.2,Spot_PA_SpotCellCount_RZSNorm.2)]
 
 DT <- DT[grepl("FBS", DT$MEP)]
 
 DTS <- DT[,lapply(.SD, numericMedian), by="MEP"]
 
 #Show scattter plots of raw and normalized spot cell count in each ss
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount_MedNorm, colour = MEP))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount_RZSNorm, colour = MEP))+
   geom_point(siz = rel(.4), alpha = .6)+
   xlim(0,45)+ylim(0,1.3)+
   guides(colour = FALSE)+
@@ -556,34 +506,34 @@ p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount_MedNorm
 print(p)
 
 #Show scattter plots of raw and normalized spot cell count in each ss
-p <- ggplot(DTS, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount_MedNorm))+
+p <- ggplot(DTS, aes(x = Spot_PA_SpotCellCount, y = Spot_PA_SpotCellCount_RZSNorm))+
   geom_point(siz = rel(.4), alpha = .6)+
     stat_smooth(method = "lm")+
   xlim(0,45)+ylim(0,1.3)+
   ggtitle("SS1 Spot Cell CountNormalization\nSummarized")
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount.1, y = Spot_PA_SpotCellCount_MedNorm.1, colour = MEP))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount.1, y = Spot_PA_SpotCellCount_RZSNorm.1, colour = MEP))+
   geom_point(siz = rel(.4), alpha = .6)+
   xlim(0,45)+ylim(0,1.3)+
   guides(colour = FALSE)+
   ggtitle("SS2 Spot Cell Count Normalization\nNot Summarized")
 print(p)
 
-p <- ggplot(DTS, aes(x = Spot_PA_SpotCellCount.1, y = Spot_PA_SpotCellCount_MedNorm.1))+
+p <- ggplot(DTS, aes(x = Spot_PA_SpotCellCount.1, y = Spot_PA_SpotCellCount_RZSNorm.1))+
   geom_point(siz = rel(.4), alpha = .6)+
     stat_smooth(method = "lm")+
   xlim(0,45)+ylim(0,1.3)+
   ggtitle("SS2 Spot Cell Count Normalization\nSummarized")
 print(p)
 
-p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount.2, y = Spot_PA_SpotCellCount_MedNorm.2, colour = MEP))+
+p <- ggplot(DT, aes(x = Spot_PA_SpotCellCount.2, y = Spot_PA_SpotCellCount_RZSNorm.2, colour = MEP))+
   geom_point(siz = rel(.4), alpha = .6)+
   xlim(0,45)+ylim(0,1.3)+
   guides(colour = FALSE)+ggtitle("SS3 Spot Cell Count Normalization\nNot Summarized")
 print(p)
 
-p <- ggplot(DTS, aes(x = Spot_PA_SpotCellCount.2, y = Spot_PA_SpotCellCount_MedNorm.2))+ 
+p <- ggplot(DTS, aes(x = Spot_PA_SpotCellCount.2, y = Spot_PA_SpotCellCount_RZSNorm.2))+ 
   geom_point(siz = rel(.4), alpha = .6)+
     stat_smooth(method = "lm")+
   xlim(0,45)+ylim(0,1.3)+

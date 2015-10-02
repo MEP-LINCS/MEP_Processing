@@ -7,7 +7,7 @@
 
 #   The MEP-LINCs dataset contains imaging data from a Nikon automated microscope that is analyzed with a CellProfiler pipeline.
 # 
-# This preprocessing of the dataset will be deprecated when the merging of the data and metadata happens within the CellProfiler part of the pipeline. For now, the metadata about the ECM proteins is read from the GAL file and the metadata about the wells (cell line, stains and ligands) is read from Excel spreadsheets.
+# Part of this preprocessing of the dataset will be deprecated when the merging of the data and metadata happens within the CellProfiler part of the pipeline. For now, the metadata about the ECM proteins is read from the GAL file and the metadata about the wells (cell line, stains and ligands) is read from Excel spreadsheets.
 
 source("MEPLINCSFunctions.R")
 library("limma")#read GAL file and strsplit2
@@ -26,20 +26,21 @@ analysisVersion <- "v1"
 neighborsThresh <- 0.4 #Gates sparse cells on a spot
 wedgeAngs <- 20 #Size in degrees of spot wedges used in perimeter gating
 outerThresh <- 0.5 #Defines out cells used in perimeter gating
+neighborhoodNucleiRadii <- 7 #Defines the neighborhood annulus
 
 #Filter out debris based on nuclear area
 nuclearAreaThresh <- 50
 nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
-curatedOnly <- FALSE
+curatedOnly <- TRUE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Flag to control files updates
 writeFiles <- TRUE
 
 #Process a subset of the data to speed development
-limitBarcodes <- 0
+limitBarcodes <- 1
 
 #Do not normalized to Spot level
 normToSpot <- TRUE
@@ -52,6 +53,9 @@ lowSpotCellCountThreshold <- 5
  
 #Set a threshold for the lowRegionCellCount flag
 lowRegionCellCountThreshold <- .4
+
+#Set a threshold for the loess well level QA Scores
+lthresh <- 0.6
 
 #Set a threshold for lowWellQA flag
 lowWellQAThreshold <- .7
@@ -216,7 +220,7 @@ cDT <- cDT[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_
 cDT <- cDT[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
 cDT <- cDT[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
 cDT <- cDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
-cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*7), by = "Barcode,Well,Spot"]
+cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
 
 #Rules for classifying perimeter cells
 cDT <- cDT[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
@@ -238,6 +242,10 @@ cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
 
 #Set 2N and 4N DNA status
 cDT <- cDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
+#Manually reset clusters for poorly classified wells
+#This is based on review of the clusters after a prior run
+cDT$Nuclei_PA_Cycle_State[cDT$Barcode=="LI8X00403" & cDT$Well=="A03" & cDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
+
 cDT <- cDT[,Nuclei_PA_Cycle_2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
 cDT$Nuclei_PA_Cycle_4NProportion <- cDT$Nuclei_PA_Cycle_2NProportion
 
@@ -275,7 +283,7 @@ setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
 normParameters <- grep("Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE,invert=TRUE)
 
 #Save the un-normalized parameters to merge in later
-mdKeep <- cDT[,grep("Barcode|Well|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
+mdKeep <- cDT[,grep("Barcode|^Well$|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
 
 #Normalized each feature by dividing by the median of its plate's FBS value well
 #cDT <- normDataset(cDT[,normParameters,with=FALSE])
@@ -284,10 +292,8 @@ mdKeep <- cDT[,grep("Barcode|Well|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spo
 cDT <- normRZSDataset(cDT[,normParameters, with = FALSE])
 cDT <- merge(cDT,mdKeep)
 
-
 #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
 
-  
 #### Level3 ####
 
 #Summarize cell data to medians of the spot parameters
@@ -295,17 +301,21 @@ parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=name
 
 #Remove any spot-normalized and cell level parameters
 parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_RZSNorm$",parameterNames,value=TRUE,invert=TRUE)
+
 #Remove any raw parameters
-parameterNames <- grep("Barcode|^Spot$|^Well$|Norm", parameterNames, value = TRUE)
-se <- function(x) sqrt(var(x,na.rm=TRUE)/length(na.omit(x)))
+parameterNames <- grep("Barcode|^Spot$|^Well$|Norm|Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", parameterNames, value = TRUE)
 
 cDTParameters<-cDT[,parameterNames,with=FALSE]
 
 slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
 slDTse <- cDTParameters[,lapply(.SD,se),keyby="Barcode,Well,Spot"]
+
+#Add _SE to the standard error column names
 setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
+
 #Merge back in the spot and well metadata
-metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$|^Spot_PA_SpotCellCount$)", x=colnames(cDT), value=TRUE)
+#TODO: Convert the logic to not name the metadata
+metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
 setkey(cDT,Barcode, Well,Spot)
 mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
 slDT <- mDT[slDT, mult="first"]
@@ -317,16 +327,19 @@ slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
 #Add the loess model of the SpotCellCount on a per well basis
 slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
 
-#Add well level QA Scores
-lthresh <- 0.6
+#Add well level QA Scores to spot level data
 slDT <- slDT[,QAScore := calcQAScore(.SD,threshold=lthresh,maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
 
-
+#Add QA scores to cell level data
+setkey(cDT,Barcode, Well, Spot)
+setkey(slDT, Barcode, Well, Spot)
+cDT <- cDT[slDT[,list(Barcode, Well, Spot, QAScore, Spot_PA_LoessSCC)]]
 #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
 
 #Level4Data
 
 #Summarize spot level data to MEP level by taking the medians of the parameters
+#TODO convert spot level QA flags to proportions
 mepNames<-grep("Norm|LigandAnnotID|ECMpAnnotID|Barcode|ReplicateCount", x=names(slDT),value=TRUE)
 #remove the _SE values
 mepNames <- grep("_SE",mepNames, value = TRUE, invert = TRUE)
@@ -334,27 +347,36 @@ mepNames <- grep("_SE",mepNames, value = TRUE, invert = TRUE)
 mepKeep<-slDT[,mepNames,with=FALSE]
 mepDT<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
 mepDTse <- mepKeep[,lapply(.SD,se),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
+#Add _SE to the standard error column names
+setnames(mepDTse, grep("Barcode|^Well$|^Spot$|Ligand|ECMp",colnames(mepDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$|Ligand|ECMp",colnames(mepDTse), value = TRUE, invert = TRUE),"_SE"))
+
 #Merge back in the replicate metadata
 mDT <- slDT[,list(Well,CellLine,Ligand,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,MEP),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
 mepDT <- mDT[mepDT, mult="first"]
 mepDT <- mepDTse[mepDT]
 
-#Manually create a list of wells with low quality DAPI signals
 
-#Write QA flags into all data levels?
-#Level 2
+#Write QA flags into appropriate data levels
+#Low cell count spots
 cDT$QA_LowSpotCellCount <- cDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
+slDT$QA_LowSpotCellCount <- slDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
 
 #Manually flag low quality DAPI wells
 cDT$QA_LowDAPIQuality <- FALSE
 cDT$QA_LowDAPIQuality[cDT$Barcode=="LI8X00420"&cDT$Well=="B01"] <- TRUE
+slDT$QA_LowDAPIQuality <- FALSE
+slDT$QA_LowDAPIQuality[slDT$Barcode=="LI8X00420"& slDT$Well=="B01"] <- TRUE
 
-#Level 3
-mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
+#Flag spots below automatically loess QA threshold
+cDT$QA_LowRegionCellCount <- cDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
+slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
+
+#Flag wells below automatically calculated QA threshold
+slDT$QA_LowWellQA <- slDT$QAScore < lowWellQAThreshold
+cDT$QA_LowWellQA <- cDT$QAScore < lowWellQAThreshold
 
 #Level 4
-slDT$QA_LowWellQA <- slDT$QAScore < lowWellQAThreshold
-slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
+mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
 
 #WriteData
 
@@ -366,9 +388,13 @@ if(writeFiles){
   normParmameterNames <- grep("Norm",colnames(cDT), value=TRUE)
   rawParameterNames <- gsub("_?[[:alnum:]]*?Norm$", "", normParmameterNames)
   metadataNormNames <- colnames(cDT)[!colnames(cDT) %in% rawParameterNames]
+  #Paste back in the QA and selected raw data
+  
+  level2Names <- c(metadataNormNames,
+                       grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Firbillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
   
   #Write out cDT with normalized values as level 2 dataset
-  write.table(format(cDT[,metadataNormNames, with = FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+  write.table(format(cDT[,level2Names, with = FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
   
   write.table(format(slDT, digits = 4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
   
@@ -379,6 +405,7 @@ if(writeFiles){
     ss=ss,
     cellLine = cellLine,
     analysisVersion = analysisVersion,
+    neighborhoodNucleiRadii = neighborhoodNucleiRadii,
     neighborsThresh = neighborsThresh,
     wedgeAngs = wedgeAngs,
     outerThresh = outerThresh,
@@ -392,7 +419,8 @@ if(writeFiles){
     lowSpotCellCountThreshold = lowSpotCellCountThreshold,
     lowRegionCellCountThreshold = lowRegionCellCountThreshold,
     lowWellQAThreshold = lowWellQAThreshold,
-    lowReplicateCount =lowReplicateCount
+    lowReplicateCount =lowReplicateCount,
+    lthresh = lthresh
   ),
   paste0("./",cellLine,"/",ss, "/AnnotatedData/", cellLine,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
 }

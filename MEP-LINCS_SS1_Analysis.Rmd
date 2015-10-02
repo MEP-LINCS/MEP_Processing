@@ -88,28 +88,7 @@ The following plots are pseudoimages each MEMA's spot cell count and a histogram
 
 ```{r Heatmaps_QAScores, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
 
-for (barcode in barcodes){
-  DT <-l3[l3$Barcode==barcode,]
-  #Remove the fiducial entries
-  setkey(DT,ECMp)
-  DT <- DT[!"fiducial"]
-  DT <- DT[!"blank"]
-  
-  p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count")
-  suppressWarnings(print(p))
-
-  wellScores <- unique(DT[,list(Well, QAScore=sprintf("%.2f",QAScore))])
-
-  p <- ggplot(DT, aes(x=Spot_PA_LoessSCC))+
-    geom_histogram(binwidth=.04)+
-    geom_vline(xintercept=lthresh, colour="blue")+
-    geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
-    ggtitle(paste("\n\n\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Normalized Spot Cell Count")+xlim(0,3)+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.x = element_text( size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.title.y = element_text( size=rel(.5)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
-    facet_wrap(~Well, ncol=4)
-  suppressWarnings(print(p))
-
-}
+plotSCCHeatmapsQAHistograms(l3, barcodes)
 
 ```
 
@@ -117,15 +96,10 @@ for (barcode in barcodes){
 
 ```{r Filtering, echo=FALSE}
 
-passedQAWells <- unique(l3[l3$QAScore > wellQAThresh,list(Barcode,Well)])
-
 #Remove failed QA wells
-setkey(l3,Barcode,Well)
-l3F <- merge(l3,passedQAWells)
+l3F <- l3[!l3$QA_LowWellQA]
 
-#Remove the FBS, fiducial and blank data
-setkey(l3F,Ligand)
-l3F <- l3F[!"FBS"]
+#Remove the fiducial and blank data
 setkey(l3F,ECMp)
 l3F <- l3F[!"fiducial"]
 l3F <- l3F[!"blank"]
@@ -139,33 +113,21 @@ mepKeep<-l3F[,mepNames,with=FALSE]
 l4F<-mepKeep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID"]
   
 #Merge back in the replicate metadata
-mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,Spot_PA_ReplicateCount),keyby="LigandAnnotID,ECMpAnnotID"]
+mDT <- l3F[,list(CellLine,Ligand,Barcode,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,MEP,Spot_PA_ReplicateCount),keyby="LigandAnnotID,ECMpAnnotID"]
 l4F <- mDT[l4F, mult="first"]
 
 #Add Robust Z Scores of the normalized Spot Cell Counts across
 #the entire staining set
-SCCMedian <- median(l4F$Spot_PA_SpotCellCount_RZSNorm, na.rm=TRUE)
-SCCmad <-mad(l4F$Spot_PA_SpotCellCount_RZSNorm, na.rm=TRUE)
-l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ <- (l4F$Spot_PA_SpotCellCount_RZSNorm-SCCMedian)/SCCmad
+l4F <- l4F[,Spot_PA_SpotCellCount_RZSNorm_RobustZ := RZScore(Spot_PA_SpotCellCount_RZSNorm)]
 
 if (ss == "SS2"){
   #Add Robust Z Score of the Edu Signal
-  EduPPMedian <- median(l4F$EduPositiveProportion_RZSNorm, na.rm=TRUE)
-  EduPPmad <-mad(l4F$EduPositiveProportion_RZSNorm, na.rm=TRUE)
-  if(EduPPmad == 0) { l4F$EduPP_RZSNorm_RobustZ <- 0
-  } else {
-    l4F$EduPositiveProportion_RZSNorm_RobustZ <- (l4F$EduPositiveProportion_RZSNorm-EduPPMedian)/EduPPmad
-  }
+  l4F <- l4F[,EduPositiveProportion_RZSNorm_RobustZ := RZScore(EduPositiveProportion_RZSNorm)]
 }
 
 if (ss == "SS3"){
   #Add Robust Z Scores of the normalized lineage ratios
-  lrMedian <- median(l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, na.rm=TRUE)
-  lrMad <-mad(l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, na.rm=TRUE)
-  if(lrMad == 0) { l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ <- 0
-  } else {
-    l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ <- (l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm-lrMedian)/lrMad
-  }
+  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)]
   
 }
 
@@ -189,13 +151,8 @@ The spot cell count analysis uses robust Z scores to identify MEPs with extreme 
 
 ```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
 
-p <- ggplot(l4F, aes(x=Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_bar(binwidth = .1)+
-  geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Median Normalized Spot Cell Count Robust Z Scores Distribution"))+
-  ylab("Count")+xlab("Median Normalized Spot Cell Count Robust Z Scores")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
 
+plotSCCRobustZScores(l4F)
 ```
 
 
@@ -223,92 +180,28 @@ suppressWarnings(print(p))
 ##Unbiased Analysis
 
 The unbiased approach is:  
-  Summarize the cell level to the median spot level, then combine replicates to get to the MEP level  
-  Select a curated feature vector of MEP raw intensities and morphologies  
-  Normalize the feature values by dividing them by their control's value
+  Normalize the cell level using the median and MAD of each plate's control well
+  Median summarize the normalized data to the spot level
+  Median summarize the spot level data to the MEP level  
+  Select a curated feature vector of MEP intensities and morphologies  
   Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
-  Exclude inactive MEPs by selecting for distances above the 95th percentile  
-  Perform hierarchical clustering on the active MEPs 
+  Perform hierarchical clustering on the MEPs 
   
-The following heatmaps show the active MEPs based on the entire dataset, the dataset without NID1 and the normalized dataset without NID1. The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
-  
-```{r, fig.height=16}
-
-setkey(l4,Barcode,Well)
-l4QA <- merge(l4,passedQAWells)
-setkey(l4QA, "ECMp")
-l4QA <- l4QA[!"blank"]
-l4QA <- l4QA[!"fiducial"]
-l4QA <- l4QA[,grep("Center_X|Center_Y|Center_Theta",colnames(l4QA),value = TRUE, invert = TRUE), with = FALSE]
-
-
-#Define features for clustering
-fvSS1 <- paste("Barcode","MEP",
-               "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",
-               "Nuclei_CP_AreaShape_Area",
-              "Nuclei_CP_AreaShape_Eccentricity",
-              "Nuclei_CP_AreaShape_Perimeter",
-              "Nuclei_CP_Intensity_MedianIntensity_Dapi",
-              "Spot_PA_SpotCellCount",
-              "Nuclei_PA_AreaShape_Neighbors",
-              "Nuclei_PA_Cycle_2NProportion",
-                sep="|")
-
-
-fvSS3 <- paste("Barcode","MEP",
-               "Cytoplasm_CP_Intensity_IntegratedIntensity_KRT19",
-               "Cytoplasm_CP_Intensity_IntegratedIntensity_KRT5",
-               "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",
-               "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",
-               "Nuclei_CP_AreaShape_Area",
-              "Nuclei_CP_AreaShape_Eccentricity",
-              "Nuclei_CP_AreaShape_Perimeter",
-              "Nuclei_CP_Intensity_IntegratedIntensity_Dapi",
-              "Nuclei_CP_Intensity_MedianIntensity_Dapi",
-              "Spot_PA_SpotCellCount",
-              "Nuclei_PA_AreaShape_Neighbors",
-              "Nuclei_PA_Cycle_2NProportion",
-              "Nuclei_PA_Cycle_4NProportion",
-              "Cytoplasm_PA_Intensity_LineageRatio", 
-                sep="|")
-
-fv <- grep(fvSS1, colnames(l4QA), value = TRUE)
-#Create numeric feature vectors datatable
-fvDT <- l4QA[,fv,with = FALSE]
-
-```
-
-```{r }
-
-#Filter the parameters for the raw data heat map
-fvRaw <- grep("Norm",colnames(fvDT),value = TRUE, invert = TRUE)
-
-activeMEPs <- ubHeatmap(fvDT[,fvRaw, with = FALSE], title = "MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
-
-```
-
-The next heatmap shows the same analysis run on the dataset after removing NID1.
+The following heatmap shows the  MEPs based on the entire normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
   
 ```{r, fig.height=16}
 
-#Filter the parameters for the raw data heat map
-fvRaw <- grep("Norm",colnames(fvDT),value = TRUE, invert = TRUE)
-
-#Plot the heat map without NID1 in the dataset
-activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP),fvRaw, with = FALSE], title = "MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
+lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
+fvDT <- filterl4(l4, lowQALigands)
 
 ```
-
 
 The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
   
-```{r, fig.height=16}
-
-#Filter the parameters for the normalized data heat map
-fvRaw <- grep("MEP|Barcode|Norm",colnames(fvDT),value = TRUE)
+```{r, fig.height=16, eval = TRUE}
 
 #Plot the heat map without NID1 in the dataset
-activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP),fvRaw, with = FALSE], title = "MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
+activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
 
 ```
 
@@ -317,26 +210,23 @@ activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP),fvRaw, with = FALSE], title
 The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
 
 The unbiased PCA analysis method is:
-
-  Summarize the cell level to the median spot level, then combine replicates to get to the MEP level  
-  Normalize the feature values by dividing them by their control's value
-  Use PCA to transform the entire feature set to a much smaller number of principal components (PCFV)
-  Calculate the euclidean distance of each MEP's PCFV to the high serum control PCFV 
+  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)
+  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV 
   Exclude inactive MEPs by selecting for distances above a selected percentile  
   Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs 
   
 
 ```{r, fig.height=12}
-l4QA <- l4QA[!grepl("NID1",l4QA$ECMp)]
+l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
-PCFVNames <- grep("RZSNorm",colnames(l4QA),value=TRUE)
-PCFVNames <- grep("Euler|MaximumRadius",PCFVNames,invert = TRUE, value = TRUE)
+PCFVNames <- grep("RZSNorm",colnames(l4F),value=TRUE)
+PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4QA, scale= TRUE)
+l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4F, scale= TRUE)
 
 #Extract the first PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4QA$Barcode, MEP = l4QA$MEP)
+l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
 
 #Plot the heat map of the entire dataset
 activeMEPs <- ubHeatmap(l4pcvDT, title = "MEP PCA Vectors", cols = plateCol, activeThresh = 0 )
@@ -349,28 +239,28 @@ var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
 barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main  = paste("PCA Scree Plot for",cellLine,ss))
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4QA$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4F$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4QA$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Total MitoTracker")+
   theme(legend.text=element_text(size = 6))+
@@ -378,7 +268,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cytoplasm
 print(p)
 
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4QA$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Perimeter ProportionStatus")+
   theme(legend.text=element_text(size = 6))+
@@ -551,7 +441,7 @@ for (barcode in barcodes){
 
 \newpage
 
-```{r SCCFBS_response}
+```{r SCCFBS_response, eval = TRUE}
 
 p <- ggplot(l3[l3$Ligand == "FBS"], aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nSpot Cell Count in High Serum Wells"))+
@@ -589,18 +479,7 @@ Cell Cycle plots include univariate plots of the total DAPI signal.
 
 ```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 
-for (barcode in barcodes){
-  mDT <- l1[l1$Barcode == barcode]
-  mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
-  p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_bar(binwidth = 2)+
-    facet_wrap(~Ligand, nrow=2, scales="free_x")+
-    geom_vline(aes(xintercept = min(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==2])))+
-    #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
-    ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
-    ylab("Count")+xlab("Total Intensity DAPI")+
-    theme(strip.text = element_text(size = 5))
-  suppressWarnings(print(p))
-}
+plotTotalDAPI(l1, barcodes)
 
 if (ss == "SS1"){
   
