@@ -246,12 +246,17 @@ The unbiased approach is:
   Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
   Perform hierarchical clustering on the MEPs 
   
-The following heatmap shows the  MEPs based on the entire normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
-  
+The following heatmap shows the normalized MEP responses based on the curated feature vector normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.  
+
 ```{r, fig.height=16}
 
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
 fvDT <- filterl4(l4, lowQALigands)
+
+#Shorten the feature names
+setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_RZSNorm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
+#Remove when not needed
+if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
 
 ```
 The next heatmap shows the  analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
@@ -268,11 +273,8 @@ activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "MEP Feature Vect
 The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
 
 The unbiased PCA analysis method is:
-
-  Summarize the cell level to the median spot level, then combine replicates to get to the MEP level  
-  Normalize the feature values by dividing them by their control's value
-  Use PCA to transform the entire feature set to a much smaller number of principal components (PCFV)
-  Calculate the euclidean distance of each MEP's PCFV to the high serum control PCFV 
+  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)
+  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV 
   Exclude inactive MEPs by selecting for distances above a selected percentile  
   Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs 
   
@@ -459,7 +461,7 @@ suppressWarnings(print(p))
 
 ```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5}
 
-p <- ggplot(l4F, aes(x = ECMp, y=Spot_PA_ReplicateCount))+
+p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = ECMp, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
   ggtitle(" \n\nCount of MEP Replicates by ECM Protein")+
   xlab("")+ylab("Replicate Count")+
@@ -467,7 +469,7 @@ p <- ggplot(l4F, aes(x = ECMp, y=Spot_PA_ReplicateCount))+
 
 print(p)
 
-p <- ggplot(l4F, aes(x = Ligand, y=Spot_PA_ReplicateCount))+
+p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = Ligand, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
   ggtitle(" \n\nCount of MEP Replicates by Ligand")+
   xlab("")+ylab("Replicate Count")+
@@ -484,7 +486,27 @@ The pseudoimages of each well's raw signals are shown in the plots below. Wells 
 
 ```{r Pseudoimages_all_stains, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
 
-plotSCCHeatmapsQAHistograms(l3, barcodes)
+
+for (barcode in barcodes){
+  DT <-l3[l3$Barcode==barcode,]
+  #Remove the fiducial entries
+  setkey(DT,ECMp)
+  DT <- DT[!"fiducial"]
+  DT <- DT[!"blank"]
+  
+  p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
+  suppressWarnings(print(p))
+  
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
+  suppressWarnings(print(p))
+  
+    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
+  suppressWarnings(print(p))
+  
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
+  suppressWarnings(print(p))
+  
+}
 
 ```
 
@@ -514,12 +536,14 @@ kable(l4F[l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=2|
 \newpage
 
 ###Active MEPS from Unbiased Analysis
-The table below shows the active MEPs and their euclidean distance from the feature vector of the control wells (High serum wells).
+The table below shows the first and last active MEPs and their PC values.
 
 ```{r ActiveMeps, echo = FALSE}
-kable(activeMEPs, digits = 2)
+kable(head(activeMEPs, n=20), digits = 2)
+kable(tail(activeMEPs, n=20), digits = 2)
 
 ```
+
 
 \newpage
 

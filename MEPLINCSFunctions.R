@@ -90,11 +90,7 @@ ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
   hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP|Barcode", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median, na.rm = TRUE))),MEP="FBS", Barcode = NA, stringsAsFactors = FALSE)
   #Replace all FBS rows with one row of medians as the last row
   DT<- rbind(DT[!grepl("FBS", DT$MEP)],hsMedians)
-#   
-#   #Normalize the feature vectors to the medians
-#   #to equally weight all features
-#   fvDTNorm <- rbindlist(apply(DT[,grep("MEP|Barcode",colnames(DT),invert=TRUE), with=FALSE], 1, scaleToMedians, normBase = hsMedians[,grep("MEP|Barcode",colnames(hsMedians),invert=TRUE)]))
-  
+
   #Calculate the dist matrix with euclidean method
   dmm <- as.matrix(dist(DT[,grep("MEP|Barcode",colnames(DT),invert=TRUE), with=FALSE]), labels=TRUE)
   #Extract the distance to the high serum medians
@@ -103,7 +99,7 @@ ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
   names(distHS) <- DT$MEP
   
   #Select the most active by distance from the median control fv
-  dmmThresh <- quantile(distHS,probs = activeThresh)
+  dmmThresh <- quantile(distHS,probs = activeThresh, na.rm = TRUE)
   activeMEPs <- distHS[distHS>dmmThresh]
   #browser()
   #Create an active MEP subset matrix of the normalized data
@@ -112,13 +108,12 @@ ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
   activeFVM <- as.matrix(activeFV[,grep("MEP|Barcode",colnames(activeFV),invert=TRUE), with=FALSE])
   
   #This assignment of names retains the order after matrix coercion
-  rownames(activeFVM) <- names(activeMEPs)
+  rownames(activeFVM) <- activeFV$MEP
   
   #Cluster the active MEPs, scaling the inputs
-  #plot.new()
-  heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.9, key=FALSE, main = paste(title), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(2.0,5.0),
-            lwid=c(1.5,0.2,2.5,2.5),mar=c(20,5), RowSideColors=cols[activeFV$Barcode], colRow = cols[activeFV$Barcode])
-  
+  heatmap.2(activeFVM,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=.9, key=FALSE, main = paste(title), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(1,5.0), lwid=c(.5,0.2,2.5,1.5),
+            mar=c(25,1),
+            RowSideColors=cols[activeFV$Barcode], colRow = cols[activeFV$Barcode], na.rm = TRUE)
   return(activeFV)
 }
 
@@ -218,6 +213,7 @@ calc2NProportion <- function(x){
   #x numeric vector of cycle states with values of 1 for 2n and 2 for 4N
   #return proportion of cells in x that are in 2N
   if(!length(x)) stop("Calculating 2N/4N proportion on an empty group")
+  if(sum(grepl("[^12]",x)))stop("Invalid cycle state passed to calc2NProportion")
   if(sum(x==1)) {
     proportion2N <- sum(x==1)/length(x)
   } else proportion2N <- 0
@@ -296,8 +292,6 @@ filterl4 <- function(dt,lowQALigands){
               "Nuclei_PA_Cycle_2NProportion_RZSNorm$",
               "Nuclei_CP_Intensity_MedianIntensity_Edu_RZSNorm",
               "Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_RZSNorm",
-              "Cytoplasm_CP_Intensity_IntegratedIntensity_KRT19_RZSNorm",
-              "Cytoplasm_CP_Intensity_IntegratedIntensity_KRT5_RZSNorm",
               "Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm",
               "Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm",
               "Cytoplasm_PA_Intensity_LineageRatio_RZSNorm$",

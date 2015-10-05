@@ -16,7 +16,7 @@ library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
 
 #Select a staining set
-ss <- "SS3"
+ss <- "SS1"
 #Select a CellLine
 cellLine <- "PC3"
 #select analysis version
@@ -33,14 +33,14 @@ nuclearAreaThresh <- 50
 nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
-curatedOnly <- TRUE
+curatedOnly <- FALSE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Flag to control files updates
 writeFiles <- TRUE
 
 #Process a subset of the data to speed development
-limitBarcodes <- 1
+limitBarcodes <- 8
 
 #Do not normalized to Spot level
 normToSpot <- TRUE
@@ -247,7 +247,7 @@ cDT <- cDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_Integr
 cDT$Nuclei_PA_Cycle_State[cDT$Barcode=="LI8X00403" & cDT$Well=="A03" & cDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
 
 cDT <- cDT[,Nuclei_PA_Cycle_2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
-cDT$Nuclei_PA_Cycle_4NProportion <- cDT$Nuclei_PA_Cycle_2NProportion
+cDT$Nuclei_PA_Cycle_4NProportion <- 1-cDT$Nuclei_PA_Cycle_2NProportion
 
 #Add spot level normalizations for selected intensities
 if(normToSpot){

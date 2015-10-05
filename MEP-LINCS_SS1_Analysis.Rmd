@@ -136,21 +136,20 @@ if (ss == "SS3"){
 \newpage
 
 ##Filtering
-Wells with QA scores below `r wellQAThresh ` and the FBS control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))` ligands in the dataset. 
+Wells with QA scores below `r wellQAThresh ` and the FBS control wells are removed from further analysis of the dataset. After filtering on the well QA score there are `r length(unique(l4F$LigandAnnotID))-1` ligands in the dataset. 
 
-Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
+Each spot represents a MEP that is a pairwise combination of the ECM protein printed at the spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
 ##Normalization
-The raw data is normalized to the control well in each plate as follows:
+The raw data was normalized to the control well in each plate as follows:
 
 For each feature, the median and median absolute deviation (MAD) of each plate's control well were calculated.
 Feature values for all cells in a plate were normalized by subtracting the plate's control well median and dividing by the plate's control well MAD*1.48.
 
 ##Spot Cell Count Analysis
-The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. The blue lines at +/- 2 show thresholds for selecting MEPs of interest. Below the distribtion plot are plots with Z scores stratified by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.
+The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. The blue lines at +/- 2 show thresholds for selecting MEPs of interest. Below the distribution plot are plots with Z scores stratified by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.
 
 ```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
-
 
 plotSCCRobustZScores(l4F)
 ```
@@ -179,20 +178,25 @@ suppressWarnings(print(p))
 
 ##Unbiased Analysis
 
-The unbiased approach is:  
-  Normalize the cell level using the median and MAD of each plate's control well
+The unbiased analysis approach is:  
+  Normalize the cell level data using the median and MAD of each plate's control well
   Median summarize the normalized data to the spot level
   Median summarize the spot level data to the MEP level  
   Select a curated feature vector of MEP intensities and morphologies  
   Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
   Perform hierarchical clustering on the MEPs 
   
-The following heatmap shows the  MEPs based on the entire normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
+The following heatmap shows the normalized MEP responses based on the curated feature vector normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
   
 ```{r, fig.height=16}
 
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
 fvDT <- filterl4(l4, lowQALigands)
+
+#Shorten the feature names
+setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_RZSNorm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
+#Remove when not needed
+if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
 
 ```
 
@@ -201,7 +205,7 @@ The next heatmap shows the same analysis run on the dataset after removing NID1 
 ```{r, fig.height=16, eval = TRUE}
 
 #Plot the heat map without NID1 in the dataset
-activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
+activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
 
 ```
 
@@ -391,7 +395,7 @@ suppressWarnings(print(p))
 
 ```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5}
 
-p <- ggplot(l4F, aes(x = ECMp, y=Spot_PA_ReplicateCount))+
+p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = ECMp, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
   ggtitle(" \n\nCount of MEP Replicates by ECM Protein")+
   xlab("")+ylab("Replicate Count")+
@@ -399,7 +403,7 @@ p <- ggplot(l4F, aes(x = ECMp, y=Spot_PA_ReplicateCount))+
 
 print(p)
 
-p <- ggplot(l4F, aes(x = Ligand, y=Spot_PA_ReplicateCount))+
+p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = Ligand, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
   ggtitle(" \n\nCount of MEP Replicates by Ligand")+
   xlab("")+ylab("Replicate Count")+
@@ -416,6 +420,7 @@ The pseudoimages of each well's raw signals are shown in the plots below. Wells 
 
 ```{r Pseudoimages_all_stains, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
 
+
 for (barcode in barcodes){
   DT <-l3[l3$Barcode==barcode,]
   #Remove the fiducial entries
@@ -426,13 +431,13 @@ for (barcode in barcodes){
   p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
-  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker", prDisplay = unique(DT$Endpoint488))
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
   suppressWarnings(print(p))
   
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin",prDisplay = unique(DT$Endpoint555))
+    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
   suppressWarnings(print(p))
   
-  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
   suppressWarnings(print(p))
   
 }
@@ -465,10 +470,11 @@ kable(l4F[l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=2|
 \newpage
 
 ###Active MEPS from Unbiased Analysis
-The table below shows the active MEPs and their euclidean distance from the feature vector of the control wells (High serum wells).
+The table below shows the first and last active MEPs and their PC values.
 
 ```{r ActiveMeps, echo = FALSE}
-kable(activeMEPs, digits = 2)
+kable(head(activeMEPs, n=20), digits = 2)
+kable(tail(activeMEPs, n=20), digits = 2)
 
 ```
 

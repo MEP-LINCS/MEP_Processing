@@ -181,13 +181,14 @@ suppressWarnings(print(p))
 The proliferation analysis methods is as follows:  
 First, the cells within each well are gated into Edu+  
 The proportion of EdU+ cells at each spot is calculated
-The proportions are normalized by dividing by the proportion of cells that are Edu+ in the plate's control well  
+The proportions are normalized by subtracting the median by the proportion of cells that are Edu+ in the plate's control well and then divding by the MAD of the plate's control well Edu+ proportion 
 The normalized proportions are then summarized by the medians of their replicates.  
 Plots show the distributions of the non-zero proportions and the proportions sumarized by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.
 
 ```{r Proliferation, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
+#TODO:Analyze why there is a peak around -.7
 
-p <- ggplot(l4F[!l4F$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm==0], aes(x=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_bar(binwidth = .01)+
+p <- ggplot(l4F, aes(x=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_bar(binwidth = .01)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Proliferation Proportion Distribution"))+
   ylab("Count")+xlab("Proliferation Proportion")+
@@ -227,18 +228,24 @@ The unbiased approach is:
   Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
   Perform hierarchical clustering on the MEPs 
   
-The following heatmap shows the  MEPs based on the entire normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
-  
+The following heatmap shows the normalized MEP responses based on the curated feature vector normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.  
+
 ```{r, fig.height=16}
 
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
 fvDT <- filterl4(l4, lowQALigands)
 
+#Shorten the feature names
+setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_RZSNorm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
+#Remove when not needed
+if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
+
 ```
 
-The next heatmap shows the  analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
   
-```{r, fig.height=16}
+```{r, fig.height=16, eval = TRUE}
+#TODO: Troubleshoot bug in DNA proportion calculation
+fvDT <- fvDT[,DNA2NProportion := NULL]
 
 #Plot the heat map without NID1 in the dataset
 activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
@@ -250,11 +257,8 @@ activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "MEP Feature Vect
 The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
 
 The unbiased PCA analysis method is:
-
-  Summarize the cell level to the median spot level, then combine replicates to get to the MEP level  
-  Normalize the feature values by dividing them by their control's value
-  Use PCA to transform the entire feature set to a much smaller number of principal components (PCFV)
-  Calculate the euclidean distance of each MEP's PCFV to the high serum control PCFV 
+  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)
+  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV 
   Exclude inactive MEPs by selecting for distances above a selected percentile  
   Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs 
   
@@ -434,7 +438,7 @@ suppressWarnings(print(p))
 
 ```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5}
 
-p <- ggplot(l4F, aes(x = ECMp, y=Spot_PA_ReplicateCount))+
+p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = ECMp, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
   ggtitle(" \n\nCount of MEP Replicates by ECM Protein")+
   xlab("")+ylab("Replicate Count")+
@@ -442,7 +446,7 @@ p <- ggplot(l4F, aes(x = ECMp, y=Spot_PA_ReplicateCount))+
 
 print(p)
 
-p <- ggplot(l4F, aes(x = Ligand, y=Spot_PA_ReplicateCount))+
+p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = Ligand, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
   ggtitle(" \n\nCount of MEP Replicates by Ligand")+
   xlab("")+ylab("Replicate Count")+
@@ -508,10 +512,11 @@ kable(l4F[l4F$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=2|
 \newpage
 
 ###Active MEPS from Unbiased Analysis
-The table below shows the active MEPs and their euclidean distance from the feature vector of the control wells (High serum wells).
+The table below shows the first and last active MEPs and their PC values.
 
 ```{r ActiveMeps, echo = FALSE}
-kable(activeMEPs, digits = 2)
+kable(head(activeMEPs, n=20), digits = 2)
+kable(tail(activeMEPs, n=20), digits = 2)
 
 ```
 
@@ -528,7 +533,16 @@ if (ss == "SS1"){
   
   
 } else if (ss == "SS2"){
-  
+  for (barcode in barcodes){
+    mDT <- l1[l1$Barcode == barcode] 
+    mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
+    
+    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour = Nuclei_PA_Gated_EduPositive))+geom_point(size = rel(.6), alpha = .8)+facet_wrap(~Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","Edu vs. Total DAPI Signal,",barcode))+ylab("Edu (log2)")+xlab("Total Intensity DAPI")+
+      theme(strip.text = element_text(size = 5))
+    
+    suppressWarnings(print(p))
+    
+  }
 } 
 ```
 
