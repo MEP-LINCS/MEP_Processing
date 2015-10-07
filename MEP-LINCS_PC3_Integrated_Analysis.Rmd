@@ -45,93 +45,13 @@ ligandTypeCols = selDark2(28)
 selReds <- colorRampPalette(brewer.pal(9,"Reds"))
 redsPal <- selReds(10)
 
-combineSSs <- function(SSs){
-  #browser()
-  l4List <- lapply(SSs, function(ss){
-    l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
-    setkey(l4,"ECMp")
-    l4 <- l4[!"fiducial"]
-    l4 <- l4[!"blank"]
-    l4$SS <- ss
-    return(l4)
-  })
-  
-  l4SS1 <- l4List[[1]]
-  l4SS2 <- l4List[[2]]
-  l4SS3 <- l4List[[3]]
-  
-  setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
-  
-  #Bind the data
-  DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
-}
-
-
-integrateSSs <- function(SSs, cellLine = "PC3"){
-  #browser()
-  l4List <- lapply(SSs, function(ss){
-    l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
-    setkey(l4,"ECMp")
-    l4 <- l4[!"fiducial"]
-    l4 <- l4[!"blank"]
-    setkey(l4, "MEP")
-    l4$SS <- ss
-    return(l4)
-  })
-  
-  l4SS1 <- l4List[[1]]
-  l4SS2 <- l4List[[2]]
-  l4SS3 <- l4List[[3]]
-  
-  setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
-  
-  #Bind the data using the common MEPs
-  DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
-  
-  #Median summarize the FBS rows
-  setkey(DT,"MEP")
-  DTFBS <- DT[grepl("FBS", DT$MEP)]
-  #Get the medians of each numeric parameter
-  parms <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("numeric","integer")]
-  FBSMedians <- data.frame(t(as.matrix(apply(DTFBS[, parms,with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
-  
-  #Merge the metadata back in with the data
-  metadata <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("character")]
-  FBSMetadata <- DTFBS[, metadata, with = FALSE]
-  FBSMetadata$MEP <- "FBS"
-  FBSMetadata$MEP.1 <- "FBS"
-  FBSMetadata$MEP.2 <- "FBS"
-  FBSMetadata$ECMp <- NA
-  FBSMetadata$ECMp.1 <- NA
-  FBSMetadata$ECMp.2 <- NA
-  FBSMetadata$ECMpAnnotID <- NA
-  FBSMetadata$ECMpAnnotID.1 <- NA
-  FBSMetadata$ECMpAnnotID.2 <- NA
-  FBSMetadata$Well <- NA
-  FBSMetadata$Well.1 <- NA
-  FBSMetadata$Well.2 <- NA
-  FBSMetadata$Barcode <- NA
-  FBSMetadata$Barcode.1 <- NA
-  FBSMetadata$Barcode.2 <- NA
-  
-  FBSMetadata <- unique(FBSMetadata)
-  
-  FBSMisOrdered <- cbind(FBSMetadata[,MEP:=NULL],FBSMedians)
-  
-  #Replace all FBS rows with one row of medians as the last row
-  DT1FBS<- rbind(DT[!grepl("FBS", DT$MEP)],FBSMisOrdered,use.names=TRUE)
-  
-}
-
 ```
 
 
 ###Biological Feature Heat Maps
-The following heat maps show PC3 cellline responses to MEPs across the staining sets. MEPs are across the rows, the image-derived features are in the columns. All values are normalized to the FBS control wells in their plates and median summarized across their ~15 replicates. Each MEP's set of normalized, summarized responses are curated to biologically relevent feature sets (full and reduced). These feature set vectors are clustered based on similarity. In the first two heat maps, the color scaling in each column is independent of the other columns.  
+The following heat maps show PC3 cellline responses to MEPs across the staining sets. MEPs are across the rows, the image-derived features are in the columns. All values are normalized to the FBS control wells in their plates and median summarized across their ~15 replicates.  
+
+Each MEP's set of normalized, summarized responses are curated to biologically relevent feature sets. These feature set vectors are clustered based on similarity.  
 
 
 ```{r, fig.height=16, eval=TRUE}
@@ -159,55 +79,29 @@ fullBio <- DT[,grep("RZSNorm|MEP|Ligand|ECMp",colnames(DT), value=TRUE), with = 
 #TODO: Take medians of parameters that are common across staining sets
 #such as SpotCellCount, Area, perimeter, DNA4n
 #Reduce to biologically likely relevant
-fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT|_SE", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
+fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT|_SE|Euler", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 #Reduce to biologically minimal choice
 fullBio <- fullBio[,grep("Actin|Integrated|Dapi", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 
 # Minimize column names
 fullBio <- setnames(fullBio,colnames(fullBio),gsub("_RZSNorm|.*_CP_|.*_PA_|Intensity_|AreaShape_|Cycle_|Gated_","",colnames(fullBio)))
 
-m <- as.matrix(fullBio[,grep("Ligand|ECMp|MEP",x = colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE])
-rownames(m) <- fullBio$MEP
-
-# #Plot full bio heatmap
-# heatmap.2(m,scale="column", col = bluered, trace = "none", cexRow=.5, cexCol=1.5,
-#           key=TRUE, keysize = .5, key.title = NA, key.xlab = NA, key.ylab = NA, main = paste("All Biological Features"), lmat=rbind(c(5,0,4,0),c(3,1,2,0)), lhei=c(1.0,5.0), lwid=c(1.5,0.2,2.5,2.5), mar=c(20,5), RowSideColors=ligandTypeCols[fullBio$LigandType], colRow = ligandTypeCols[fullBio$LigandType])
-
 #Remove redundant features
 reducedBio <- fullBio[,grep("Perimeter|4N|KRT|SpotCellCount|MedianEdu|H3", colnames(fullBio),value=TRUE, invert = TRUE),with=FALSE]
 
-m <- as.matrix(reducedBio[,grep("Ligand|ECMp|MEP",x = colnames(reducedBio), value = TRUE, invert = TRUE), with = FALSE])
-rownames(m) <- reducedBio$MEP
+mreduced <- as.matrix(reducedBio[,grep("Ligand|ECMp|MEP",x = colnames(reducedBio), value = TRUE, invert = TRUE), with = FALSE])
+rownames(mreduced) <- reducedBio$MEP
 
-ms <- scale(m)
+ms <- scale(mreduced)
 #pdf("tmp")
-full <- heatmap.2(ms, col = bluered, scale = "none", trace = "none", cexRow=.5, cexCol=1.5, cex.main=.5, key=TRUE, keysize = 1.5, key.title = NA, key.ylab = NA, density.info="none", 
+full <- heatmap.2(ms, col = bluered, scale = "none", trace = "none", cexRow=.5, cexCol=1, cex.main=.5, key=TRUE, keysize = 1.5, key.title = NA, key.ylab = NA, density.info="none", 
           main = paste("PC3 Biological Features"), lhei=c(1.5,10.0), lwid=c(.2,1.5),mar=c(15,5))
 
 ```
 
-The next series of plots isolates row clusters from the main heat map above. At each branch point, the lower branch has an index of 1 and the upper branch has an index of 2. The next plot isolates the 2,2 cluster from the main heat map.  
-
-```{r, fig.height=10, fig.width=14, eval=TRUE}
+```{r, fig.height=10, fig.width=14, eval=FALSE}
 
 heatmap.2(ms, Rowv=full$rowDendrogram[[2]][[2]], breaks = full$breaks, col = bluered, trace = "none", cexRow=1, cexCol=1.5, cex.main=.5, key=TRUE, keysize = .1, key.title = NA, key.ylab = NA, density.info="none", 
-          main = paste("PC3 Biological Features"), lhei=c(.8,5.0), lwid=c(.1,1.5),mar=c(14,9))  
-
-#dev.off()
-```
-
-The next plot isolates the 1,2 cluster from the heat map above. The colors are rescaled within each column to this subset of the data.  
-
-```{r, fig.height=10, fig.width=14, eval=TRUE}
-heatmap.2(ms, Rowv=full$rowDendrogram[[2]][[2]][[1]][[2]], breaks = full$breaks,col = bluered, trace = "none", cexRow=1, cexCol=1.5, cex.main=.5, key=TRUE, keysize = .1, key.title = NA, key.ylab = NA, density.info="none", 
-          main = paste("PC3 Biological Features"), lhei=c(.8,5.0), lwid=c(.1,1.5),mar=c(14,9))  
-
-#dev.off()
-```
-
-The final heat map isolates the 2,2 branch from the heat map above. The colors are rescaled within each column to this subset of the data
-```{r, fig.height=10, fig.width=14, eval=TRUE}
-heatmap.2(ms, Rowv=full$rowDendrogram[[2]][[2]][[1]][[2]][[2]][[2]], breaks = full$breaks, col = bluered, trace = "none", cexRow=1, cexCol=1.5, cex.main=.5, key=TRUE, keysize = .1, key.title = NA, key.ylab = NA, density.info="none", 
           main = paste("PC3 Biological Features"), lhei=c(.8,5.0), lwid=c(.1,1.5),mar=c(14,9))  
 
 #dev.off()
@@ -218,7 +112,7 @@ heatmap.2(ms, Rowv=full$rowDendrogram[[2]][[2]][[1]][[2]][[2]][[2]], breaks = fu
 Method   
 Combine all normalized and summarized intensity, morphology and spot values from all MEPS in the three staining sets  
 Median summarize the control (FBS) responses on a per feature basis  
-Compute the euclidean distance in feature space (215 dimensions) between each MEP and the control  
+Compute the euclidean distance in feature space  between each MEP and the control  
 
 
 ```{r MEPDistanceHeatMap, fig.height=10, fig.width=14,eval=FALSE}
@@ -245,13 +139,6 @@ names(distToFBS) <- PC3DT$MEP
 
 distDT <- data.table(Dist = distToFBS, MEP =PC3DT$MEP, ECMp = PC3DT$ECMp, Ligand = PC3DT$Ligand)
 
-# p <- ggplot(distDT[!distDT$MEP=="FBS"], aes(x = ECMp, y = Ligand)) + geom_tile(aes(fill = Dist), colour = "white") +
-#   scale_fill_gradient(low = "white", high = "red")+
-#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))+
-#   #scale_y_reverse()+
-#   xlab("")+ylab("")+
-#   ggtitle("Distance From Control")
-# print(p)
 
 #Need to remove FBS row to make into a rectangulat matrix
 dFBS <- distToFBS[!names(distToFBS)=="FBS"]
@@ -261,11 +148,13 @@ distM <- matrix(dFBS,nrow=length(unique(PC3DT$Ligand)))
 setkey(PC3DT,ECMp)
 
 colnames(distM) <-  unique(PC3DT$ECMp[!is.na(PC3DT$ECMp)])
-rownames(distM) <- unique(PC3DT$Ligand[!PC3DT$Ligand == "FBS"])
+rownames(distM) <- unique(PC3DT$LigandAnnotID[!PC3DT$Ligand == "FBS"])
 #Plot full bio heatmap
-distBreaks <- seq(3.5,6,.1)
+#distBreaks <- seq(3.5,6,.1)
+distBreaks <- seq(1500,12000,250)
 heatmap.2(distM,  col = selReds, breaks = distBreaks, trace = "none", cexRow=.8, cexCol=.8, cex.main=1, key=TRUE, keysize = .1, key.title = NA, key.ylab = NA, density.info="none", 
           main = paste("MEP Distance From Control"), lhei=c(.8,5.0), lwid=c(.1,1.5),mar=c(14,9)) 
+
 
 ```
 
@@ -275,36 +164,41 @@ The following plots ranks each MEP along the x axis by their lineage ratio and E
 
 ```{r, eval=TRUE}
 
-
+browser()
 #Get a datatable of the normalized values across the staining set
 SSs = c("SS1","SS2","SS3")
 PC3DT <- integrateSSs(SSs, cellLine = "PC3")
-PC3DT<- PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -2]
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_point(size = 3)+
+
+#Remove low cell count spots
+PC3DT <- PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -2]
+
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm-Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm+Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE), width=.001) +
 xlab("MEP")+ylab("Lineage Ratio")+
+   geom_point(colour = "blue",size = 3)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-   ggtitle("MEPs Ordered by Keratin Lineage Ratio")
-
+   ggtitle("MEPs Ordered by Keratin Lineage Ratio with SE Bars")
 print(p)
 
-PC3DTExtremes <- PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -2]
+PC3DTLRExtremes <- PC3DT[PC3DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm > quantile(PC3DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,.99) | PC3DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm < quantile(PC3DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,.01)]
 
-PC3DTExtremes <- PC3DTExtremes[PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm > quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,.995) | PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm < quantile(PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,.005)]
+setkey(PC3DTLRExtremes,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)
 
-setkey(PC3DTExtremes,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)
+kable(data.frame(PC3DTLRExtremes$MEP,PC3DTLRExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, PC3DTLRExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE), col.names = c("MEP","Keratin Lineage Ratio", "Standard Error"), digits = 2, align = c("l"))
 
-kable(data.frame(PC3DTExtremes$MEP,PC3DTExtremes$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), col.names = c("MEP","Keratin Lineage Ratio"), digits = 2, align = c("l"))
-
-#unique(PC3DTExtremes[PC3DTExtremes$MEP=="DSG2_LYVE1",list(Barcode,Well,ArrayRow,ArrayColumn)])
-
-
-p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_point(size = 3)+
+p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm-Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE, ymax=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm+Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE), width=.01) +
 xlab("MEP")+ylab("Normalized EdU Positive Proportion")+
+    geom_point(colour = "red", size = 3)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by EdU Positive Proportion")
+  ggtitle("MEPs Ordered by EdU Positive Proportion with SE Bars")
 print(p)
 
-kable(data.frame(PC3DT$MEP[PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm > -1.5], PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm[PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm > -1.5]), col.names = c("MEP","Edu Positive Proportion"), digits = 2, align = c("l"))
+PC3DTEPPExtremes <- PC3DT[PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm > quantile(PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm,.99) | PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm < quantile(PC3DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm,.01)]
+
+setkey(PC3DTEPPExtremes,Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)
+
+kable(data.frame(PC3DTEPPExtremes$MEP,PC3DTEPPExtremes$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm,PC3DTEPPExtremes$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE), col.names = c("MEP","EdU Positive Proportion", "Standard Error"), digits = 2, align = c("l"))
 
 p <- ggplot(PC3DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_point()+
 xlab("Rank Ordered EdU Positive Proportion")+ylab("Keratin Lineage Ratio")+
@@ -314,7 +208,7 @@ print(p)
 
 
 p <- ggplot(PC3DT[PC3DT$Spot_PA_SpotCellCount_RZSNorm > -1.8], aes(x =Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_point()+
-xlab("EdU Positive Proportion")+ylab("Keratin Lineage Ratio")+
+xlab("Normalized EdU Positive Proportion")+ylab("Normalized Keratin Lineage Ratio")+
   theme( panel.grid.major = element_blank())+
   ggtitle("Keratin Lineage vs. EdU Positive Proportion\nFiltered for Spot Cell Count")
 

@@ -16,7 +16,7 @@ library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
 
 #Select a staining set
-ss <- "SS1"
+ss <- "SS3"
 #Select a CellLine
 cellLine <- "PC3"
 #select analysis version
@@ -33,7 +33,7 @@ nuclearAreaThresh <- 50
 nuclearAreaHiThresh <- 4000
 
 #Only process a curated set of the data
-curatedOnly <- FALSE
+curatedOnly <- TRUE
 curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
 
 #Flag to control files updates
@@ -50,7 +50,7 @@ normToSpot <- TRUE
 
 #Set a threshold for the lowSpotCellCount flag
 lowSpotCellCountThreshold <- 5
- 
+
 #Set a threshold for the lowRegionCellCount flag
 lowRegionCellCountThreshold <- .4
 
@@ -101,9 +101,9 @@ splits <- strsplit2(strsplit2(cellDataFiles,split = "_")[,1],"/")
 
 if(limitBarcodes) {
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes] 
-  } else barcodes <- unique(splits[,ncol(splits)])
+} else barcodes <- unique(splits[,ncol(splits)])
 
-expDTList <- mclapply(barcodes, function(barcode){
+expDTList <- lapply(barcodes, function(barcode){
   #browser()
   plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
   wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
@@ -186,7 +186,7 @@ expDTList <- mclapply(barcodes, function(barcode){
   pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
   
   return(pcDT)
-}, mc.cores = 4)
+})
 
 cDT <- rbindlist(expDTList, fill = TRUE)
 #TODO delete unwanted columns here such as Euler Number
@@ -372,8 +372,10 @@ cDT$QA_LowRegionCellCount <- cDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
 slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
 
 #Flag wells below automatically calculated QA threshold
-slDT$QA_LowWellQA <- slDT$QAScore < lowWellQAThreshold
-cDT$QA_LowWellQA <- cDT$QAScore < lowWellQAThreshold
+slDT$QA_LowWellQA <- FALSE
+slDT$QA_LowWellQA[slDT$QAScore < lowWellQAThreshold] <- TRUE
+cDT$QA_LowWellQA <- FALSE
+cDT$QA_LowWellQA[cDT$QAScore < lowWellQAThreshold] <- TRUE
 
 #Level 4
 mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
@@ -391,7 +393,7 @@ if(writeFiles){
   #Paste back in the QA and selected raw data
   
   level2Names <- c(metadataNormNames,
-                       grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Firbillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
+                   grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Firbillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
   
   #Write out cDT with normalized values as level 2 dataset
   write.table(format(cDT[,level2Names, with = FALSE], digits=4), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)

@@ -180,8 +180,18 @@ lm_eqn <- function(df){
 
 simplifyLigandAnnotID <- function(ligand,annotIDs){
   if(length(annotIDs)){
-  splits <- strsplit2(annotIDs, split = "_")
-  ligands <- paste(ligand,splits[,ncol(splits)], sep = "_")
+    splits <- strsplit2(annotIDs, split = "_")
+    #Find the last non-empty substring
+    us <- apply(splits,1,function(x){
+      if(x[length(x)]==""){
+        if (length(x)< 2) stop("There are not enough substrings in a ligandANnotID")
+        u <- x[length(x)-1]
+      } else{
+        u <- x[length(x)]
+      }
+      return(u)
+    })
+    ligands <- paste(ligand,us, sep = "_")
   } else ligands <- annotIDs
   return(ligands)
 }
@@ -315,3 +325,87 @@ plotSCCRobustZScores <- function(dt){
   suppressWarnings(print(p))
   
 }
+
+
+combineSSs <- function(SSs){
+  #browser()
+  l4List <- lapply(SSs, function(ss){
+    l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
+    setkey(l4,"ECMp")
+    l4 <- l4[!"fiducial"]
+    l4 <- l4[!"blank"]
+    l4$SS <- ss
+    return(l4)
+  })
+  
+  l4SS1 <- l4List[[1]]
+  l4SS2 <- l4List[[2]]
+  l4SS3 <- l4List[[3]]
+  
+  setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
+  setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
+  setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
+  
+  #Bind the data
+  DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
+}
+
+
+integrateSSs <- function(SSs, cellLine = "PC3"){
+  #browser()
+  l4List <- lapply(SSs, function(ss){
+    l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
+    setkey(l4,"ECMp")
+    l4 <- l4[!"fiducial"]
+    l4 <- l4[!"blank"]
+    setkey(l4, "MEP")
+    l4$SS <- ss
+    return(l4)
+  })
+  
+  l4SS1 <- l4List[[1]]
+  l4SS2 <- l4List[[2]]
+  l4SS3 <- l4List[[3]]
+  
+  setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
+  setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
+  setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
+  
+  #Bind the data using the common MEPs
+  DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
+  
+  #Median summarize the FBS rows
+  setkey(DT,"MEP")
+  DTFBS <- DT[grepl("FBS", DT$MEP)]
+  #Get the medians of each numeric parameter
+  parms <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("numeric","integer")]
+  FBSMedians <- data.frame(t(as.matrix(apply(DTFBS[, parms,with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
+  
+  #Merge the metadata back in with the data
+  metadata <- colnames(DTFBS)[!unlist(lapply(DTFBS,class)) %in% c("numeric","integer")]
+  FBSMetadata <- DTFBS[, metadata, with = FALSE]
+  FBSMetadata$MEP <- "FBS"
+  FBSMetadata$MEP.1 <- "FBS"
+  FBSMetadata$MEP.2 <- "FBS"
+  FBSMetadata$ECMp <- NA
+  FBSMetadata$ECMp.1 <- NA
+  FBSMetadata$ECMp.2 <- NA
+  FBSMetadata$ECMpAnnotID <- NA
+  FBSMetadata$ECMpAnnotID.1 <- NA
+  FBSMetadata$ECMpAnnotID.2 <- NA
+  FBSMetadata$Well <- NA
+  FBSMetadata$Well.1 <- NA
+  FBSMetadata$Well.2 <- NA
+  FBSMetadata$Barcode <- NA
+  FBSMetadata$Barcode.1 <- NA
+  FBSMetadata$Barcode.2 <- NA
+  
+  FBSMetadata <- unique(FBSMetadata)
+  
+  FBSMisOrdered <- cbind(FBSMetadata[,MEP:=NULL],FBSMedians)
+  
+  #Replace all FBS rows with one row of medians as the last row
+  DT1FBS<- rbind(DT[!grepl("FBS", DT$MEP)],FBSMisOrdered,use.names=TRUE)
+  
+}
+

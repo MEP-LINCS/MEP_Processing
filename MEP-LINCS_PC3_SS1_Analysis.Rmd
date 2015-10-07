@@ -11,7 +11,7 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 ```{r }
 #Author: Mark Dane, copyright 2015
 
-source("MEPLINCSFunctions.R")
+source("../MEPLINCSFunctions.R")
 
 #Set the staining set to be analyzed (SS1|SS2|SS3)
 ss <- "SS1"
@@ -37,8 +37,9 @@ plateCol = selDark2(8)
 
 l1 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 l2 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
-l3 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
+#l3 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
+l3 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
+l4 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
 
 #Work around issue in fread about logicals read as characters
 l1$Spot_PA_Perimeter <- as.logical(gsub(" ","",l1$Spot_PA_Perimeter))
@@ -55,6 +56,9 @@ lthresh <- 0.6
 
 #Number of PCS components to use
 nrPCs <- 9
+
+#Z score threshold for extreme spot cell count
+SCCZscoreThresh <- 2
 
 ```
 ---
@@ -97,6 +101,7 @@ plotSCCHeatmapsQAHistograms(l3, barcodes)
 ```{r Filtering, echo=FALSE}
 
 #Remove failed QA wells
+setkey(l3, QA_LowWellQA)
 l3F <- l3[!l3$QA_LowWellQA]
 
 #Remove the fiducial and blank data
@@ -202,7 +207,7 @@ if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NPropor
 
 The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
   
-```{r, fig.height=16, eval = TRUE}
+```{r, fig.height=16, eval = FALSE}
 
 #Plot the heat map without NID1 in the dataset
 activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
@@ -214,10 +219,10 @@ activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP F
 The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
 
 The unbiased PCA analysis method is:
-  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)
-  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV 
+  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)  
+  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV   
   Exclude inactive MEPs by selecting for distances above a selected percentile  
-  Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs 
+  Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs   
   
 
 ```{r, fig.height=12}
@@ -459,6 +464,7 @@ suppressWarnings(print(p))
 \newpage
 
 ###Extreme Spot Cell Count MEPs
+The table below lists the MEPs with Z scores greater than `r SCCZscoreThresh` or less than -`r SCCZscoreThresh`.
 
 ```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 
@@ -481,7 +487,7 @@ kable(tail(activeMEPs, n=20), digits = 2)
 \newpage
 
 ##Cell Cycle Plots
-Cell Cycle plots include univariate plots of the total DAPI signal.
+Cell Cycle plots include univariate plots of the total DAPI signal. The blue vertical line shows the auto-gate for classifying 2N and 4N populations.
 
 ```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 
@@ -493,5 +499,39 @@ if (ss == "SS1"){
 } else if (ss == "SS2"){
   
 } 
+```
+
+
+\newpage
+
+##Spot Position
+Plots of the mean local X (Y) coordinate per spot vs array row.
+```{r, eval = FALSE}
+
+l1 <- l1[,meanX := mean(Nuclei_CP_AreaShape_Center_X, na.rm = TRUE), by="Barcode,Well,Spot"]
+
+l1 <- l1[,meanY := mean(Nuclei_CP_AreaShape_Center_Y, na.rm = TRUE), by="Barcode,Well,Spot"]
+
+```
+
+```{r SpotPositionplots,echo=FALSE, fig.width=8, fig.height=5, eval=FALSE}
+for (barcode in barcodes){
+  DT <- l1[l1$Barcode == barcode]
+p <- ggplot(DT, aes(x = ArrayRow, y = meanX))+ geom_point()+
+  stat_smooth(method = "loess", span = .4)+
+  facet_wrap(~Well)+
+  ggtitle(barcode)
+print(p)
+}
+
+for (barcode in barcodes){
+  DT <- l1[l1$Barcode == barcode]
+p <- ggplot(DT, aes(x = ArrayRow, y = meanY))+ geom_point()+
+  stat_smooth(method = "loess", span = .4)+
+  facet_wrap(~Well)+
+  ggtitle(barcode)
+print(p)
+}
+
 ```
 

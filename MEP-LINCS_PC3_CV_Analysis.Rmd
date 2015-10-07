@@ -47,143 +47,143 @@ plateCol = selDark2(8)
 ligandTypeCols = selDark2(28)
 selReds <- colorRampPalette(brewer.pal(9,"Reds"))
 redsPal <- selReds(10)
-
-combineSSs <- function(SSs){
-  #browser()
-  l4List <- lapply(SSs, function(ss){
-    l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
-    setkey(l4,"ECMp")
-    l4 <- l4[!"fiducial"]
-    l4 <- l4[!"blank"]
-    l4$SS <- ss
-    return(l4)
-  })
-  
-  l4SS1 <- l4List[[1]]
-  l4SS2 <- l4List[[2]]
-  l4SS3 <- l4List[[3]]
-  
-  setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
-  
-  #Bind the data
-  DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
-}
-
-integrateSSs <- function(SSs, cellLine = "PC3"){
-  #browser()
-  l4List <- lapply(SSs, function(ss){
-    l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
-    setkey(l4,"ECMp")
-    l4 <- l4[!"fiducial"]
-    l4 <- l4[!"blank"]
-    setkey(l4, "MEP")
-    l4$SS <- ss
-    return(l4)
-  })
-  
-  l4SS1 <- l4List[[1]]
-  l4SS2 <- l4List[[2]]
-  l4SS3 <- l4List[[3]]
-  
-  setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
-  setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
-  
-  #Bind the data using the common MEPs
-  DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
-  
-  #Median summarize the FBS rows
-  setkey(DT,"MEP")
-  DTFBS <- DT[grepl("FBS", DT$MEP)]
-  #Get the medians of each numeric parameter
-  parms <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("numeric","integer")]
-  FBSMedians <- data.frame(t(as.matrix(apply(DTFBS[, parms,with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
-  
-  #Merge the metadata back in with the data
-  metadata <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("character")]
-  FBSMetadata <- DTFBS[, metadata, with = FALSE]
-  FBSMetadata$MEP <- "FBS"
-  FBSMetadata$MEP.1 <- "FBS"
-  FBSMetadata$MEP.2 <- "FBS"
-  FBSMetadata$ECMp <- NA
-  FBSMetadata$ECMp.1 <- NA
-  FBSMetadata$ECMp.2 <- NA
-  FBSMetadata$ECMpAnnotID <- NA
-  FBSMetadata$ECMpAnnotID.1 <- NA
-  FBSMetadata$ECMpAnnotID.2 <- NA
-  FBSMetadata$Well <- NA
-  FBSMetadata$Well.1 <- NA
-  FBSMetadata$Well.2 <- NA
-  FBSMetadata$Barcode <- NA
-  FBSMetadata$Barcode.1 <- NA
-  FBSMetadata$Barcode.2 <- NA
-  
-  FBSMetadata <- unique(FBSMetadata)
-  
-  FBSMisOrdered <- cbind(FBSMetadata[,MEP:=NULL],FBSMedians)
-  
-  #Replace all FBS rows with one row of medians as the last row
-  DT1FBS<- rbind(DT[!grepl("FBS", DT$MEP)],FBSMisOrdered,use.names=TRUE)
-  
-}
-
-integratel3SSs <- function(SSs, cellLine = "PC3"){
-  #browser()
-  l3List <- lapply(SSs, function(ss){
-    l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
-    setkey(l3,"ECMp")
-    l3 <- l3[!"fiducial"]
-    l3 <- l3[!"blank"]
-    setkey(l3, "MEP")
-    l3$SS <- ss
-    return(l3)
-  })
-  
-  l3SS1 <- l3List[[1]]
-  l3SS2 <- l3List[[2]]
-  l3SS3 <- l3List[[3]]
-  
-  setkey(l3SS1,"LigandAnnotID","ECMpAnnotID")
-  setkey(l3SS2,"LigandAnnotID","ECMpAnnotID")
-  setkey(l3SS3,"LigandAnnotID","ECMpAnnotID")
-  
-  #Bind the data using the common MEPs
-  DT <- data.table(l3SS1, l3SS2, l3SS3, check.names = TRUE)
-}
-
-
-integratel3SSsCommon <- function(SSs, cellLine = "PC3"){
-  #browser()
-  l3List <- lapply(SSs, function(ss){
-    l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
-    setkey(l3,"ECMp")
-    l3 <- l3[!"fiducial"]
-    l3 <- l3[!"blank"]
-    setkey(l3, "MEP")
-    l3$SS <- ss
-    return(l3)
-  })
-  
-  l3SS1 <- l3List[[1]]
-  l3SS2 <- l3List[[2]]
-  l3SS3 <- l3List[[3]]
-  
-  commonNames <- intersect(intersect(colnames(l3SS1),colnames(l3SS2)),colnames(l3SS3))
-  
-  setkey(l3SS1,"LigandAnnotID","ECMpAnnotID")
-  setkey(l3SS2,"LigandAnnotID","ECMpAnnotID")
-  setkey(l3SS3,"LigandAnnotID","ECMpAnnotID")
-  
-  
-  
-  #Bind the data using the common MEPs
-  DT <- rbind(l3SS1[,commonNames, with = FALSE],
-              l3SS2[,commonNames, with = FALSE],
-              l3SS3[,commonNames, with = FALSE])
-}
-
+# 
+# combineSSs <- function(SSs){
+#   #browser()
+#   l4List <- lapply(SSs, function(ss){
+#     l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
+#     setkey(l4,"ECMp")
+#     l4 <- l4[!"fiducial"]
+#     l4 <- l4[!"blank"]
+#     l4$SS <- ss
+#     return(l4)
+#   })
+#   
+#   l4SS1 <- l4List[[1]]
+#   l4SS2 <- l4List[[2]]
+#   l4SS3 <- l4List[[3]]
+#   
+#   setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
+#   
+#   #Bind the data
+#   DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
+# }
+# 
+# integrateSSs <- function(SSs, cellLine = "PC3"){
+#   #browser()
+#   l4List <- lapply(SSs, function(ss){
+#     l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
+#     setkey(l4,"ECMp")
+#     l4 <- l4[!"fiducial"]
+#     l4 <- l4[!"blank"]
+#     setkey(l4, "MEP")
+#     l4$SS <- ss
+#     return(l4)
+#   })
+#   
+#   l4SS1 <- l4List[[1]]
+#   l4SS2 <- l4List[[2]]
+#   l4SS3 <- l4List[[3]]
+#   
+#   setkey(l4SS1,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l4SS2,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l4SS3,"LigandAnnotID","ECMpAnnotID")
+#   
+#   #Bind the data using the common MEPs
+#   DT <- data.table(l4SS1, l4SS2, l4SS3, check.names = TRUE)
+#   
+#   #Median summarize the FBS rows
+#   setkey(DT,"MEP")
+#   DTFBS <- DT[grepl("FBS", DT$MEP)]
+#   #Get the medians of each numeric parameter
+#   parms <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("numeric","integer")]
+#   FBSMedians <- data.frame(t(as.matrix(apply(DTFBS[, parms,with=FALSE],2,median))),MEP="FBS", stringsAsFactors = FALSE)
+#   
+#   #Merge the metadata back in with the data
+#   metadata <- colnames(DTFBS)[unlist(lapply(DTFBS,class)) %in% c("character")]
+#   FBSMetadata <- DTFBS[, metadata, with = FALSE]
+#   FBSMetadata$MEP <- "FBS"
+#   FBSMetadata$MEP.1 <- "FBS"
+#   FBSMetadata$MEP.2 <- "FBS"
+#   FBSMetadata$ECMp <- NA
+#   FBSMetadata$ECMp.1 <- NA
+#   FBSMetadata$ECMp.2 <- NA
+#   FBSMetadata$ECMpAnnotID <- NA
+#   FBSMetadata$ECMpAnnotID.1 <- NA
+#   FBSMetadata$ECMpAnnotID.2 <- NA
+#   FBSMetadata$Well <- NA
+#   FBSMetadata$Well.1 <- NA
+#   FBSMetadata$Well.2 <- NA
+#   FBSMetadata$Barcode <- NA
+#   FBSMetadata$Barcode.1 <- NA
+#   FBSMetadata$Barcode.2 <- NA
+#   
+#   FBSMetadata <- unique(FBSMetadata)
+#   
+#   FBSMisOrdered <- cbind(FBSMetadata[,MEP:=NULL],FBSMedians)
+#   
+#   #Replace all FBS rows with one row of medians as the last row
+#   DT1FBS<- rbind(DT[!grepl("FBS", DT$MEP)],FBSMisOrdered,use.names=TRUE)
+#   
+# }
+# 
+# integratel3SSs <- function(SSs, cellLine = "PC3"){
+#   #browser()
+#   l3List <- lapply(SSs, function(ss){
+#     l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
+#     setkey(l3,"ECMp")
+#     l3 <- l3[!"fiducial"]
+#     l3 <- l3[!"blank"]
+#     setkey(l3, "MEP")
+#     l3$SS <- ss
+#     return(l3)
+#   })
+#   
+#   l3SS1 <- l3List[[1]]
+#   l3SS2 <- l3List[[2]]
+#   l3SS3 <- l3List[[3]]
+#   
+#   setkey(l3SS1,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l3SS2,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l3SS3,"LigandAnnotID","ECMpAnnotID")
+#   
+#   #Bind the data using the common MEPs
+#   DT <- data.table(l3SS1, l3SS2, l3SS3, check.names = TRUE)
+# }
+# 
+# 
+# integratel3SSsCommon <- function(SSs, cellLine = "PC3"){
+#   #browser()
+#   l3List <- lapply(SSs, function(ss){
+#     l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
+#     setkey(l3,"ECMp")
+#     l3 <- l3[!"fiducial"]
+#     l3 <- l3[!"blank"]
+#     setkey(l3, "MEP")
+#     l3$SS <- ss
+#     return(l3)
+#   })
+#   
+#   l3SS1 <- l3List[[1]]
+#   l3SS2 <- l3List[[2]]
+#   l3SS3 <- l3List[[3]]
+#   
+#   commonNames <- intersect(intersect(colnames(l3SS1),colnames(l3SS2)),colnames(l3SS3))
+#   
+#   setkey(l3SS1,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l3SS2,"LigandAnnotID","ECMpAnnotID")
+#   setkey(l3SS3,"LigandAnnotID","ECMpAnnotID")
+#   
+#   
+#   
+#   #Bind the data using the common MEPs
+#   DT <- rbind(l3SS1[,commonNames, with = FALSE],
+#               l3SS2[,commonNames, with = FALSE],
+#               l3SS3[,commonNames, with = FALSE])
+# }
+# 
 integrateSSCommon <- function(SSs, level, cellLine = "PC3"){
   #browser()
   lList <- lapply(SSs, function(ss){
