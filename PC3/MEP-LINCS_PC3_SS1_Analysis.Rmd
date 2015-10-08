@@ -94,6 +94,20 @@ The following plots are pseudoimages each MEMA's spot cell count and a histogram
 
 plotSCCHeatmapsQAHistograms(l3, barcodes)
 
+for (barcode in barcodes){
+  setkey(l3,"Barcode")
+  dt <- l3[barcode]
+  
+  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount))+
+    geom_histogram(binwidth = 1)+
+    xlim(0,40)+ylim(0,140)+
+    ggtitle(paste("\n\n Spot Cell Count in",unique(dt$CellLine), "cells in plate",unique(dt$Barcode)))+
+    xlab("Spot Cell Count")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
+    facet_wrap(~Well, ncol=4)
+  suppressWarnings(print(p))
+}
+
 ```
 
 
