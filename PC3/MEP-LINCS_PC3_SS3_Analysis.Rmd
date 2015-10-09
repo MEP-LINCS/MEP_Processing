@@ -411,7 +411,7 @@ print(p)
 
 p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "Total KRT19")+
+  labs(colour = "Lineage Ratio")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
@@ -452,7 +452,7 @@ kable(l4PCAModel$rotation[,1:nrPCs], digits = 2)
 ##MEMA Layout
 All MEMAs in the experiment are in separate wells and have the same design of 46 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
 
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6, eval=FALSE}
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6, eval=TRUE}
 
 #Select the A row wells and delete the blanks
 setkey(l1,Well)
@@ -475,7 +475,7 @@ print(p)
 ##Replicate Count
 The MEMAs have an average of 15 replicates with a range from 13 to 19.  
 
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=FALSE}
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=TRUE}
 #Remove the fiducial and blank entries
 setkey(DT,ECMp)
 DT <- DT[!"fiducial"]
@@ -506,7 +506,7 @@ A MEMA's QA score is derived from the loess model of the control-well-normalized
 Below are plots showing data from well B01 from plate LI8X00110 from LINCS staining set 2. The LSR spots are those to the left of the blue vertical line at the threshold value of `r lthresh ` in the histogram. 
 
 
-```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4, eval=FALSE}
+```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4, eval=TRUE}
 setkey(l3,Barcode,Well)
 DT <-l3[.(barcodes[1],"A01")]
 #Remove the fiducial entries
@@ -550,7 +550,7 @@ suppressWarnings(print(p))
 
 ##Replicates after filtering
 
-```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5, eval=FALSE}
+```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5, eval=TRUE}
 
 p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = ECMp, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
@@ -630,24 +630,3 @@ if (ss == "SS1"){
 } 
 ```
 
-
-```{r SpotPositionplots,echo=FALSE, fig.width=8, fig.height=5, eval=FALSE}
-for (barcode in barcodes){
-  DT <- l1[l1$Barcode == barcode]
-p <- ggplot(DT, aes(x = ArrayRow, y = meanX))+ geom_point()+
-  stat_smooth(method = "loess", span = .4)+
-  facet_wrap(~Well)+
-  ggtitle(barcode)
-print(p)
-}
-
-for (barcode in barcodes){
-  DT <- l1[l1$Barcode == barcode]
-p <- ggplot(DT, aes(x = ArrayRow, y = meanY))+ geom_point()+
-  stat_smooth(method = "loess", span = .4)+
-  facet_wrap(~Well)+
-  ggtitle(barcode)
-print(p)
-}
-
-```
