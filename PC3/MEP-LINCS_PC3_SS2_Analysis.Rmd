@@ -209,7 +209,7 @@ kable(dt[dt$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=SCCZscoreThresh | dt$Spot_PA
 
 
 ##Filtering
-A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4F$MEP))` unique MEPs in the HF dataset. 
+A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4HF$MEP))` unique MEPs in the HF dataset. 
 
 Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
@@ -365,7 +365,7 @@ full <- heatmap.2(m, col = bluered, scale = "column", trace = "none", cexRow=.5,
 
 ```
 
-```{r, fig.height=3, fig.width=4, eval=FALSE}
+```{r, fig.height=3, fig.width=4, eval=TRUE}
 
 var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
@@ -392,17 +392,30 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = DT$Barcode)) +
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Nuclei_CP_Intensity_MedianIntensity_Edu_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Median EdU")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "Perimeter ProportionStatus")+
+  labs(colour = "Median EdU")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Median EdU")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
+  geom_point(size = rel(.8), alpha = .8) +
+  labs(colour = "Median EdU")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
