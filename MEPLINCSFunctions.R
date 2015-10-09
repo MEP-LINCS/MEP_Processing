@@ -83,7 +83,7 @@ create8WellHistograms <- function(DT, pr, prDisplay, binwidth = diff(quantile(DT
 }
 
 ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
-  #browser()
+  browser()
   DT$Barcode <- as.factor(DT$Barcode)
   #Get medians of high serum numeric features
   fvDTHS <- DT[grepl("FBS", DT$MEP)]

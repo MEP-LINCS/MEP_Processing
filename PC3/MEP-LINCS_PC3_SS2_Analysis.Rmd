@@ -96,7 +96,7 @@ Each well is scored for even cell seeding according to the count of the DAPI-sta
 The following plots are pseudoimages each MEMA's spot cell count and a histogram of the loess model used for QA scoring. 
 
 
-```{r Heatmaps_QAScores, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
+```{r Heatmaps_QAScores, echo=FALSE, fig.width=3.7,fig.height=4, eval=FALSE}
 
 plotSCCHeatmapsQAHistograms(l3, barcodes)
 
@@ -172,7 +172,7 @@ plotSCCRobustZScores(l4F,thresh = SCCZscoreThresh)
 ```
 
 
-```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE}
+```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
 setkey(l4F,"Ligand")
 dt <- l4F[!"FBS"]
 
@@ -183,7 +183,7 @@ p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_RZSNorm_RobustZ, F
 suppressWarnings(print(p))
 ```
 
-```{r, fig.width=8,  fig.height=3.5, echo=FALSE}
+```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
 p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_RZSNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
   xlab("")+ylab("")+
@@ -235,7 +235,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r ProliferationResponseLigand, fig.width=8,  fig.height=6, echo=FALSE}
+```{r ProliferationResponseLigand, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
 
 p <- ggplot(l4HF, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, FUN=median), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Proliferation Proportion by Ligand"))+
@@ -244,7 +244,7 @@ p <- ggplot(l4HF, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveProportion_
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationResponseECMp, fig.width=8,  fig.height=6, echo=FALSE}
+```{r ProliferationResponseECMp, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
 p <- ggplot(l4HF, aes(x = reorder(ECMp, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, FUN=median), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Proliferation Proportion by ECM Protein"))+
   xlab("")+ylab("")+
@@ -254,7 +254,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r ProliferationResponseMEP}
+```{r ProliferationResponseMEP, eval=TRUE}
 
 p <- ggplot(l4HF, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+
   geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm-Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE, ymax=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm+Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE), width=.01) +
@@ -284,34 +284,47 @@ kable(tail(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm
 
 ##Unbiased Analysis
 
-The unbiased analysis approach is:  
-  Normalize the cell level data using the median and MAD of each plate's control well
-  Median summarize the normalized data to the spot level
+The unbiased approach is:  
+  Normalize the cell level using the median and MAD of each plate's control well
+  Median summarize the normalized cell data to the spot level
   Median summarize the spot level data to the MEP level  
   Select a curated feature vector of MEP intensities and morphologies  
-  Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
-  Perform hierarchical clustering on the MEPs 
+  Perform unsupervised hierarchical clustering of the MEP's feature vectors  
   
-The following heatmap shows the normalized MEP responses based on the curated feature vector normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
-  
-```{r, fig.height=16}
+The following heatmap shows the clustering of the MEP responses based on the curated feature vector and the HF dataset. The vertical annotation bar and the MEP names are colored by their plate.
 
-lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
-fvDT <- filterl4(l4, lowQALigands)
+```{r, fig.height=16, eval=TRUE}
 
-#Shorten the feature names
-setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_RZSNorm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
-#Remove when not needed
-if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
+DT <- copy(l4HF)
+DT$Barcode <- as.factor(DT$Barcode)
+#Build the feature set to keep:Normed values and MEP info
+fullBio <- DT[,grep("RZSNorm|MEP|Ligand|ECMp|Barcode",colnames(DT), value=TRUE), with = FALSE]
 
-```
+#Reduce to biologically relevant
+fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT|_SE|Euler", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
+#Reduce to biologically minimal choice
+fullBio <- fullBio[,grep("Actin|Integrated|Dapi", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 
-The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
-  
-```{r, fig.height=16, eval = FALSE}
+# Minimize column names
+fullBio <- setnames(fullBio,colnames(fullBio),gsub("_RZSNorm|.*_CP_|.*_PA_|Intensity_|AreaShape_|Cycle_|Gated_","",colnames(fullBio)))
 
-#Plot the heat map without NID1 in the dataset
-activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP Feature Vectors", cols = plateCol, activeThresh = 0 )
+#Remove redundant features
+reducedBio <- fullBio[,grep("Perimeter|4N|KRT|SpotCellCount|MedianEdu|H3", colnames(fullBio),value=TRUE, invert = TRUE),with=FALSE]
+
+mreduced <- as.matrix(reducedBio[,grep("Ligand|ECMp|MEP|Barcode",x = colnames(reducedBio), value = TRUE, invert = TRUE), with = FALSE])
+rownames(mreduced) <- reducedBio$MEP
+
+ms <- scale(mreduced)
+
+full <- heatmap.2(ms, col = bluered, scale = "none", trace = "none", cexRow=.5, cexCol=2, cex.main=.5, key=TRUE, keysize = 1.5, key.title = NA, key.ylab = NA, density.info="none", 
+          main = paste("PC3 Biological Features"),
+          lmat=rbind(c(5,0,4,0), c(3,1,2,0)),
+          lhei=c(1.5,10.0),
+          lwid=c(.3,.1,2.5,1.5),
+          mar=c(15,3),
+          RowSideColors=plateCol[reducedBio$Barcode],
+          colRow = plateCol[reducedBio$Barcode],
+          na.rm = TRUE)
 
 ```
 
@@ -320,26 +333,35 @@ activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP F
 The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
 
 The unbiased PCA analysis method is:
-  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)  
-  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV   
+  Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV)
+  Calculate the euclidean distance of each MEP's PCFV to the FBS control PCFV 
   Exclude inactive MEPs by selecting for distances above a selected percentile  
-  Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs   
+  Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs 
   
 
-```{r, fig.height=12, eval=FALSE}
-l4F <- l4F[!grepl("NID1",l4F$ECMp)]
+```{r, fig.height=12, eval=TRUE}
 
-PCFVNames <- grep("RZSNorm",colnames(l4F),value=TRUE)
-PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
+PCFVNames <- grep("RZSNorm",colnames(DT),value=TRUE)
+PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ|Center",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4F, scale= TRUE)
+l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4HF, scale= TRUE)
 
 #Extract the first PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
+l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =DT$Barcode, MEP = DT$MEP)
 
-#Plot the heat map of the entire dataset
-activeMEPs <- ubHeatmap(l4pcvDT, title = "MEP PCA Vectors", cols = plateCol, activeThresh = 0 )
+m <- as.matrix(l4pcvDT[,grep("Ligand|ECMp|MEP|Barcode",x = colnames(l4pcvDT), value = TRUE, invert = TRUE), with = FALSE])
+rownames(m) <- l4pcvDT$MEP
+
+full <- heatmap.2(m, col = bluered, scale = "column", trace = "none", cexRow=.5, cexCol=2, cex.main=.5, key=TRUE, keysize = 1.5, key.title = NA, key.ylab = NA, density.info="none", 
+          main = paste("PC3 PCA Features"),
+          lmat=rbind(c(5,0,4,0), c(3,1,2,0)),
+          lhei=c(1.5,10.0),
+          lwid=c(.3,.1,2.5,1.5),
+          mar=c(15,3),
+          RowSideColors=plateCol[l4pcvDT$Barcode],
+          colRow = plateCol[l4pcvDT$Barcode],
+          na.rm = TRUE)
 
 ```
 
@@ -349,28 +371,28 @@ var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
 barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main  = paste("PCA Scree Plot for",cellLine,ss))
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4F$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = DT$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = DT$Barcode)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_MedianIntensity_Edu_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Nuclei_CP_Intensity_MedianIntensity_Edu_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Median EdU")+
   theme(legend.text=element_text(size = 6))+
@@ -378,7 +400,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_
 print(p)
 
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
   labs(colour = "Perimeter ProportionStatus")+
   theme(legend.text=element_text(size = 6))+
@@ -386,9 +408,6 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_A
 print(p)
 
 kable(l4PCAModel$rotation[,1:nrPCs], digits = 2)
-
-#Extract the selectedPCs of each MEP into a matrix
-l4pcv <- l4PCAModel$x[,1:nrPCs]
 
 ```
 
@@ -401,7 +420,7 @@ l4pcv <- l4PCAModel$x[,1:nrPCs]
 ##MEMA Layout
 All MEMAs in the experiment are in separate wells and have the same design of 46 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
 
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6}
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6, eval=FALSE}
 
 #Select the A row wells and delete the blanks
 setkey(l1,Well)
@@ -424,7 +443,7 @@ print(p)
 ##Replicate Count
 The MEMAs have an average of 15 replicates with a range from 13 to 19.  
 
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3}
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=FALSE}
 #Remove the fiducial and blank entries
 setkey(DT,ECMp)
 DT <- DT[!"fiducial"]
@@ -455,7 +474,7 @@ A MEMA's QA score is derived from the loess model of the control-well-normalized
 Below are plots showing data from well B01 from plate LI8X00110 from LINCS staining set 2. The LSR spots are those to the left of the blue vertical line at the threshold value of `r lthresh ` in the histogram. 
 
 
-```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4}
+```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4, eval=FALSE}
 setkey(l3,Barcode,Well)
 DT <-l3[.(barcodes[1],"A01")]
 #Remove the fiducial entries
@@ -499,7 +518,7 @@ suppressWarnings(print(p))
 
 ##Replicates after filtering
 
-```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5}
+```{r FilteredReplicateCount,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=5, eval=FALSE}
 
 p <- ggplot(l4F[!grepl("FBS",l4F$Ligand)], aes(x = ECMp, y=Spot_PA_ReplicateCount))+
   geom_boxplot()+
@@ -551,7 +570,7 @@ for (barcode in barcodes){
 
 \newpage
 
-```{r SCCFBS_response}
+```{r SCCFBS_response, eval=TRUE}
 
 p <- ggplot(l3[l3$Ligand == "FBS"], aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nSpot Cell Count in High Serum Wells"))+
@@ -561,17 +580,6 @@ suppressWarnings(print(p))
 
 ```
 
-
-\newpage
-
-###Active MEPS from Unbiased Analysis
-The table below shows the first and last active MEPs and their PC values.
-
-```{r ActiveMeps, echo = FALSE, eval=FALSE}
-kable(head(activeMEPs, n=20), digits = 2)
-kable(tail(activeMEPs, n=20), digits = 2)
-
-```
 
 \newpage
 
