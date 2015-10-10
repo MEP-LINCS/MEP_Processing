@@ -18,7 +18,7 @@ library("parallel")#use multiple cores for faster processing
 #Select a staining set
 ss <- "SS3"
 #Select a CellLine
-cellLine <- "PC3"
+cellLine <- "YAPC"
 #select analysis version
 analysisVersion <- "v1"
 
@@ -40,7 +40,7 @@ curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_Median
 writeFiles <- TRUE
 
 #Process a subset of the data to speed development
-limitBarcodes <- 8
+limitBarcodes <- 7
 
 #Do not normalized to Spot level
 normToSpot <- TRUE
@@ -103,7 +103,7 @@ if(limitBarcodes) {
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes] 
 } else barcodes <- unique(splits[,ncol(splits)])
 
-expDTList <- lapply(barcodes, function(barcode){
+expDTList <- mclapply(barcodes, function(barcode){
   #browser()
   plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
   wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
@@ -186,7 +186,7 @@ expDTList <- lapply(barcodes, function(barcode){
   pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
   
   return(pcDT)
-})
+}, mc.cores = 4)
 
 cDT <- rbindlist(expDTList, fill = TRUE)
 #TODO delete unwanted columns here such as Euler Number
@@ -263,7 +263,6 @@ if(normToSpot){
 if(ss %in% c("SS1")){
   
 } else if (ss == "SS2"){
-  
   cDT <- cDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
   #Calculate the EdU Positive Percent at each spot
   cDT <- cDT[,Nuclei_PA_Gated_EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]

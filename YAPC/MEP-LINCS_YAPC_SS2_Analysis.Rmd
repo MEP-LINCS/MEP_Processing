@@ -16,7 +16,7 @@ source("../MEPLINCSFunctions.R")
 #Set the staining set to be analyzed (SS1|SS2|SS3)
 ss <- "SS2"
 #Set the cell line to be analyzed (PC3|MCF7|YAPC)
-cellLine <- "PC3"
+cellLine <- "YAPC"
 ```
 
 
@@ -57,7 +57,7 @@ lthresh <- 0.6
 nrPCs <- 9
 
 #Z score threshold for extreme spot cell count
-SCCZscoreThresh <- 3
+SCCZscoreThresh <- 2.5
 
 #Spot cell count threshold for HF dataset
 HFSCCThresh <- 20
@@ -195,7 +195,7 @@ suppressWarnings(print(p))
 \newpage
 
 ###Extreme Spot Cell Count MEPs
-The table below lists the MEPs with ablsoute value Z scores greater than `r SCCZscoreThresh`.
+The table below lists the MEPs with Z scores greater than `r SCCZscoreThresh`.
 
 ```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 setkey(l4F,"Ligand")

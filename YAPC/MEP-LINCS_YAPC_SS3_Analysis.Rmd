@@ -8,16 +8,19 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 ```
 
 
-```{r, echo=FALSE}
+```{r }
 #Author: Mark Dane, copyright 2015
 
 source("../MEPLINCSFunctions.R")
 
 #Set the staining set to be analyzed (SS1|SS2|SS3)
-ss <- "SS2"
+ss <- "SS3"
 #Set the cell line to be analyzed (PC3|MCF7|YAPC)
-cellLine <- "PC3"
+cellLine <- "YAPC"
+
+
 ```
+
 
 
 
@@ -30,15 +33,18 @@ library(knitr)
 library("gplots")
 library("RColorBrewer")
 
-  
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
+selReds <- colorRampPalette(brewer.pal(9,"Reds"))
+redsPal <- selReds(10)
 
 l1 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 l2 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
+#l3 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
 l3 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
-l4 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
+l4 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"),  header = TRUE, stringsAsFactors = FALSE), key = "MEP")
+
 
 #Work around issue in fread about logicals read as characters
 l1$Spot_PA_Perimeter <- as.logical(gsub(" ","",l1$Spot_PA_Perimeter))
@@ -73,13 +79,12 @@ output: pdf_document
 ---
 
 ##Summary
-The MEP-LINCS `r cellLine` `r ss` datasets are based on high content imaging of Microenvironment Microarrays (MEMAs). After initial QA filtering, there are `r nrow(l4)` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID))` printed ECM proteins and `r length(unique(l4$LigandAnnotID))-1` ligands or growth factors.  
-
+The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4)` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID))` printed ECM proteins and `r length(unique(l4$LigandAnnotID))-1` ligands or growth factors.  
 
 ##Introduction
-The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on a Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
+The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on an Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
 
-Intensity, position and a limited set of morphology data are gatherd for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
+Intensity, position and a limited set of morphology data are gatherd for each cell, merged with the experiment metadata, normalized and aggregated. The dataset is organized to the four LINCS imaging categories as follows:
 
 Level 1 - Raw data  
 Level 2 - Normalized data  
@@ -100,6 +105,7 @@ The following plots are pseudoimages each MEMA's spot cell count and a histogram
 
 plotSCCHeatmapsQAHistograms(l3, barcodes)
 
+
 for (barcode in barcodes){
   setkey(l3,"Barcode")
   dt <- l3[barcode]
@@ -118,7 +124,8 @@ for (barcode in barcodes){
 
 
 
-```{r Filtering, echo=FALSE}
+```{r Filtering, echo=FALSE, eval=TRUE}
+
 
 #Remove the fiducial and blank data
 setkey(l3,ECMp)
@@ -156,10 +163,9 @@ l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 \newpage
 
 ##Normalization
-The raw data was normalized to the control well in each plate as follows:
+The raw data is normalized to the control well in each plate as follows:
 
-For each feature, the median and median absolute deviation (MAD) of all spots in each plate's control well were calculated.  
-
+For each feature, the median and median absolute deviation (MAD) of each plate's control well were calculated.
 Feature values for all cells in a plate were normalized by subtracting the plate's control well median and dividing by the plate's control well MAD*1.48.
 
 
@@ -195,7 +201,7 @@ suppressWarnings(print(p))
 \newpage
 
 ###Extreme Spot Cell Count MEPs
-The table below lists the MEPs with ablsoute value Z scores greater than `r SCCZscoreThresh`.
+The table below lists the MEPs with Z scores greater than `r SCCZscoreThresh`.
 
 ```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 setkey(l4F,"Ligand")
@@ -214,69 +220,80 @@ A highly filtered dataset termed "HF" is created as follows. Spots with less tha
 Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. The number of replicate MEPs after removing low-quality wells are shown in the supplemental material.
 
 
-##Proliferation Analysis
-The proliferation analysis methods is as follows:  
-First, the cells within each well are gated into Edu+  
-The proportion of EdU+ cells at each spot is calculated
-The proportions are normalized by subtracting the median by the proportion of cells that are Edu+ in the plate's control well and then divding by the MAD of the plate's control well Edu+ proportion 
-The normalized proportions are then summarized by the medians of their replicates.  
-Plots show the distributions of the non-zero proportions and the proportions sumarized by ligand and ECM protein. A listing of the MEPs outside of the blue lines is in the supplemental material.  
 
+\newpage
 
-```{r Proliferation, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
+##Lineage Marker Analysis
 
-p <- ggplot(l4HF, aes(x=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_bar(binwidth = .01)+
-  #geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Proliferation Proportion Distribution"))+
-  ylab("Count")+xlab("Proliferation Proportion")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
+This staining set includes the lineage markers KRT5 which is associated with basal cells and KRT19 which is associated with luminal cells. This analysis evaluates the lineage responses through a ratio of the median intensity of KRT19 to KRT5. 
 
-```
+```{r LineageMarkers, echo=FALSE, eval=TRUE}
 
+setkey(l4HF,"Ligand")
+dt <- l4HF[!"FBS"]
 
-```{r ProliferationResponseLigand, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
-
-p <- ggplot(l4HF, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, FUN=median), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Proliferation Proportion by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-```
-
-```{r ProliferationResponseECMp, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
-p <- ggplot(l4HF, aes(x = reorder(ECMp, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, FUN=median), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Proliferation Proportion by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-
-```{r ProliferationResponseMEP, eval=TRUE}
-
-p <- ggplot(l4HF, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm), y = Nuclei_PA_Gated_EduPositiveProportion_RZSNorm))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm-Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE, ymax=Nuclei_PA_Gated_EduPositiveProportion_RZSNorm+Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE), width=.01) +
-xlab("MEP")+ylab("Normalized EdU Positive Proportion")+
-    geom_point(aes(size = Spot_PA_ReplicateCount),colour = "red", alpha = .5)+
-  theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by EdU Positive Proportion with SE Bars")
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm, colour = Ligand))+
+  geom_point(alpha=.5)+
+  guides(colour=FALSE)+
+  xlab("KRT5")+ylab("KRT19")+
+  ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
 print(p)
 
 ```
 
+The lineage ratio analysis is run using normalized data.
+
+```{r lineageRatioHistogram, eval=TRUE}
+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_bar(binwidth = .02)+
+  #geom_vline(xintercept = c(-2,2), colour = "blue")+
+  ggtitle(paste("\n\n","MEP Normalized Lineage Ratio Distribution"))+
+  ylab("Count")+xlab("Normalized Lineage Ratio")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+```
+
+```{r LineageRatioByLigand, eval=TRUE}
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r lineageRatioByECMp, eval=TRUE}
+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized LineageRatio by ECM Protein"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r LineageRatioByMEP, eval=TRUE}
+
+p <- ggplot(l4HF, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm-Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm+Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE), width=.01) +
+xlab("MEP")+ylab("Normalized Lineage Ratio")+
+    geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
+  theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
+  ggtitle("MEPs Ordered by Lineage Ratio with SE Bars")
+print(p)
+```
+
 \newpage
 
-###Active MEPS from the Proliferation Analysis
-The table below shows the first and last MEPs ranked by their EdU Proliferation Proportion.
+###Active MEPS from Lineage Ratio Analysis
+The table below shows the first and last MEPs ranked by their lineage ratio.
 
-```{r ProliferationMEPS, echo = FALSE, eval=TRUE}
-setkey(l4HF, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)
+```{r LineageRatioMEPS, echo = FALSE, eval=TRUE}
+setkey(l4HF, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)
 
-kable(head(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE, Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","Proliferation Proportion", "Proliferation Proportion SE", "Replicate Count"), digits = 2)
+kable(head(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode", "LineageRatio", "LineageRatio SE", "Replicate Count"), digits = 2)
 
-kable(tail(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","Proliferation Proportion", "Proliferation Proportion SE", "Replicate Count"), digits = 2)
+kable(tail(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","LineageRatio", "LineageRatio SE", "Replicate Count"), digits = 2)
 
 ```
 
@@ -392,35 +409,37 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = DT$Barcode)) +
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "EdU Positive Proportion")+
+  labs(colour = "Lineage Ratio")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "EdU Positive Proportion")+
+  labs(colour = "Lineage Ratio")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "EdU Positive Proportion")+
+  labs(colour = "Lineage Ratio")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = DT$Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = DT$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
   geom_point(size = rel(.8), alpha = .8) +
-  labs(colour = "EdU Positive Proportion")+
+  labs(colour = "Lineage Ratio")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
 kable(l4PCAModel$rotation[,1:nrPCs], digits = 2)
+
 
 ```
 
@@ -558,6 +577,7 @@ The pseudoimages of each well's raw signals are shown in the plots below. Wells 
 
 ```{r Pseudoimages_all_stains, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
 
+
 for (barcode in barcodes){
   DT <-l3[l3$Barcode==barcode,]
   #Remove the fiducial entries
@@ -568,13 +588,13 @@ for (barcode in barcodes){
   p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
-  p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_H3", prDisplay = unique(DT$Endpoint488))
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
   suppressWarnings(print(p))
   
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
+    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
   suppressWarnings(print(p))
   
-  p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Edu",prDisplay = unique(DT$Endpoint647))
+  p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
   suppressWarnings(print(p))
   
 }
@@ -593,7 +613,6 @@ suppressWarnings(print(p))
 
 ```
 
-
 \newpage
 
 ##Cell Cycle Plots
@@ -607,16 +626,7 @@ if (ss == "SS1"){
   
   
 } else if (ss == "SS2"){
-  for (barcode in barcodes){
-    mDT <- l1[l1$Barcode == barcode] 
-    mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
-    
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour = Nuclei_PA_Gated_EduPositive))+geom_point(size = rel(.6), alpha = .8)+facet_wrap(~Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","Edu vs. Total DAPI Signal,",barcode))+ylab("Edu (log2)")+xlab("Total Intensity DAPI")+
-      theme(strip.text = element_text(size = 5))
-    
-    suppressWarnings(print(p))
-    
-  }
+  
 } 
 ```
 
