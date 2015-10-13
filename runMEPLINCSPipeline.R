@@ -14,3 +14,5 @@ library("limma")#read GAL file and strsplit2
 library("MEMA")#merge, annotate and normalize functions
 library("data.table")#fast file reads, data merges and subsetting
 library("parallel")#use multiple cores for faster processing
+
+mclapply(c("SS2"), preprocessMEPLINCS, cellLine = "MCF7", mc.cores=detectCores())

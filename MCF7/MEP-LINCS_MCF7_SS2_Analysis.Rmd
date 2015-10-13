@@ -16,7 +16,7 @@ source("../MEPLINCSFunctions.R")
 #Set the staining set to be analyzed (SS1|SS2|SS3)
 ss <- "SS2"
 #Set the cell line to be analyzed (PC3|MCF7|YAPC)
-cellLine <- "YAPC"
+cellLine <- "MCF7"
 ```
 
 
@@ -57,7 +57,7 @@ lthresh <- 0.6
 nrPCs <- 9
 
 #Z score threshold for extreme spot cell count
-SCCZscoreThresh <- 2.5
+SCCZscoreThresh <- 3
 
 #Spot cell count threshold for HF dataset
 HFSCCThresh <- 20
@@ -301,7 +301,7 @@ DT$Barcode <- as.factor(DT$Barcode)
 fullBio <- DT[,grep("RZSNorm|MEP|Ligand|ECMp|Barcode",colnames(DT), value=TRUE), with = FALSE]
 
 #Reduce to biologically relevant
-fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT|_SE|Euler", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
+fullBio <- fullBio[,grep("[.](1|2)|Cells|Cytoplasm.*Dapi|Cytoplasm.*Area|CellMask|Center|Nuclei.*KRT|_SE|Euler|Logit|2N|4N", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 #Reduce to biologically minimal choice
 fullBio <- fullBio[,grep("Actin|Integrated|Dapi", colnames(fullBio), value = TRUE, invert = TRUE), with = FALSE]
 
@@ -309,7 +309,7 @@ fullBio <- fullBio[,grep("Actin|Integrated|Dapi", colnames(fullBio), value = TRU
 fullBio <- setnames(fullBio,colnames(fullBio),gsub("_RZSNorm|.*_CP_|.*_PA_|Intensity_|AreaShape_|Cycle_|Gated_","",colnames(fullBio)))
 
 #Remove redundant features
-reducedBio <- fullBio[,grep("Perimeter|4N|KRT|SpotCellCount|MedianEdu|H3|EduPositiveLogit", colnames(fullBio),value=TRUE, invert = TRUE),with=FALSE]
+reducedBio <- fullBio[,grep("Perimeter|4N|KRT|SpotCellCount|MedianEdu|H3", colnames(fullBio),value=TRUE, invert = TRUE),with=FALSE]
 
 mreduced <- as.matrix(reducedBio[,grep("Ligand|ECMp|MEP|Barcode",x = colnames(reducedBio), value = TRUE, invert = TRUE), with = FALSE])
 rownames(mreduced) <- reducedBio$MEP
@@ -350,7 +350,7 @@ l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))),
 #Extract the first PCs of each MEP into a matrix
 l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =DT$Barcode, MEP = DT$MEP)
 
-m <- as.matrix(l4pcvDT[,grep("Ligand|ECMp|MEP|Barcode",x = colnames(l4pcvDT), value = TRUE, invert = TRUE), with = FALSE])
+m <- as.matrix(l4pcvDT[,grep("Ligand|ECMp|MEP|Barcode|2N|4N",x = colnames(l4pcvDT), value = TRUE, invert = TRUE), with = FALSE])
 rownames(m) <- l4pcvDT$MEP
 
 full <- heatmap.2(m, col = bluered, scale = "column", trace = "none", cexRow=.5, cexCol=2, cex.main=.5, key=TRUE, keysize = 1.5, key.title = NA, key.ylab = NA, density.info="none", 
