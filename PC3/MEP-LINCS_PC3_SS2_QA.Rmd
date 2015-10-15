@@ -1,0 +1,394 @@
+---
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+```{r, echo=FALSE}
+#Author: Mark Dane, copyright 2015
+
+source("../MEPLINCSFunctions.R")
+
+#Set the staining set to be analyzed (SS1|SS2|SS3)
+ss <- "SS2"
+#Set the cell line to be analyzed (PC3|MCF7|YAPC)
+cellLine <- "PC3"
+```
+
+
+
+```{r setup}
+library("ggplot2")
+library("data.table")
+library("MEMA")
+library("grid")
+library(knitr)
+library("gplots")
+library("RColorBrewer")
+
+
+#Setup colors for Barcode and text in all heatmaps
+selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
+plateCol = selDark2(8)
+
+l1 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
+
+# l2 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
+# l3 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
+# l4 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
+
+#Work around issue in fread about logicals read as characters
+l1$Spot_PA_Perimeter <- as.logical(gsub(" ","",l1$Spot_PA_Perimeter))
+l1$Spot_PA_Sparse <- as.logical(gsub(" ","",l1$Spot_PA_Sparse))
+l1$Spot_PA_OuterCell <- as.logical(gsub(" ","",l1$Spot_PA_OuterCell))
+
+#Keep the control wells separate
+l1$Ligand[l1$Ligand=="FBS"] <- paste(l1$Ligand[l1$Ligand=="FBS"],"C",as.numeric(factor(l1$Barcode[l1$Ligand=="FBS"])),sep="")
+l1$MEP <- paste(l1$ECMp,l1$Ligand,sep="_")
+setkey(l1, "ECMp")
+l1 <- l1[!"fiducial"]
+l1 <- l1[!"blank"]
+
+l1MEPs <- l1[,list(MEPMedian = median(Nuclei_PA_Gated_EduPositiveLogit, na.rm = TRUE),
+                   MEPMAD = mad(Nuclei_PA_Gated_EduPositiveLogit, na.rm= TRUE),
+                   MEPMedianPP = median(Nuclei_PA_Gated_EduPositiveProportion, na.rm = TRUE),
+                   MEPMADPP = mad(Nuclei_PA_Gated_EduPositiveProportion, na.rm= TRUE)),
+             by="Barcode,Well,Ligand,ECMp,MEP"]
+
+
+l1f <- l1[is.finite(l1$Nuclei_PA_Gated_EduPositiveLogit)]
+#Summarize to MEP level
+l1fMEPs <- l1f[,list(MEPMedian = median(Nuclei_PA_Gated_EduPositiveLogit, na.rm = TRUE),
+                     MEPMAD = mad(Nuclei_PA_Gated_EduPositiveLogit, na.rm= TRUE),
+                     MEPMedianPP = median(Nuclei_PA_Gated_EduPositiveProportion, na.rm = TRUE),
+                     MEPMADPP = mad(Nuclei_PA_Gated_EduPositiveProportion, na.rm= TRUE)),
+               by="Barcode,Well,Ligand,ECMp,MEP"]
+
+```
+---
+title: "MEP-LINCS `r cellLine` `r ss` Quality Analysis"
+date: "`r Sys.Date()`"
+---
+
+###Introduction
+The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l1$Endpoint488)` (488nm), `r unique(l1$Endpoint555)` (555nm) and `r unique(l1$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on a Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
+
+Intensity, position and a limited set of morphology data are gathered for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
+
+Level 1 - Raw data  
+Level 2 - Normalized data  
+Level 3 - Normalized data aggregated to the spot level  
+Level 4 - Normalized data aggregated to the replicate (MEP) level  
+
+The data merging and analysis is done in R using open source software. 
+
+###Proliferation Analysis
+This analysis starts with a focus on the proportion of EdU positive cells at each spot.
+For each plate, k-means clustering (k = 2) is used on the raw EdU median intensity values of the cells in the control well. Cells in the higher-value cluster are labeled as EdU+.  
+The intensity value dividing the control well clusters is used as a threshold to label the cells in the other 7 ligand wells of the plate.  
+The proportion of EdU+ cells at each spot is calculated.  
+The proportion is transformed by the logit function defined as logit(p) = log2(p/1-p) which takes on values from negative to positive infinity  
+
+
+\newpage
+
+
+```{r medianHeatMap, eval=TRUE}
+
+p <- ggplot(l1MEPs, aes(x=Ligand, y=ECMp, fill=MEPMedian))+
+  geom_tile()+
+  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ Medians"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+```
+
+
+```{r MADHeatMap, eval=TRUE}
+
+p <- ggplot(l1MEPs, aes(x=Ligand, y=ECMp, fill = MEPMAD))+
+  geom_tile()+
+  scale_fill_gradient(low="white", high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ MADs"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+```
+
+In the above plots, medians and MADs have NA values (shown in gray) if any of the spots in the set of replicates had all EDU+ or all EdU- cells.
+
+The next two plots are the median and MADs of the replicate logit(EdU Positive Proportion) values, filtered to remove +/-Inf.  
+
+```{r medianHeatMapF, eval=TRUE}
+
+p <- ggplot(l1fMEPs, aes(x=Ligand, y=ECMp, fill = MEPMedian))+
+  geom_tile()+
+  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ Medians (no Inf)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+```
+
+
+```{r MADHeatMapF, eval=TRUE}
+
+p <- ggplot(l1fMEPs, aes(x=Ligand, y=ECMp, fill = MEPMAD))+
+  geom_tile()+
+  scale_fill_gradient(low="white", high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ MADs (no Inf)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+```
+
+Here are the same four plots displayed smaller so they are easier to compare.
+
+
+```{r, eval=TRUE, fig.width=4.5, fig.height=5}
+
+
+p <- ggplot(l1MEPs, aes(x=Ligand, y=ECMp, fill = MEPMedian))+
+  geom_tile()+
+  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ Medians"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+p <- ggplot(l1MEPs, aes(x=Ligand, y=ECMp, fill = MEPMAD))+
+  geom_tile()+
+  scale_fill_gradient(low="white", high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ MADs"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+p <- ggplot(l1fMEPs, aes(x=Ligand, y=ECMp, fill = MEPMedian))+
+  geom_tile()+
+  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ Medians (no Inf)"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+p <- ggplot(l1fMEPs, aes(x=Ligand, y=ECMp, fill = MEPMAD))+
+  geom_tile()+
+  scale_fill_gradient(low="white", high="red",oob = scales::squish)+
+  ggtitle(paste("\n\n EdU+ MADs (no Inf)"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme_grey(base_size = 12, base_family = "")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "dimgray"))
+suppressWarnings(print(p))
+
+
+```
+
+
+
+```{r AddMarginValues}
+
+l1Ligand <- l1[,list(MEPMedianLigand = median(Nuclei_PA_Gated_EduPositiveLogit, na.rm = TRUE),
+                     MEPMADLigand = mad(Nuclei_PA_Gated_EduPositiveLogit, na.rm= TRUE),
+                     MEPMedianPPLigand = median(Nuclei_PA_Gated_EduPositiveProportion, na.rm = TRUE),
+                     MEPMADPPLigand = mad(Nuclei_PA_Gated_EduPositiveProportion, na.rm= TRUE)),
+               by="Ligand"]
+
+l1ECMp <- l1[,list(MEPMedianECMp = median(Nuclei_PA_Gated_EduPositiveLogit, na.rm = TRUE),
+                   MEPMADECMp = mad(Nuclei_PA_Gated_EduPositiveLogit, na.rm= TRUE),
+                   MEPMedianPPECMp = median(Nuclei_PA_Gated_EduPositiveProportion, na.rm = TRUE),
+                   MEPMADPPECMp = mad(Nuclei_PA_Gated_EduPositiveProportion, na.rm= TRUE)),
+             by="ECMp"]
+setkey(l1MEPs,Ligand)
+setkey(l1Ligand,Ligand)
+l1MEPs <- merge(l1MEPs,l1Ligand)
+setkey(l1MEPs,ECMp)
+setkey(l1ECMp,ECMp)
+l1MEPs <- merge(l1MEPs, l1ECMp)
+
+medianMADEdU <- median(l1MEPs$MEPMAD, na.rm = TRUE)
+
+```  
+
+
+###Centered Medians by ECM Protein
+Each boxplot below has 64 logit-transformed EdU+ proportion values that are the medians from the replicates of pairing one ECMp with each of the 64 ligands and then subtracting the median of pairing all ECM proteins with each ligand.
+
+
+```{r, fig.height=4}
+p <- ggplot(l1MEPs,aes(x=ECMp, y=MEPMedian-MEPMedianLigand))+
+  geom_boxplot()+ ggtitle(paste("\n\n EdU+ Centered Medians  by ECM Protein"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme_grey(base_size = 12, base_family = "")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(1)))
+suppressWarnings(print(p))
+
+```
+
+###Centered Medians by Ligand
+Each boxplot below has 46 logit-transformed EdU+ proportion values that are the medians from the replicates of pairing one ligand with each of the 46 ECM proteins and then subtracting the the median of pairing all ligands with each ECM protein.
+
+```{r, fig.height=4}
+
+p <- ggplot(l1MEPs,aes(x=Ligand, y=MEPMedian-MEPMedianECMp))+
+  geom_boxplot()+ ggtitle(paste("\n\n EdU+ Centered Medians by Ligand"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme_grey(base_size = 12, base_family = "")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+suppressWarnings(print(p))
+
+```
+
+###Centered MADs
+The MADs are centered in the same manner as the medians.  
+
+
+```{r, fig.height=4}
+
+p <- ggplot(l1MEPs,aes(x=ECMp, y=MEPMAD-MEPMADLigand))+
+  geom_boxplot()+ ggtitle(paste("\n\n EdU+ Centered MADs by ECMp"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme_grey(base_size = 12, base_family = "")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+suppressWarnings(print(p))
+
+p <- ggplot(l1MEPs,aes(x=Ligand, y=MEPMAD-MEPMADECMp))+
+  geom_boxplot()+ ggtitle(paste("\n\n EdU+ Centered MADs by Ligand"))+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  theme_grey(base_size = 12, base_family = "")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+suppressWarnings(print(p))
+
+```
+
+
+###Median MAD Values
+Histograms of the median MADs of the logit(EdU+ proportion) stratified by ligand and then by ECMp are shown below. The median MAD of all ECMp and ligand pairings is `r sprintf( "%.2f",medianMADEdU)`.
+
+```{r, fig.height=3}
+
+p <- ggplot(l1Ligand, aes(x=MEPMADLigand))+
+  geom_bar(binwidth=.05)+
+  xlab("Median MAD")+xlim(0,9)+
+  ggtitle("Median EdU+ MAD for each of the 64 Ligands")
+print(p)
+
+p <- ggplot(l1ECMp, aes(x=MEPMADECMp))+
+  geom_bar(binwidth=.05)+
+  xlab("Median MAD")+xlim(0,9)+
+  ggtitle("Median EdU+ MAD for each of the 46 ECM Proteins")
+print(p)
+
+```
+
+###Variability Across Plates in the Staining Set
+
+```{r, fig.height=4}
+cMEPs <- l1MEPs[l1MEPs$Well=="A03"]
+cMEPECMp <- cMEPs[,list(MedianMedian=median(MEPMedian, na.rm=TRUE),
+                        MADMedian=mad(MEPMedian, na.rm=TRUE),
+                        MedianMedianPP=median(MEPMedianPP, na.rm=TRUE),
+                        MADMedianPP=mad(MEPMedianPP, na.rm=TRUE)),by=ECMp]
+
+p <- ggplot(cMEPECMp, aes(x=MADMedian))+
+  geom_bar(binwidth = .15)+
+  xlab("MAD")+xlim(0,3)+
+  ggtitle("Histogram of MADs of EdU+ Controls for each of the 46 ECM Proteins")
+print(p)
+
+lMEPs <- l1MEPs[!l1MEPs$Well=="A03"]
+lMEPECMp <- lMEPs[,list(MedianMedian=median(MEPMedian, na.rm=TRUE),
+                        MADMedian=mad(MEPMedian, na.rm=TRUE),
+                  MedianMedianPP=median(MEPMedianPP, na.rm=TRUE),
+                        MADMedianPP=mad(MEPMedianPP, na.rm=TRUE)),
+                  by=ECMp]
+
+p <- ggplot(lMEPECMp, aes(x=MADMedian))+
+  geom_bar(binwidth = .15)+
+  xlab("MAD")+xlim(0,3)+
+  ggtitle("Histogram of MADs of EdU+ Ligands for each of the 46 ECM Proteins")
+print(p)
+
+```
+
+###Tests for Control Means as Null Means with Logit
+
+```{r, fig.height=4}
+
+p <- ggplot(cMEPECMp, aes(x=ECMp, y=MedianMedian))+
+  geom_point(colour="blue")+
+  ggtitle("Median logit(EdU+) by ECM Protein with FBS (blue) and All Ligands (red)")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+p <- p + geom_point(data=lMEPECMp, aes(y=MedianMedian), colour="red")
+
+suppressWarnings(print(p))
+
+p <- ggplot(cMEPECMp, aes(x=MedianMedian, y=MADMedian))+
+  geom_point()+
+    stat_smooth(method='loess')+
+  ggtitle("Logit(EdU+) Control MADs vs Medians")
+
+suppressWarnings(print(p))
+
+p <- ggplot(lMEPECMp, aes(x=MedianMedian, y=MADMedian))+
+  geom_point()+
+  stat_smooth(method='loess')+
+  ggtitle("Logit(EdU+) Ligand MADs vs Medians")
+
+suppressWarnings(print(p))
+
+
+```
+
+###Tests for Control Means as Null Means with Positive Proportion
+
+```{r, fig.height=4}
+
+p <- ggplot(cMEPECMp, aes(x=ECMp, y=MedianMedianPP))+
+  geom_point(colour="blue")+
+  ggtitle("Median EdU+ Proportion by ECM Protein with FBS (blue) and All Ligands (red)")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+p <- p + geom_point(data=lMEPECMp, aes(y=MedianMedianPP), colour="red")
+
+suppressWarnings(print(p))
+
+p <- ggplot(cMEPECMp, aes(x=MedianMedianPP, y=MADMedianPP))+
+  geom_point()+
+    stat_smooth(method='loess')+
+  ggtitle("EdU+ Proportion Control MADs vs Medians")
+
+suppressWarnings(print(p))
+
+p <- ggplot(lMEPECMp, aes(x=MedianMedianPP, y=MADMedianPP))+
+  geom_point()+
+  stat_smooth(method='loess')+
+  ggtitle("EdU+ Proportion Ligand MADs vs Medians")
+
+suppressWarnings(print(p))
+
+
+```
