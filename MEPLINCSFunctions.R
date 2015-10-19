@@ -1,5 +1,5 @@
 #MEP-LINCS Analysis functions
-#Mark Dane 9/2015
+#Mark Dane 10/2015
 
 #Preprocessing Functions
  
@@ -558,7 +558,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
     barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes] 
   } else barcodes <- unique(splits[,ncol(splits)])
   
-  expDTList <- mclapply(barcodes, function(barcode){
+  expDTList <- mlapply(barcodes, function(barcode){
     #browser()
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
@@ -624,7 +624,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
       
       return(DT)
     })
-    
+    #browser()
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #Read the well metadata from a multi-sheet Excel file
@@ -640,6 +640,52 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
     pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
     pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
     
+    #Add the local polar coordinates and Neighbor Count
+    pcDT <- pcDT[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
+    pcDT <- pcDT[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
+    pcDT <- pcDT[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
+    pcDT <- pcDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
+    
+    
+    #Set 2N and 4N DNA status
+    pcDT <- pcDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
+    #Manually reset clusters for poorly classified wells
+    #This is based on review of the clusters after a prior run
+    pcDT$Nuclei_PA_Cycle_State[pcDT$Barcode=="LI8X00403" & pcDT$Well=="A03" & pcDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
+    
+    pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
+    pcDT$Nuclei_PA_Cycle_DNA4NProportion <- 1-pcDT$Nuclei_PA_Cycle_DNA2NProportion
+    
+    #Add spot level normalizations for selected intensities
+    if(normToSpot){
+      intensityNamesAll <- grep("_CP_Intensity_Median",colnames(pcDT), value=TRUE)
+      intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
+      for(intensityName in intensityNames){
+        #Median normalize the median intensity at each spot
+        pcDT <- pcDT[,paste0(intensityName,"_SpotNorm") := medianNorm(.SD,intensityName),by="Barcode,Well,Spot"]
+      }
+    }
+    
+    #Create staining set specific derived parameters
+    if(ss %in% c("SS1")){
+      
+    } else if (ss == "SS2"){
+      pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
+      #Calculate the EdU Positive Percent at each spot
+      pcDT <- pcDT[,Nuclei_PA_Gated_EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      #Logit transform EduPositiveProportion
+      #logit(p) = log[p/(1-p)]
+      EdUppImpute <- pcDT$Nuclei_PA_Gated_EduPositiveProportion
+      EdUppImpute[EdUppImpute==0] <- .01
+      EdUppImpute[EdUppImpute==1] <- .99
+      pcDT$Nuclei_PA_Gated_EduPositiveLogit <- log2(EdUppImpute/(1-EdUppImpute))
+      
+    } else if (ss == "SS3"){
+      #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
+      pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
+      
+    } else stop("Invalid ss parameter")
+    #browser()
     return(pcDT)
   }, mc.cores=detectCores())
   
