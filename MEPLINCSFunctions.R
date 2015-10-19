@@ -1,8 +1,8 @@
 #MEP-LINCS Analysis functions
-#Mark Dane 9/2015
+#Mark Dane 10/2015
 
 #Preprocessing Functions
- 
+
 #Functions to create or expose in MEMA
 calcTheta <- function(x,y) {
   z <- x + 1i * y
@@ -90,7 +90,7 @@ ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
   hsMedians <- data.frame(t(as.matrix(apply(fvDTHS[,grep("MEP|Barcode", colnames(fvDTHS),invert=TRUE),with=FALSE],2,median, na.rm = TRUE))),MEP="FBS", Barcode = NA, stringsAsFactors = FALSE)
   #Replace all FBS rows with one row of medians as the last row
   DT<- rbind(DT[!grepl("FBS", DT$MEP)],hsMedians)
-
+  
   #Calculate the dist matrix with euclidean method
   dmm <- as.matrix(dist(DT[,grep("MEP|Barcode",colnames(DT),invert=TRUE), with=FALSE]), labels=TRUE)
   #Extract the distance to the high serum medians
@@ -118,7 +118,7 @@ ubHeatmap <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
 }
 
 heatmapNoBC <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
-
+  
   activeFV <- DT
   #Remove MEP and Barcode columns and convert to a matrix
   activeFVM <- as.matrix(activeFV[,grep("MEP|Barcode",colnames(activeFV),invert=TRUE), with=FALSE])
@@ -467,16 +467,13 @@ createl4 <- function(l3){
 }#End of createl4
 
 
-preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
+preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   source("MEPLINCSFunctions.R")
   library("limma")#read GAL file and strsplit2
   library("MEMA")#merge, annotate and normalize functions
   library("data.table")#fast file reads, data merges and subsetting
   library("parallel")#use multiple cores for faster processing
-  #Select a staining set
-  #ss <- "SS3"
-  #Select a CellLine
-  #cellLine <- "YAPC"
+  
   #select analysis version
   analysisVersion <- "v1"
   
@@ -495,7 +492,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
   curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
   
   #Flag to control files updates
-  writeFiles <- TRUE
+  writeFiles <- writeFiles
   
   #Do not normalized to Spot level
   normToSpot <- TRUE
@@ -624,7 +621,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
       
       return(DT)
     })
-    
+    #browser()
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #Read the well metadata from a multi-sheet Excel file
@@ -640,12 +637,77 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
     pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
     pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
     
+    #Add the local polar coordinates and Neighbor Count
+    pcDT <- pcDT[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
+    pcDT <- pcDT[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
+    pcDT <- pcDT[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
+    pcDT <- pcDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
+    
+    #Set 2N and 4N DNA status
+    pcDT <- pcDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
+    #Manually reset clusters for poorly classified wells
+    #This is based on review of the clusters after a prior run
+    pcDT$Nuclei_PA_Cycle_State[pcDT$Barcode=="LI8X00403" & pcDT$Well=="A03" & pcDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
+    
+    pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
+    pcDT$Nuclei_PA_Cycle_DNA4NProportion <- 1-pcDT$Nuclei_PA_Cycle_DNA2NProportion
+    
+    #Add spot level normalizations for selected intensities
+    if(normToSpot){
+      intensityNamesAll <- grep("_CP_Intensity_Median",colnames(pcDT), value=TRUE)
+      intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
+      for(intensityName in intensityNames){
+        #Median normalize the median intensity at each spot
+        pcDT <- pcDT[,paste0(intensityName,"_SpotNorm") := medianNorm(.SD,intensityName),by="Barcode,Well,Spot"]
+      }
+    }
+    
+    #Create staining set specific derived parameters
+    if(ss %in% c("SS1")){
+      
+    } else if (ss == "SS2"){
+      pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
+      #Calculate the EdU Positive Percent at each spot
+      pcDT <- pcDT[,Nuclei_PA_Gated_EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      #Logit transform EduPositiveProportion
+      #logit(p) = log[p/(1-p)]
+      EdUppImpute <- pcDT$Nuclei_PA_Gated_EduPositiveProportion
+      EdUppImpute[EdUppImpute==0] <- .01
+      EdUppImpute[EdUppImpute==1] <- .99
+      pcDT$Nuclei_PA_Gated_EduPositiveLogit <- log2(EdUppImpute/(1-EdUppImpute))
+      
+    } else if (ss == "SS3"){
+      #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
+      pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
+      
+    } else stop("Invalid ss parameter")
+    #browser()
     return(pcDT)
   }, mc.cores=detectCores())
   
   cDT <- rbindlist(expDTList, fill = TRUE)
   #TODO delete unwanted columns here such as Euler Number
   densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
+  
+  cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
+  
+  #Rules for classifying perimeter cells
+  cDT <- cDT[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
+  
+  #Add a local wedge ID to each cell based on conversations with Michel Nederlof
+  cDT <- cDT[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
+  
+  #Define the perimeter cell if it exists in each wedge
+  #Classify cells as outer if they have a radial position greater than a thresh
+  cDT <- cDT[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
+  
+  #Require the cell not be in a sparse region
+  denseOuterDT <- cDT[!cDT$Spot_PA_Sparse  & cDT$Spot_PA_OuterCell]
+  denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
+  setkey(cDT,Barcode,Well,Spot,ObjectNumber)
+  setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
+  cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
+  cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
   
   #Create short display names, then replace where not unique
   cDT$ECMp <- gsub("_.*","",cDT$ECMpAnnotID)
@@ -670,67 +732,6 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
   # 
   # The cell level raw data and metadata is saved as Level 1 data. Normalized values are added to the dataset and saved as Level 2 data.
   
-  #Add the local polar coordinates and Neighbor Count
-  cDT <- cDT[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
-  cDT <- cDT[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
-  cDT <- cDT[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
-  cDT <- cDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
-  cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
-  
-  #Rules for classifying perimeter cells
-  cDT <- cDT[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
-  
-  #Add a local wedge ID to each cell based on conversations with Michel Nederlof
-  cDT <- cDT[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
-  
-  #Define the perimeter cell if it exists in each wedge
-  #Classify cells as outer if they have a radial position greater than a thresh
-  cDT <- cDT[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
-  
-  #Require the cell not be in a sparse region
-  denseOuterDT <- cDT[!cDT$Spot_PA_Sparse  & cDT$Spot_PA_OuterCell]
-  denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
-  setkey(cDT,Barcode,Well,Spot,ObjectNumber)
-  setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
-  cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
-  cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
-  
-  #Set 2N and 4N DNA status
-  cDT <- cDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
-  #Manually reset clusters for poorly classified wells
-  #This is based on review of the clusters after a prior run
-  cDT$Nuclei_PA_Cycle_State[cDT$Barcode=="LI8X00403" & cDT$Well=="A03" & cDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
-  
-  cDT <- cDT[,Nuclei_PA_Cycle_2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
-  cDT$Nuclei_PA_Cycle_4NProportion <- 1-cDT$Nuclei_PA_Cycle_2NProportion
-  
-  #Add spot level normalizations for selected intensities
-  if(normToSpot){
-    intensityNamesAll <- grep("_CP_Intensity_Median",colnames(cDT), value=TRUE)
-    intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
-    for(intensityName in intensityNames){
-      #Median normalize the median intensity at each spot
-      cDT <- cDT[,paste0(intensityName,"_SpotNorm") := medianNorm(.SD,intensityName),by="Barcode,Well,Spot"]
-    }
-  }
-  
-  #Create staining set specific derived parameters
-  if(ss %in% c("SS1")){
-    
-  } else if (ss == "SS2"){
-    cDT <- cDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
-    #Calculate the EdU Positive Percent at each spot
-    cDT <- cDT[,Nuclei_PA_Gated_EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    #Logit transform EduPositiveProportion
-    #logit(p) = log[p/(1-p)]
-    cDT$Nuclei_PA_Gated_EduPositiveLogit <- log2(cDT$Nuclei_PA_Gated_EduPositiveProportion/(1-cDT$Nuclei_PA_Gated_EduPositiveProportion))
-    
-  } else if (ss == "SS3"){
-    #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
-    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
-    
-  } else stop("Invalid ss parameter")
-  
   # Eliminate Variations in the Endpoint metadata
   endpointNames <- grep("End",colnames(cDT), value=TRUE)
   endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
@@ -752,42 +753,8 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes = 8){
   #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
   
   #### Level3 ####
-  
-  
   slDT <- createl3(cDT, lthresh)
-  # #Summarize cell data to medians of the spot parameters####
-  # parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
-  # 
-  # #Remove any spot-normalized and cell level parameters
-  # parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_RZSNorm$",parameterNames,value=TRUE,invert=TRUE)
-  # 
-  # #Remove any raw parameters
-  # parameterNames <- grep("Barcode|^Spot$|^Well$|Norm|Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", parameterNames, value = TRUE)
-  # 
-  # cDTParameters<-cDT[,parameterNames,with=FALSE]
-  # 
-  # slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
-  # slDTse <- cDTParameters[,lapply(.SD,se),keyby="Barcode,Well,Spot"]
-  # 
-  # #Add _SE to the standard error column names
-  # setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
-  # 
-  # #Merge back in the spot and well metadata
-  # #TODO: Convert the logic to not name the metadata
-  # metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
-  # setkey(cDT,Barcode, Well,Spot)
-  # mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
-  # slDT <- mDT[slDT, mult="first"]
-  # #Merge in the standard errr values
-  # slDT <- slDTse[slDT]
-  # #Add a count of replicates
-  # slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
-  # 
-  # #Add the loess model of the SpotCellCount on a per well basis
-  # slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
-  # 
-  # #Add well level QA Scores to spot level data
-  # slDT <- slDT[,QAScore := calcQAScore(.SD,threshold=lthresh,maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
+  
   
   #Add QA scores to cell level data####
   setkey(cDT,Barcode, Well, Spot)
