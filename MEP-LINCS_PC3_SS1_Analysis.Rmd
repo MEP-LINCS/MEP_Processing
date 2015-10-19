@@ -30,21 +30,14 @@ library(knitr)
 library("gplots")
 library("RColorBrewer")
 
-  
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 
 l1 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 l2 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
-#l3 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
-l3 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
-l4 <- data.table(read.table(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), header = TRUE, stringsAsFactors = FALSE), key = "MEP")
-
-#Work around issue in fread about logicals read as characters
-l1$Spot_PA_Perimeter <- as.logical(gsub(" ","",l1$Spot_PA_Perimeter))
-l1$Spot_PA_Sparse <- as.logical(gsub(" ","",l1$Spot_PA_Sparse))
-l1$Spot_PA_OuterCell <- as.logical(gsub(" ","",l1$Spot_PA_OuterCell))
+l3 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level3.txt"), showProgress = FALSE)
+l4 <- fread(paste0("./",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
 
 barcodes <- sort(unique(l3$Barcode))
 
