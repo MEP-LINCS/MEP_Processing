@@ -4,23 +4,6 @@
 #Preprocessing Functions
 
 #Functions to create or expose in MEMA
-medianNorm <- function(DT, value){
-  normedValues <- DT[, value, with = FALSE]/median(unlist(DT[, value, with = FALSE]), na.rm=TRUE)
-}
-
-# calcGroupRatios <- function(x,group,signal){
-#   #browser()
-#   medianInGroup <- median(x[[signal]][x[[group]]], na.rm=TRUE)
-#   medianOutGroup <- median(x[[signal]][!x[[group]]], na.rm=TRUE)
-#   return(medianInGroup/medianOutGroup)
-# } 
-
-# scaleToMedians <- function(x, normBase){
-#   #browser()
-#   if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
-#   xn <- as.numeric(x)/normBase
-#   return(xn)
-# }
 
 create8WellPseudoImage <- function(DT, pr, prDisplay){
   highThresh = .998
@@ -99,101 +82,6 @@ heatmapNoBC <- function(DT, title = NULL, cols = plateCol, activeThresh = .95) {
   return(activeFV)
 }
 
-findPerimeterCell <- function(x){
-  #browser()
-  if(!nrow(x)==0){
-    perimeterLogicals <- vector(length=nrow(x))
-    perimeterLogicals[which.max(x$Nuclei_PA_AreaShape_Center_R)] <- TRUE
-  }
-  return(perimeterLogicals)
-}
-
-labelOuterCells <- function(x, thresh=.75){
-  #browser()
-  outerLogicals <- NULL
-  if(!length(x)==0){
-    outerLogicals <- x>quantile(x,probs = thresh, na.rm=TRUE)
-  }
-  return(outerLogicals)
-}
-
-
-kmeansDNACluster <- function (x, centers = 2) 
-{
-  #browser()
-  x <- data.frame(x)
-  xkmeans <- kmeans(x, centers = centers)
-  #Swap cluster IDs to make sure cluster 2 has higher values
-  if(centers==2){
-    if(xkmeans$centers[1] > xkmeans$centers[2]){
-      tmp <- xkmeans$cluster == 1
-      xkmeans$cluster[xkmeans$cluster == 2] <- 1L
-      xkmeans$cluster[tmp] <- 2L
-    }
-  }
-  return(xkmeans$cluster)
-}
-
-lm_eqn <- function(df){
-  m <- lm(y ~ x, df);
-  eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
-                   list(a = format(coef(m)[1], digits = 2), 
-                        b = format(coef(m)[2], digits = 2), 
-                        r2 = format(summary(m)$r.squared, digits = 3)))
-  as.character(as.expression(eq));                 
-}
-
-simplifyLigandAnnotID <- function(ligand,annotIDs){
-  if(length(annotIDs)){
-    splits <- strsplit2(annotIDs, split = "_")
-    #Find the last non-empty substring
-    us <- apply(splits,1,function(x){
-      if(x[length(x)]==""){
-        if (length(x)< 2) stop("There are not enough substrings in a ligandANnotID")
-        u <- x[length(x)-1]
-      } else{
-        u <- x[length(x)]
-      }
-      return(u)
-    })
-    ligands <- paste(ligand,us, sep = "_")
-  } else ligands <- annotIDs
-  return(ligands)
-}
-
-normRZSWellsWithinPlate <- function(DT, value, baseECM, baseGF) {
-  if(!c("ECMpAnnotID") %in% colnames(DT)) stop(paste("DT must contain a ECMpAnnotID column."))
-  if(!c(value) %in% colnames(DT)) stop(paste("DT must contain a", value, "column."))
-  if("LigandAnnotID" %in% colnames(DT)){
-    valueMedian <- median(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$LigandAnnotID)),value, with=FALSE]), na.rm = TRUE)
-    valueMAD <- mad(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$LigandAnnotID)),value, with=FALSE]), na.rm = TRUE)
-  } else if (c("Growth.Factors") %in% colnames(DT)) {
-    valueMedian <- median(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$Growth.Factors)),value, with=FALSE]), na.rm = TRUE)
-    valueMAD <- mad(unlist(DT[(grepl(baseECM, DT$ECMpAnnotID)  & grepl(baseGF,DT$Growth.Factors)),value, with=FALSE]), na.rm = TRUE)
-  } else stop (paste("DT must contain a Growth.Factors or LigandAnnotID column."))
-  normedValues <- (DT[,value,with=FALSE]-valueMedian)/valueMAD
-  return(normedValues)
-}
-
-normRZSDataset <- function(dt){
-  parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount|Lineage",colnames(dt),value = TRUE), function(parm){
-    dt <- dt[,paste0(parm,"_RZSNorm") := normRZSWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "FBS"), by="Barcode"]
-    return(dt)
-  })
-  return(parmNormedList[[length(parmNormedList)]])
-}
-
-
-calc2NProportion <- function(x){
-  #x numeric vector of cycle states with values of 1 for 2n and 2 for 4N
-  #return proportion of cells in x that are in 2N
-  if(!length(x)) stop("Calculating 2N/4N proportion on an empty group")
-  if(sum(grepl("[^12]",x)))stop("Invalid cycle state passed to calc2NProportion")
-  if(sum(x==1)) {
-    proportion2N <- sum(x==1)/length(x)
-  } else proportion2N <- 0
-  return(proportion2N)
-}
 
 plotTotalDAPI <- function(l1, barcodes){
   for (barcode in barcodes){
@@ -373,63 +261,6 @@ integrateSSs <- function(SSs, cellLine = "PC3"){
   DT1FBS<- rbind(DT[!grepl("FBS", DT$MEP)],FBSMisOrdered,use.names=TRUE)
   
 }
-
-createl3 <- function(cDT, lthresh = lthresh){
-  #Summarize cell data to medians of the spot parameters
-  parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
-  
-  #Remove any spot-normalized and cell level parameters
-  parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_RZSNorm$",parameterNames,value=TRUE,invert=TRUE)
-  
-  #Remove any raw parameters
-  parameterNames <- grep("Barcode|^Spot$|^Well$|Norm|Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", parameterNames, value = TRUE)
-  
-  cDTParameters<-cDT[,parameterNames,with=FALSE]
-  
-  slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
-  slDTse <- cDTParameters[,lapply(.SD,se),keyby="Barcode,Well,Spot"]
-  
-  #Add _SE to the standard error column names
-  setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
-  
-  #Merge back in the spot and well metadata
-  #TODO: Convert the logic to not name the metadata
-  metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
-  setkey(cDT,Barcode, Well,Spot)
-  mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
-  slDT <- mDT[slDT, mult="first"]
-  #Merge in the standard errr values
-  slDT <- slDTse[slDT]
-  #Add a count of replicates
-  slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
-  
-  #Add the loess model of the SpotCellCount on a per well basis
-  slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
-  
-  #Add well level QA Scores to spot level data
-  slDT <- slDT[,QAScore := calcQAScore(.SD, threshold=lthresh, maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
-}#End of create l3
-
-createl4 <- function(l3){
-  #Add a count of replicates
-  l3 <- l3[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
-  l4Names<-grep("Norm|LigandAnnotID|ECMpAnnotID|Barcode|Spot_PA_SpotCellCount$|Spot_PA_ReplicateCount$", x=names(l3),value=TRUE)
-  #remove the _SE values
-  l4Names <- grep("_SE",l4Names, value = TRUE, invert = TRUE)
-  l4Keep<-l3[,l4Names,with=FALSE]
-  l4DT<-l4Keep[,lapply(.SD,numericMedian),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
-  
-  l4DTse <- l4Keep[,lapply(.SD,se),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
-  #Add _SE to the standard error column names
-  setnames(l4DTse, grep("Barcode|^Well$|^Spot$|Ligand|ECMp",colnames(l4DTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$|Ligand|ECMp",colnames(l4DTse), value = TRUE, invert = TRUE),"_SE"))
-  
-  #Merge back in the replicate metadata
-  mDT <- l3[,list(Well,CellLine,Ligand,Endpoint488,Endpoint555,Endpoint647,EndpointDAPI,ECMp,MEP),keyby="LigandAnnotID,ECMpAnnotID,Barcode"]
-  l4DT <- mDT[l4DT, mult="first"]
-  l4DT <- l4DTse[l4DT]
-  
-  return(l4DT)
-}#End of createl4
 
 createMEMATestRawData <- function(cellLine, ss, nrRows, nrCols){
   library(XLConnect)
