@@ -4,58 +4,23 @@
 #Preprocessing Functions
 
 #Functions to create or expose in MEMA
-calcTheta <- function(x,y) {
-  z <- x + 1i * y
-  res <- 90 - Arg(z) / pi * 180
-  res %% 360
-}
-
-spotCellDensities<- function (spot, radius = (max(spot$Cells_Location_Center_X) - min(spot$Cells_Location_Center_X))/5) 
-{
-  distMatrix <- as.matrix(dist(spot[, list(Cells_Location_Center_X, Cells_Location_Center_Y)]))
-  count <- apply(distMatrix, 2, function(x) {
-    sum(x <= radius) - 1
-  })
-  cellDensity <- count/(pi * radius^2)
-  return(cellDensity)
-}
-
-cellNeighbors<- function (spot, radius = (max(spot$Nuclei_CP_AreaShape_Center_X) - min(spot$Nuclei_CP_AreaShape_Center_X))/5) 
-{
-  distMatrix <- as.matrix(dist(spot[, list(Nuclei_CP_AreaShape_Center_X, Nuclei_CP_AreaShape_Center_Y)]))
-  count <- apply(distMatrix, 2, function(x) {
-    sum(x <= radius) - 1
-  })
-  return(count)
-}
-
 medianNorm <- function(DT, value){
   normedValues <- DT[, value, with = FALSE]/median(unlist(DT[, value, with = FALSE]), na.rm=TRUE)
 }
 
-normDataset <- function(dt){
-  parmNormedList <- lapply(grep("_CP_|_QI_|_PA_|SpotCellCount|Lineage",colnames(dt),value = TRUE), function(parm){
-    dt <- dt[,paste0(parm,"_MedNorm") := normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "FBS"), by="Barcode"]
-    #     parmNormed <- pcDT[,normWellsWithinPlate(.SD, value=parm, baseECM = ".*",baseGF = "HighSerum"), by="Barcode"]
-    #     parmNormed <- parmNormed[,Barcode := NULL]
-    return(dt)
-  })
-  return(parmNormedList[[length(parmNormedList)]])
-}
+# calcGroupRatios <- function(x,group,signal){
+#   #browser()
+#   medianInGroup <- median(x[[signal]][x[[group]]], na.rm=TRUE)
+#   medianOutGroup <- median(x[[signal]][!x[[group]]], na.rm=TRUE)
+#   return(medianInGroup/medianOutGroup)
+# } 
 
-calcGroupRatios <- function(x,group,signal){
-  #browser()
-  medianInGroup <- median(x[[signal]][x[[group]]], na.rm=TRUE)
-  medianOutGroup <- median(x[[signal]][!x[[group]]], na.rm=TRUE)
-  return(medianInGroup/medianOutGroup)
-} 
-
-scaleToMedians <- function(x, normBase){
-  #browser()
-  if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
-  xn <- as.numeric(x)/normBase
-  return(xn)
-}
+# scaleToMedians <- function(x, normBase){
+#   #browser()
+#   if(!length(x) == length(normBase)) stop("vector to be normalized and base must be the same length")
+#   xn <- as.numeric(x)/normBase
+#   return(xn)
+# }
 
 create8WellPseudoImage <- function(DT, pr, prDisplay){
   highThresh = .998

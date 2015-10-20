@@ -287,8 +287,6 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   #Save the un-normalized parameters to merge in later
   mdKeep <- cDT[,grep("Barcode|^Well$|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
   
-  #Normalized each feature by dividing by the median of its plate's FBS value well
-  #cDT <- normDataset(cDT[,normParameters,with=FALSE])
   #Normalize each feature by subtracting the median of its plate's FBS value
   # and divding by its plates MAD
   cDT <- normRZSDataset(cDT[,normParameters, with = FALSE])
@@ -389,4 +387,4 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   }
 }
 
-preprocessMEPLINCS(ss="SS1",cellLine="PC3TestData",limitBarcodes = 1,writeFiles = TRUE)
+preprocessMEPLINCS(ss="SS1",cellLine="PC3TestData",limitBarcodes = 1, writeFiles = TRUE)
