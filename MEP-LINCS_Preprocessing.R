@@ -12,7 +12,6 @@
 library("parallel")#use multiple cores for faster processing
 
 preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
-  source("MEPLINCSFunctions.R")
   library("limma")#read GAL file and strsplit2
   library("MEMA")#merge, annotate and normalize functions
   library("data.table")#fast file reads, data merges and subsetting
@@ -206,6 +205,17 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
       }
     }
     
+    #Create short display names, then replace where not unique
+    pcDT$ECMp <- gsub("_.*","",pcDT$ECMpAnnotID)
+    pcDT$Ligand <- gsub("_.*","",pcDT$LigandAnnotID)
+    
+    #Use entire AnnotID for ligands with same uniprot IDs
+    pcDT$Ligand[grepl("NRG1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = pcDT$LigandAnnotID[grepl("NRG1",pcDT$Ligand)])
+    pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = pcDT$LigandAnnotID[grepl("TGFB1",pcDT$Ligand)])
+    pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = pcDT$LigandAnnotID[grepl("CXCL12",pcDT$Ligand)])
+    
+    pcDT$MEP <- paste(pcDT$ECMp,pcDT$Ligand,sep = "_")
+    
     #Create staining set specific derived parameters
     if(ss %in% c("SS1")){
       
@@ -253,16 +263,6 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
   cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
   
-  #Create short display names, then replace where not unique
-  cDT$ECMp <- gsub("_.*","",cDT$ECMpAnnotID)
-  cDT$Ligand <- gsub("_.*","",cDT$LigandAnnotID)
-  
-  #Use entire AnnotID for ligands with same uniprot IDs
-  cDT$Ligand[grepl("NRG1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = cDT$LigandAnnotID[grepl("NRG1",cDT$Ligand)])
-  cDT$Ligand[grepl("TGFB1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = cDT$LigandAnnotID[grepl("TGFB1",cDT$Ligand)])
-  cDT$Ligand[grepl("CXCL12",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = cDT$LigandAnnotID[grepl("CXCL12",cDT$Ligand)])
-  
-  cDT$MEP <- paste(cDT$ECMp,cDT$Ligand,sep = "_")
   
   # After merging the metadata with the cell-level data, several types of derived parameters are added. These include:
   #   
@@ -286,12 +286,15 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   
   #Save the un-normalized parameters to merge in later
   mdKeep <- cDT[,grep("Barcode|^Well$|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
-  
-  #Normalized each feature by dividing by the median of its plate's FBS value well
-  #cDT <- normDataset(cDT[,normParameters,with=FALSE])
   #Normalize each feature by subtracting the median of its plate's FBS value
-  # and divding by its plates MAD
-  cDT <- normRZSDataset(cDT[,normParameters, with = FALSE])
+  # and dividing by its plates MAD
+  nDTList <- mclapply(unique(cDT$Barcode), function(barcode, dt){
+    setkey(dt, Barcode)
+    dt <- dt[barcode]
+    ndt <- normRZSDataset(dt[,normParameters, with = FALSE])
+  }, dt=cDT, mc.cores=detectCores())
+  cDT <- rbindlist(nDTList)
+  setkey(cDT,Barcode,Well,Spot,ObjectNumber)
   cDT <- merge(cDT,mdKeep)
   
   #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
@@ -389,4 +392,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   }
 }
 
-preprocessMEPLINCS(ss="SS1",cellLine="PC3TestData",limitBarcodes = 1,writeFiles = TRUE)
+cDir <- getwd()
+setwd("../MEP-LINCS/")
+preprocessMEPLINCS(ss="SS2",cellLine="PC3",limitBarcodes = 8, writeFiles = TRUE)
+setwd(cDir)
