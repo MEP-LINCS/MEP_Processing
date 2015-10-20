@@ -263,7 +263,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
   cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
   
-
+  
   # After merging the metadata with the cell-level data, several types of derived parameters are added. These include:
   #   
   #   The origin of coordinate system is placed at the median X and Y of each spot and the local cartesian and polar coordinates are added to the dataset.
@@ -286,10 +286,15 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   
   #Save the un-normalized parameters to merge in later
   mdKeep <- cDT[,grep("Barcode|^Well$|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
-  
   #Normalize each feature by subtracting the median of its plate's FBS value
   # and dividing by its plates MAD
-  cDT <- normRZSDataset(cDT[,normParameters, with = FALSE])
+  nDTList <- mclapply(unique(cDT$Barcode), function(barcode, dt){
+    setkey(dt, Barcode)
+    dt <- dt[barcode]
+    ndt <- normRZSDataset(dt[,normParameters, with = FALSE])
+  }, dt=cDT, mc.cores=detectCores())
+  cDT <- rbindlist(nDTList)
+  setkey(cDT,Barcode,Well,Spot,ObjectNumber)
   cDT <- merge(cDT,mdKeep)
   
   #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
