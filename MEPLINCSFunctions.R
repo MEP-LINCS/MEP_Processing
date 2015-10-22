@@ -132,8 +132,6 @@ RZScore <- function(x){
   return(zscores)
 }
 
-se <- function(x) sqrt(var(x,na.rm=TRUE)/length(na.omit(x)))
-
 filterl4 <- function(dt,lowQALigands){
   #Remove failed QA wells
   l4QA<- dt[!dt$Ligand %in% lowQALigands]
