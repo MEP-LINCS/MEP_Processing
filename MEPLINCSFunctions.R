@@ -130,7 +130,7 @@ filterl4 <- function(dt,lowQALigands){
               "Nuclei_CP_Intensity_MedianIntensity_Dapi_RZSNorm",
               "Spot_PA_SpotCellCount_RZSNorm",
               "Nuclei_PA_AreaShape_Neighbors_RZSNorm",
-              "Nuclei_PA_Cycle_2NProportion_RZSNorm$",
+              "Nuclei_PA_Cycle_DNA2NProportion_RZSNorm$",
               "Nuclei_CP_Intensity_MedianIntensity_Edu_RZSNorm",
               "Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_RZSNorm",
               "Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm",
