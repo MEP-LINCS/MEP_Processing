@@ -233,6 +233,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
     } else if (ss == "SS3"){
       #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
+      pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := log2(Cytoplasm_PA_Intensity_LineageRatio)]
       
     } else stop("Invalid ss parameter")
     #browser()
@@ -394,5 +395,5 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
 
 cDir <- getwd()
 setwd("../MEP-LINCS/")
-preprocessMEPLINCS(ss="SS1",cellLine="MCF7",limitBarcodes = 8, writeFiles = TRUE)
+preprocessMEPLINCS(ss="SS3",cellLine="MCF7",limitBarcodes = 8, writeFiles = TRUE)
 setwd(cDir)
