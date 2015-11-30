@@ -19,9 +19,11 @@ library("ggplot2")
 library("data.table")
 library("MEMA")
 library("grid")
-library(knitr)
+library("knitr")
 library("gplots")
 library("RColorBrewer")
+library(DT)
+library(d3heatmap)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -80,9 +82,16 @@ Each well is scored for even cell seeding according to the count of the DAPI-sta
 The following plots are pseudoimages each MEMA's spot cell count and a histogram of the loess model used for QA scoring. 
 
 
-```{r Heatmaps_QAScores, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
+```{r Heatmaps_QAScores, fig.width=3.7,fig.height=4, eval=TRUE}
 
 plotSCCHeatmapsQAHistograms(l3, barcodes)
+
+```
+
+The following histograms show the spot cell counts for each array.  
+```{r SCCHistograms, fig.width=3.7,fig.height=4, eval=TRUE}
+xLimits <- quantile(l3$Spot_PA_SpotCellCount, probs=c(0,.99))
+yLimits <- c(0,75)
 
 for (barcode in barcodes){
   setkey(l3,"Barcode")
@@ -90,10 +99,10 @@ for (barcode in barcodes){
   
   p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount))+
     geom_histogram(binwidth = 1)+
-    xlim(0,40)+ylim(0,140)+
+    coord_cartesian(xlim=xLimits, ylim=yLimits)+
     ggtitle(paste("\n\n Spot Cell Count in",unique(dt$CellLine), "cells in plate",unique(dt$Barcode)))+
     xlab("Spot Cell Count")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.7)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=4)
   suppressWarnings(print(p))
 }
@@ -176,12 +185,24 @@ suppressWarnings(print(p))
 
 ```
 
-\newpage
+```{r SCCTable}
+setkey(l4F,"Ligand")
+dt <- l4F[!"FBS"]
+setkey(dt, Spot_PA_SpotCellCount_RZSNorm_RobustZ)
+datatable(format(dt[, list(ECMp, Ligand,Barcode,Spot_PA_SpotCellCount_RZSNorm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("ECMp","Ligand","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
 
+```
 
+```{r SCCHeatmap}
 
-\newpage
+#Cast to get ligands into columns
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_RZSNorm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_RZSNorm_RobustZ")
 
+rownames(df) <- df$ECMp
+df <- df[,!(names(df) %in% c("ECMp"))]
+hmcols<-colorRampPalette(c("blue","white","red"))(256)
+d3heatmap(df, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="6pt")
+```
 
 ##Filtering
 A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4HF$MEP))` unique MEPs in the HF dataset. 
@@ -266,17 +287,17 @@ print(p)
 
 ```{r lineageRatioHistogram, eval=ss=="SS3"}
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_bar(binwidth = .02)+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_bar(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Normalized Lineage Ratio Distribution"))+
-  ylab("Count")+xlab("Normalized Lineage Ratio")+
+  ggtitle(paste("\n\n","MEP Normalized, Logged Lineage Ratio Distribution"))+
+  ylab("Count")+xlab("Normalized, Logged Lineage Ratio")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 ```
 
 ```{r LineageRatioByLigand, eval=ss=="SS3"}
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -285,8 +306,8 @@ suppressWarnings(print(p))
 
 ```{r lineageRatioByECMp, eval=ss=="SS3"}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized LineageRatio by ECM Protein"))+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -295,22 +316,21 @@ suppressWarnings(print(p))
 
 ```{r LineageRatioByMEP, eval=ss=="SS3"}
 
-p <- ggplot(l4HF, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatio_RZSNorm))+
-  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm-Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatio_RZSNorm+Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE), width=.01) +
-  xlab("MEP")+ylab("Normalized Lineage Ratio")+
+p <- ggplot(l4HF, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm-Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm+Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE), width=.01) +
+  xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
   geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Lineage Ratio with SE Bars")
+  ggtitle("MEPs Ordered by Logged Lineage Ratio with SE Bars")
 print(p)
 ```
 
 
 ```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
-setkey(l4HF, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)
 
-kable(head(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode", "LineageRatio", "LineageRatio SE", "Replicate Count"), digits = 2)
+setkey(l4HF, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm)
+datatable(format(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm,Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
 
-kable(tail(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","LineageRatio", "LineageRatio SE", "Replicate Count"), digits = 2)
 
 ```
 
@@ -332,20 +352,28 @@ The following heatmap shows the normalized MEP responses based on the curated fe
 
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
 fvDT <- filterl4(l4, lowQALigands)
+setkey(fvDT, MEP)
+fvDT <- fvDT[!grepl("FBS",fvDT$MEP),]
+fvDT <- fvDT[,Barcode := NULL]
 
 #Shorten the feature names
 setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_RZSNorm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
 #Remove when not needed
 if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
 
+#Convert to dataframe for use in D3heatmap
+fvDT <- data.frame(fvDT)
+rownames(fvDT) <- fvDT$MEP
+df <- df[,!(names(df) %in% c("ECMp"))]
+
+fvDT <- fvDT[,!(names(fvDT) %in% c("MEP"))]
 ```
 
 The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
 
 ```{r, fig.height=16, eval = TRUE}
 
-#Plot the heat map without NID1 in the dataset
-activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP Feature Vectors", cols = plateCol)
+d3heatmap(fvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt")
 
 ```
 
@@ -372,8 +400,15 @@ l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))),
 #Extract the first PCs of each MEP into a matrix
 l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
 
+#Convert to dataframe for use in D3heatmap
+l4pcvDT <- data.frame(l4pcvDT)
+rownames(l4pcvDT) <- l4pcvDT$MEP
+l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
+```
+```{r PCAHetamap}
 #Plot the heat map of the entire dataset
-activeMEPs <- ubHeatmap(l4pcvDT, title = "MEP PCA Vectors", cols = plateCol)
+d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt")
+
 
 ```
 
@@ -455,10 +490,8 @@ if(ss=="SS1"){
   
 }
 
-kable(l4PCAModel$rotation[,1:nrPCs], digits = 2)
-
+datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5))
 #Extract the selectedPCs of each MEP into a matrix
-l4pcv <- l4PCAModel$x[,1:nrPCs]
 
 ```
 
@@ -654,29 +687,6 @@ suppressWarnings(print(p))
 
 ```
 
-\newpage
-
-###Extreme Spot Cell Count MEPs
-The table below lists the MEPs with ablsoute value Z scores greater than `r SCCZscoreThresh`.
-
-```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
-setkey(l4F,"Ligand")
-dt <- l4F[!"FBS"]
-setkey(dt, Spot_PA_SpotCellCount_RZSNorm_RobustZ)
-kable(dt[dt$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=SCCZscoreThresh | dt$Spot_PA_SpotCellCount_RZSNorm_RobustZ <= -SCCZscoreThresh, list(Ligand,ECMp,Barcode,Spot_PA_SpotCellCount_RZSNorm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)],digits = 3, col.names = c("Ligand","ECMp","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
-```
-
-
-\newpage
-
-###Active MEPS from Unbiased Analysis
-The table below shows the first and last active MEPs and their PC values.
-
-```{r ActiveMeps, echo = FALSE}
-kable(head(activeMEPs, n=20), digits = 2)
-kable(tail(activeMEPs, n=20), digits = 2)
-
-```
 
 \newpage
 
