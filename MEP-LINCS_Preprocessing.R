@@ -204,8 +204,8 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
     
     if(any(grepl("Nuclei_PA_Cycle_DNA4NProportion",colnames(pcDT)))){
       DNA4NImpute <- pcDT$Nuclei_PA_Cycle_DNA4NProportion
-      DNA4NImpute[DNA2NImpute==0] <- .01
-      DNA4NImpute[DNA2NImpute==1] <- .99
+      DNA4NImpute[DNA4NImpute==0] <- .01
+      DNA4NImpute[DNA4NImpute==1] <- .99
       pcDT$Nuclei_PA_Cycle_DNA4NProportionLogit <- log2(DNA4NImpute/(1-DNA4NImpute))
     }
     
@@ -266,6 +266,9 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   #TODO delete unwanted columns here such as Euler Number
   densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
   
+  #Add a convenience label for wells and ligands
+  cDT$Well_Ligand <- paste(cDT$Well,cDT$Ligand,sep = "_")
+  
   cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
   
   #Rules for classifying perimeter cells
@@ -324,7 +327,6 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
-  
   
   #Add QA scores to cell level data####
   setkey(cDT,Barcode, Well, Spot)

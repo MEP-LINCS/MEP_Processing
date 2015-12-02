@@ -92,7 +92,7 @@ plotSCCHeatmapsQAHistograms(l3, barcodes)
 
 The following histograms show the spot cell counts for each array.  
 ```{r SCCHistograms, fig.width=3.7,fig.height=4, eval=TRUE}
-xLimits <- quantile(l3$Spot_PA_SpotCellCount, probs=c(0,.99))
+xLimits <- quantile(l3$Spot_PA_SpotCellCount, probs=c(0,.995))
 yLimits <- c(0,75)
 
 for (barcode in barcodes){
@@ -159,6 +159,73 @@ For each feature, the median and median absolute deviation (MAD) of all spots in
 Feature values for all cells in a plate were normalized by subtracting the plate's control well median and dividing by the plate's control well MAD*1.48.
 
 
+```{r, child='MEP-LINCS_LineageText.Rmd', eval=ss=="SS3"}
+```
+
+```{r LineageMarkers, echo=FALSE, eval=ss=="SS3"}
+
+setkey(l4HF,"Ligand")
+dt <- l4HF[!"FBS"]
+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm, colour = Ligand))+
+  geom_point(alpha=.5)+
+  guides(colour=FALSE)+
+  xlab("KRT5")+ylab("KRT19")+
+  ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
+  (gg <- ggplotly(p))
+```
+
+
+```{r lineageRatioHistogram, eval=ss=="SS3"}
+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_bar(binwidth = .02)+
+  #geom_vline(xintercept = c(-2,2), colour = "blue")+
+  ggtitle(paste("\n\n","MEP Normalized, Logged Lineage Ratio Distribution"))+
+  ylab("Count")+xlab("Normalized, Logged Lineage Ratio")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+```
+
+```{r LineageRatioByLigand, eval=ss=="SS3"}
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r lineageRatioByECMp, eval=ss=="SS3"}
+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r LineageRatioByMEP, eval=ss=="SS3"}
+
+p <- ggplot(l4HF, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm-Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm+Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE), width=.01, colour="black") +
+  xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
+  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
+  theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
+  ggtitle("MEPs Ordered by Logged Lineage Ratio with SE Bars")
+
+ggplotly(p)
+```
+
+
+```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
+
+setkey(l4HF, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm)
+datatable(format(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm,Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
+
+
+```
+
 ##Spot Cell Count Analysis
 The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. Below the distribution plot are plots with Z scores stratified by ligand and ECM protein. A listing of the MEPs in the tails of the distribution is below.
 
@@ -186,6 +253,18 @@ p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_RZSNorm_RobustZ, FUN
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
+```
+
+
+```{r SCCHeatmap}
+
+#Cast to get ligands into columns
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_RZSNorm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_RZSNorm_RobustZ")
+
+rownames(df) <- df$ECMp
+df <- df[,!(names(df) %in% c("ECMp"))]
+
+d3heatmap(df, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="6pt")
 ```
 
 ```{r SCCTable}
@@ -260,73 +339,6 @@ kable(tail(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm
 ```
 
 
-```{r, child='MEP-LINCS_LineageText.Rmd', eval=ss=="SS3"}
-```
-
-```{r LineageMarkers, echo=FALSE, eval=ss=="SS3"}
-
-setkey(l4HF,"Ligand")
-dt <- l4HF[!"FBS"]
-
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm, colour = Ligand))+
-  geom_point(alpha=.5)+
-  guides(colour=FALSE)+
-  xlab("KRT5")+ylab("KRT19")+
-  ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
-  (gg <- ggplotly(p))
-```
-
-
-```{r lineageRatioHistogram, eval=ss=="SS3"}
-
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_bar(binwidth = .02)+
-  #geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Normalized, Logged Lineage Ratio Distribution"))+
-  ylab("Count")+xlab("Normalized, Logged Lineage Ratio")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
-```
-
-```{r LineageRatioByLigand, eval=ss=="SS3"}
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r lineageRatioByECMp, eval=ss=="SS3"}
-
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r LineageRatioByMEP, eval=ss=="SS3"}
-
-p <- ggplot(l4HF, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+
-  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm-Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm+Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE), width=.01, colour="black") +
-  xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
-  theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Logged Lineage Ratio with SE Bars")
-
-ggplotly(p)
-```
-
-
-```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
-
-setkey(l4HF, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm)
-datatable(format(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm,Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
-
-
-```
-
 \newpage
 
 ##Unbiased Analysis
@@ -380,7 +392,7 @@ Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs
 
 
 ```{r, fig.height=12}
-l4F <- l4F[!grepl("NID1",l4F$ECMp)]
+#l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
 PCFVNames <- grep("RZSNorm",colnames(l4F),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
@@ -395,7 +407,9 @@ l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP
 l4pcvDT <- data.frame(l4pcvDT)
 rownames(l4pcvDT) <- l4pcvDT$MEP
 l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
+
 ```
+
 ```{r PCAHeatmap}
 #Plot the heat map of the entire dataset
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt")
@@ -702,16 +716,4 @@ if (ss == "SS1"){
     
   }
 } 
-```
-
-
-```{r SCCHeatmap}
-
-#Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_RZSNorm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_RZSNorm_RobustZ")
-
-rownames(df) <- df$ECMp
-df <- df[,!(names(df) %in% c("ECMp"))]
-
-d3heatmap(df, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="6pt")
 ```
