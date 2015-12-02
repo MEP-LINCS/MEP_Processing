@@ -85,7 +85,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   
   
   # The raw data from all wells in all plates in the dataset are read in and merged with their spot and well metadata. The number of nuclei at each spot are counted and a loess model of the spot cell count is added. Then all intensity values are normalized through dividing them by the median intensity value of the control well in the same plate.
-  # 
+  
   # Next, the data is filtered to remove objects with a nuclear area less than nuclearAreaThresh pixels or more than nuclearAreaHiThresh pixels.
   
   #merge_normalize_QA, echo=FALSE}
@@ -189,11 +189,33 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
     #Set 2N and 4N DNA status
     pcDT <- pcDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
     #Manually reset clusters for poorly classified wells
-    #This is based on review of the clusters after a prior run
-    pcDT$Nuclei_PA_Cycle_State[pcDT$Barcode=="LI8X00403" & pcDT$Well=="A03" & pcDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
     
     pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
     pcDT$Nuclei_PA_Cycle_DNA4NProportion <- 1-pcDT$Nuclei_PA_Cycle_DNA2NProportion
+    
+    #Logit transform DNA Proportions
+    #logit(p) = log[p/(1-p)]
+    if(any(grepl("Nuclei_PA_Cycle_DNA2NProportion",colnames(pcDT)))){
+      DNA2NImpute <- pcDT$Nuclei_PA_Cycle_DNA2NProportion
+      DNA2NImpute[DNA2NImpute==0] <- .01
+      DNA2NImpute[DNA2NImpute==1] <- .99
+      pcDT$Nuclei_PA_Cycle_DNA2NProportionLogit <- log2(DNA2NImpute/(1-DNA2NImpute))
+    }
+    
+    if(any(grepl("Nuclei_PA_Cycle_DNA4NProportion",colnames(pcDT)))){
+      DNA4NImpute <- pcDT$Nuclei_PA_Cycle_DNA4NProportion
+      DNA4NImpute[DNA2NImpute==0] <- .01
+      DNA4NImpute[DNA2NImpute==1] <- .99
+      pcDT$Nuclei_PA_Cycle_DNA4NProportionLogit <- log2(DNA4NImpute/(1-DNA4NImpute))
+    }
+    
+    #logit transform eccentricity
+    if(any(grepl("Nuclei_CP_AreaShape_Eccentricity",colnames(pcDT)))){
+      EccImpute <- pcDT$Nuclei_CP_AreaShape_Eccentricity
+      EccImpute[EccImpute==0] <- .01
+      EccImpute[EccImpute==1] <- .99
+      pcDT$Nuclei_PA_AreaShape_EccentricityLogit <- log2(EccImpute/(1-EccImpute))
+    }
     
     #Add spot level normalizations for selected intensities
     if(normToSpot){
@@ -358,7 +380,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
     #Paste back in the QA and selected raw data
     
     level2Names <- c(metadataNormNames,
-                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
+                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
     
     #Write out cDT with normalized values as level 2 dataset
     write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
