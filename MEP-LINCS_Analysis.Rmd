@@ -24,10 +24,12 @@ library("gplots")
 library("RColorBrewer")
 library(DT)
 library(d3heatmap)
+library(plotly)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
+hmcols<-colorRampPalette(c("blue","white","red"))(256)
 
 l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
 l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",analysisVersion,"_Level2.txt"), showProgress = FALSE)
@@ -105,6 +107,7 @@ for (barcode in barcodes){
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.7)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=4)
   suppressWarnings(print(p))
+
 }
 
 ```
@@ -193,17 +196,6 @@ datatable(format(dt[, list(ECMp, Ligand,Barcode,Spot_PA_SpotCellCount_RZSNorm_Ro
 
 ```
 
-```{r SCCHeatmap}
-
-#Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_RZSNorm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_RZSNorm_RobustZ")
-
-rownames(df) <- df$ECMp
-df <- df[,!(names(df) %in% c("ECMp"))]
-hmcols<-colorRampPalette(c("blue","white","red"))(256)
-d3heatmap(df, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="6pt")
-```
-
 ##Filtering
 A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4HF$MEP))` unique MEPs in the HF dataset. 
 
@@ -232,6 +224,7 @@ p <- ggplot(l4HF, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveProportion_
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
+
 ```
 
 ```{r ProliferationResponseECMp, fig.width=8,  fig.height=6, echo=FALSE, eval=(ss=="SS2")}
@@ -280,8 +273,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = C
   guides(colour=FALSE)+
   xlab("KRT5")+ylab("KRT19")+
   ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
-print(p)
-
+  (gg <- ggplotly(p))
 ```
 
 
@@ -317,12 +309,13 @@ suppressWarnings(print(p))
 ```{r LineageRatioByMEP, eval=ss=="SS3"}
 
 p <- ggplot(l4HF, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+
-  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm-Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm+Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE), width=.01) +
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm-Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm+Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
   geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Logged Lineage Ratio with SE Bars")
-print(p)
+
+ggplotly(p)
 ```
 
 
@@ -346,7 +339,7 @@ Select a curated feature vector of MEP intensities and morphologies
 Calculate the euclidean distance of each MEP's feature vector to the control feature vector  
 Perform hierarchical clustering on the MEPs 
 
-The following heatmap shows the normalized MEP responses based on the curated feature vector normalized dataset without NID1 (an outlier ECM protein). The row color bars and text colors identify the 8 different experiment plates and help show plate batch effects.
+The following heatmap shows the normalized MEP responses based on the curated feature vector and the normalized dataset.    
 
 ```{r, fig.height=16}
 
@@ -364,12 +357,10 @@ if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NPropor
 #Convert to dataframe for use in D3heatmap
 fvDT <- data.frame(fvDT)
 rownames(fvDT) <- fvDT$MEP
-df <- df[,!(names(df) %in% c("ECMp"))]
 
 fvDT <- fvDT[,!(names(fvDT) %in% c("MEP"))]
 ```
 
-The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
 
 ```{r, fig.height=16, eval = TRUE}
 
@@ -405,11 +396,9 @@ l4pcvDT <- data.frame(l4pcvDT)
 rownames(l4pcvDT) <- l4pcvDT$MEP
 l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 ```
-```{r PCAHetamap}
+```{r PCAHeatmap}
 #Plot the heat map of the entire dataset
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt")
-
-
 ```
 
 ```{r, fig.height=3, fig.width=4}
@@ -713,4 +702,16 @@ if (ss == "SS1"){
     
   }
 } 
+```
+
+
+```{r SCCHeatmap}
+
+#Cast to get ligands into columns
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_RZSNorm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_RZSNorm_RobustZ")
+
+rownames(df) <- df$ECMp
+df <- df[,!(names(df) %in% c("ECMp"))]
+
+d3heatmap(df, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="6pt")
 ```
