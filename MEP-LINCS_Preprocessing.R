@@ -414,5 +414,5 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
   }
 }
 
-preprocessMEPLINCS(ss="SS3",cellLine="PC3",limitBarcodes = 4, analysisVersion= "v1", writeFiles = TRUE)
+preprocessMEPLINCS(ss="SS3",cellLine="PC3",limitBarcodes = 8, analysisVersion= "v1", writeFiles = TRUE)
 

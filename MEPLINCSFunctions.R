@@ -70,7 +70,7 @@ plotTotalDAPI <- function(l1, barcodes){
     mDT <- mDT[,DNAThresh := min(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==2]), by="Well"]
     p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_bar(binwidth = 2)+
       geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
-      facet_wrap(~Ligand, nrow=2, scales="free_x")+
+      facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
       #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
       ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
       ylab("Count")+xlab("Total Intensity DAPI")+

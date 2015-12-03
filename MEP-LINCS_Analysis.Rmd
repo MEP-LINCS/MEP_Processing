@@ -410,7 +410,7 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 
 ```
 
-```{r PCAHeatmap}
+```{r PCAHeatmap, fig.height=16,}
 #Plot the heat map of the entire dataset
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt")
 ```
@@ -709,7 +709,7 @@ if (ss == "SS1"){
     mDT <- l1[l1$Barcode == barcode] 
     mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
     
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour = Nuclei_PA_Gated_EduPositive))+geom_point(size = rel(.6), alpha = .8)+facet_wrap(~Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","Edu vs. Total DAPI Signal,",barcode))+ylab("Edu (log2)")+xlab("Total Intensity DAPI")+
+    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour = Nuclei_PA_Gated_EduPositive))+geom_point(size = rel(.6), alpha = .8)+facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","Edu vs. Total DAPI Signal,",barcode))+ylab("Edu (log2)")+xlab("Total Intensity DAPI")+
       theme(strip.text = element_text(size = 5))
     
     suppressWarnings(print(p))
@@ -718,32 +718,3 @@ if (ss == "SS1"){
 } 
 ```
 
-
-##Spectral Overlap
-The following plots are intended to show if there is overlap between the channels.
-
-```{r SpectralOverlap}
-spectralPlots <- function(dt, xSignal, ySignal){
-  for (barcode in barcodes){
-    DT <- l1[l1$Barcode == barcode] 
-    xlimits <- quantile(unlist(DT[,xSignal, with=FALSE]), probs=c(0,.98))
-    ylimits <- quantile(unlist(DT[,ySignal, with=FALSE]), probs=c(0,.98))
-    
-    p <- ggplot(DT, aes_string(x=xSignal, y=ySignal))+
-      geom_point(size=rel(.5), alpha=.5)+
-      geom_rug(col=rgb(.5,0,0,alpha=.01))+
-      coord_cartesian(xlim=xlimits,ylim=ylimits)+
-      facet_wrap(~Well_Ligand, nrow=2, scales="fixed")+
-      ggtitle(paste(cellLine, barcode))
-    print(p)  
-  }
-}
-
-p <- spectralPlots(dt = l1, xSignal = "Nuclei_CP_Intensity_MedianIntensity_Dapi", ySignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5")
-
-p <- spectralPlots(dt = l1, xSignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", ySignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19")
-
-p <- spectralPlots(dt = l1, xSignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19", ySignal = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask")
-
-
-```
