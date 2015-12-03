@@ -107,7 +107,7 @@ for (barcode in barcodes){
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.7)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=4)
   suppressWarnings(print(p))
-
+  
 }
 
 ```
@@ -172,7 +172,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = C
   guides(colour=FALSE)+
   xlab("KRT5")+ylab("KRT19")+
   ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
-  (gg <- ggplotly(p))
+(gg <- ggplotly(p))
 ```
 
 
@@ -716,4 +716,34 @@ if (ss == "SS1"){
     
   }
 } 
+```
+
+
+##Spectral Overlap
+The following plots are intended to show if there is overlap between the channels.
+
+```{r SpectralOverlap}
+spectralPlots <- function(dt, xSignal, ySignal){
+  for (barcode in barcodes){
+    DT <- l1[l1$Barcode == barcode] 
+    xlimits <- quantile(unlist(DT[,xSignal, with=FALSE]), probs=c(0,.98))
+    ylimits <- quantile(unlist(DT[,ySignal, with=FALSE]), probs=c(0,.98))
+    
+    p <- ggplot(DT, aes_string(x=xSignal, y=ySignal))+
+      geom_point(size=rel(.5), alpha=.5)+
+      geom_rug(col=rgb(.5,0,0,alpha=.01))+
+      coord_cartesian(xlim=xlimits,ylim=ylimits)+
+      facet_wrap(~Well_Ligand, nrow=2, scales="fixed")+
+      ggtitle(paste(cellLine, barcode))
+    print(p)  
+  }
+}
+
+p <- spectralPlots(dt = l1, xSignal = "Nuclei_CP_Intensity_MedianIntensity_Dapi", ySignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5")
+
+p <- spectralPlots(dt = l1, xSignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", ySignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19")
+
+p <- spectralPlots(dt = l1, xSignal = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19", ySignal = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask")
+
+
 ```

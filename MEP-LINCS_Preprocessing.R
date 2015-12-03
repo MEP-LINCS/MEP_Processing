@@ -11,14 +11,11 @@
 
 library("parallel")#use multiple cores for faster processing
 
-preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
+preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, writeFiles= TRUE){
   library("limma")#read GAL file and strsplit2
   library("MEMA")#merge, annotate and normalize functions
   library("data.table")#fast file reads, data merges and subsetting
   library("parallel")#use multiple cores for faster processing
-  
-  #select analysis version
-  analysisVersion <- "v1.1"
   
   #Rules-based classifier thresholds for perimeter cells
   neighborsThresh <- 0.4 #Gates sparse cells on a spot
@@ -417,5 +414,5 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   }
 }
 
-preprocessMEPLINCS(ss="SS3",cellLine="PC3",limitBarcodes = 4, writeFiles = TRUE)
+preprocessMEPLINCS(ss="SS3",cellLine="PC3",limitBarcodes = 4, analysisVersion= "v1", writeFiles = TRUE)
 
