@@ -11,6 +11,43 @@
 
 library("parallel")#use multiple cores for faster processing
 
+createl3 <- function(cDT, lthresh = lthresh){
+  #Summarize cell data to medians of the spot parameters
+  parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
+  
+  #Remove any spot-normalized and cell level parameters
+  parameterNames <- grep("SpotNorm|^Nuclei_PA_Gated_EduPositive$|^Nuclei_PA_Gated_EduPositive_RZSNorm$",parameterNames,value=TRUE,invert=TRUE)
+  
+  #Remove any raw parameters
+  parameterNames <- grep("Barcode|^Spot$|^Well$|Norm|Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", parameterNames, value = TRUE)
+  
+  cDTParameters<-cDT[,parameterNames,with=FALSE]
+  
+  slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
+  slDTse <- cDTParameters[,lapply(.SD,MEMA:::se),keyby="Barcode,Well,Spot"]
+  
+  #Add _SE to the standard error column names
+  setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
+  
+  #Merge back in the spot and well metadata
+  #TODO: Convert the logic to not name the metadata
+  metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ImageID|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
+  setkey(cDT,Barcode, Well,Spot)
+  mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
+  slDT <- mDT[slDT, mult="first"]
+  #Merge in the standard err values
+  slDT <- slDTse[slDT]
+  #Add a count of replicates
+  slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
+  
+  #Add the loess model of the SpotCellCount on a per well basis
+  slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
+  
+  #Add well level QA Scores to spot level data
+  slDT <- slDT[,QAScore := calcQAScore(.SD, threshold=lthresh, maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
+}
+
+
 preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, writeFiles= TRUE){
   library("limma")#read GAL file and strsplit2
   library("MEMA")#merge, annotate and normalize functions
@@ -95,7 +132,10 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
     barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes] 
   } else barcodes <- unique(splits[,ncol(splits)])
   if(analysisVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
-  
+  #Read in the Omero Image URLs
+  if (!analysisVersion == "v1" ){
+    imageURLFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+  }
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
@@ -161,7 +201,6 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
       
       return(DT)
     })
-    #browser()
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #Read the well metadata from a multi-sheet Excel file
@@ -171,6 +210,23 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
     #merge well metadata with the data and spot metadata
     pcDT <- merge(pcDT,wellMetadata,by = "Well")
     pcDT <- pcDT[,Barcode := barcode]
+    if (!analysisVersion == "v1" ){
+      #Read in and merge the Omero URLs
+      omeroIndex <- fread(grep(barcode, imageURLFiles, value=TRUE))[,list(WellName,Row,Column,ImageID)]
+      omeroIndex$Well <- sapply(gsub("Well","",strsplit2(omeroIndex$WellName,"_")[,2],""),FUN=switch,
+                                "1"="A01",
+                                "2"="A02",
+                                "3"="A03",
+                                "4"="A04",
+                                "5"="B01",
+                                "6"="B02",
+                                "7"="B03",
+                                "8"="B04")
+      setnames(omeroIndex,"Row","ArrayRow")
+      setnames(omeroIndex,"Column","ArrayColumn")
+      omeroIndex <- omeroIndex[,WellName:=NULL]
+      pcDT <- merge(pcDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
+    }
     #Count the cells at each spot
     pcDT<-pcDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
     
@@ -320,7 +376,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
   setkey(cDT,Barcode,Well,Spot,ObjectNumber)
   cDT <- merge(cDT,mdKeep)
   
-  #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
+  #The cell-level data is median summarized to the spot level. The spot level data and metadata are saved as Level 3 data.
   
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
@@ -367,7 +423,7 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
   mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
   
   #WriteData
-  
+  #browser()
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
     level1Names <- grep("Norm",colnames(cDT),value=TRUE,invert=TRUE)
@@ -414,5 +470,10 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, analysisVersion, w
   }
 }
 
-preprocessMEPLINCS(ss="SS3",cellLine="PC3",limitBarcodes = 8, analysisVersion= "v1", writeFiles = TRUE)
+analysisVersion <- "v1"
+for(cellLine in c("PC3", "MCF7", "YAPC")){
+  for(ss in c("SS1","SS2","SS3")){
+    preprocessMEPLINCS(ss=ss,cellLine=cellLine,limitBarcodes = 8, analysisVersion= "v1", writeFiles = TRUE)
+  }
+}
 
