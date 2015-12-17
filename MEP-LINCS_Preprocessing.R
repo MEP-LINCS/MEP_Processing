@@ -11,14 +11,11 @@
 
 library("parallel")#use multiple cores for faster processing
 
-preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
+preprocessMEPLINCS <- function(ss, cellLine, analysisVersion, rawDataVersion, limitBarcodes=8, writeFiles= TRUE){
   library("limma")#read GAL file and strsplit2
   library("MEMA")#merge, annotate and normalize functions
   library("data.table")#fast file reads, data merges and subsetting
   library("parallel")#use multiple cores for faster processing
-  
-  #select analysis version
-  analysisVersion <- "v1.1"
   
   #Rules-based classifier thresholds for perimeter cells
   neighborsThresh <- 0.4 #Gates sparse cells on a spot
@@ -91,12 +88,10 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   #merge_normalize_QA, echo=FALSE}
   #The next steps are to bring in the well metadata, the print order and the CP data
   
-  cellDataFiles <- dir(paste0("./",cellLine,"/", ss,"/RawData/",analysisVersion),full.names = TRUE)
+  cellDataFiles <- dir(paste0("./",cellLine,"/", ss,"/RawData/",rawDataVersion),full.names = TRUE)
   splits <- strsplit2(strsplit2(cellDataFiles,split = "_")[,1],"/")
   
-  if(limitBarcodes) {
-    barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes] 
-  } else barcodes <- unique(splits[,ncol(splits)])
+  barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
   if(analysisVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
   
   expDTList <- mclapply(barcodes, function(barcode){
@@ -241,7 +236,6 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   }, mc.cores=detectCores())
   
   cDT <- rbindlist(expDTList, fill = TRUE)
-  #TODO delete unwanted columns here such as Euler Number
   densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
   
   cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
@@ -282,23 +276,113 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
   setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
   
-  #Identify parameters that shouldn't be normalized
-  normParameters <- grep("Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE,invert=TRUE)
+  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State"
   
+  #Identify parameters that to be normalized
+  normParameters <- grep(metadataNames,colnames(cDT),value=TRUE,invert=TRUE)
+  normNaiveReplicateRUVDataset <- function(dt, k){
+    #Setup data with plate as the unit
+    #There are 8 'samples' with 694 controls
+    #Order the spot level data by plate, well, spot number
+    
+    #Add in ligand and ECMp names so they will carry through the normalization
+    dt$BWL <- paste(dt$Barcode,dt$Well,dt$Ligand,sep="_")
+    dt$SE <- paste(dt$Spot,dt$ECMp,sep="_")
+    dt$BW <- paste(dt$Barcode,dt$Well,sep="_")
+    dt$WSE <- paste(dt$Well, dt$Spot,dt$ECMp,sep="_")
+    
+    nL <- lapply(signalNames, function(signal){
+    #Cast to get mel values with Barcode rows and Well+Spot+ECMp columns
+    #logit transform the values that are porportions in the [0,1] range
+    #Coerce missing values to have near 0 values before transformation
+    if(grepl("EdU|Proportion|Ecc", signal)){
+      fill <- log2(.01/(1-.01))
+    } else if(grepl("Log", signal)){
+      fill <- log2(.001)
+    } else if(grepl("Intensity|SCC|Area$|Perimeter$", signal)){
+      fill <- 0
+    } else(stop(paste("Need fill value for",signal," signal"))) 
+    
+    #Use the names to hold the spot contents
+    #Coerce missing values to have near 0 proliferation signals
+    dtPlateC <- dcast(dt, Barcode~WSE, value.var=paste0(signal,"mel"),fill = fill)
+    #Remove the Barcode column and use it as rownames in the matrix
+    dtm <- dtPlateC[,grep("Barcode",colnames(dtPlateC), value=TRUE, invert=TRUE), with=FALSE]
+    YPlate <- matrix(unlist(dtm), nrow=nrow(dtm), dimnames=list(dtPlateC$Barcode, colnames(dtm)))
+  })
+    #Identify the metadata used to organize and label the data and signal names
+    metadataNames <- "Barcode|Well|Spot|ECM|Ligand|MEP|Array"
+    signalNames <- grep(metadataNames,colnames(dt),invert=TRUE, value=TRUE)
+    
+  
+     
+      
+      
+      dtc <- dcast(dt, BWL~SE, value.var=paste0(x[["Signal"]],"mel"), fill = fill)
+      #Remove the BWL column and use it as rownames in the matrix
+      dtm <- dtc[,grep("BWL",colnames(dtc), value=TRUE, invert=TRUE), with=FALSE]
+      #Y is a numeric matrix of the raw transformed responses 
+      #of each spot extracted from the dt dataset
+      YArray <- matrix(unlist(dtm), nrow=nrow(dtm), dimnames=list(dtc$BWL, colnames(dtm)))
+      
+      #Set up replicate index matrix with A03 wells as replicates
+      replicateWells <- which(grepl("A03",rownames(YArray)))
+      scIdx <- matrix(-1, 57, 8)
+      c <- 1
+      scIdx[1,] <- replicateWells
+      
+      for (r in 1:nrow(YArray)){
+        if(r %in% replicateWells)
+          next
+        c <- c+1
+        scIdx[c,1] <- r
+      }
+      
+     
+  }
   #Save the un-normalized parameters to merge in later
-  mdKeep <- cDT[,grep("Barcode|^Well$|^Spot$|ObjectNumber|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State",colnames(cDT),value=TRUE), with = FALSE]
-  #Normalize each feature by subtracting the median of its plate's FBS value
-  # and dividing by its plates MAD
-  nDTList <- mclapply(unique(cDT$Barcode), function(barcode, dt){
-    setkey(dt, Barcode)
-    dt <- dt[barcode]
-    ndt <- normRZSDataset(dt[,normParameters, with = FALSE])
-  }, dt=cDT, mc.cores=detectCores())
-  cDT <- rbindlist(nDTList)
-  setkey(cDT,Barcode,Well,Spot,ObjectNumber)
-  cDT <- merge(cDT,mdKeep)
+  mdDT <- cDT[,grep(paste0(metadataNames,"|Barcode|^Well$|^Spot$", recursive=TRUE),colnames(cDT),value=TRUE), with = FALSE]
+  #Apply naiveReplicateRUV normalization to each feature
+  nDT <- normNaiveReplicateRUVDataset(cDT[,normParameters, with = FALSE], k)
   
-  #The cell-level data is median summarized to the spot level and coefficients of variations on the replicates are calculated. The spot level data and metadata are saved as Level 3 data.
+  #Merge the normalized data with its metadata
+  setkey(nDT,Barcode,Well,Spot,ObjectNumber)
+  setkey(mdDT,Barcode,Well,Spot,ObjectNumber)
+  nmdDT <- merge(nDT,mdDT)
+  
+  #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
+  createl3 <- function(cDT, lthresh = lthresh){
+    #Summarize cell data to medians of the spot parameters
+    parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
+    
+    #Remove spot-normalized or summarized parameters
+    parameterNames <- grep("SpotNorm|Wedge|Sparse|OuterCell|Center|^Nuclei_PA_Gated_EduPositive$",parameterNames,value=TRUE,invert=TRUE)
+    
+    cDTParameters<-cDT[,parameterNames,with=FALSE]
+    
+    slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
+    slDTse <- cDTParameters[,lapply(.SD,MEMA:::se),keyby="Barcode,Well,Spot"]
+    
+    #Add _SE to the standard error column names
+    setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
+    
+    #Merge back in the spot and well metadata
+    #TODO: Convert the logic to not name the metadata
+    metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
+    setkey(cDT,Barcode, Well,Spot)
+    mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
+    slDT <- mDT[slDT, mult="first"]
+    #Merge in the standard err values
+    slDT <- slDTse[slDT]
+    #Add a count of replicates
+    slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
+    
+    #Add the loess model of the SpotCellCount on a per well basis
+    slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
+    
+    #Add well level QA Scores to spot level data
+    slDT <- slDT[,QAScore := calcQAScore(.SD, threshold=lthresh, maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
+  }
   
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
@@ -393,5 +477,8 @@ preprocessMEPLINCS <- function(ss, cellLine, limitBarcodes=8, writeFiles= TRUE){
   }
 }
 
-preprocessMEPLINCS(ss="SS3",cellLine="PC3",limitBarcodes = 2, writeFiles = TRUE)
-
+for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
+  for(ss in c("SS1","SS2","SS3")[1]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=2, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
+  }
+}
