@@ -76,7 +76,7 @@ The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content i
 ##Introduction
 The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on a Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
 
-Intensity, position and a limited set of morphology data are gatherd for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
+Intensity, position and a limited set of morphology data are gathered for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
 
 Level 1 - Raw data  
 Level 2 - Normalized data  
@@ -294,7 +294,7 @@ if(!analysisVersion=="v1"){
 ```{r, child='MEP-LINCS_LineageText.Rmd', eval=ss=="SS3"}
 ```
 
-```{r LineageMarkers, echo=FALSE, eval=ss=="SS3"}
+```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=ss=="SS3"}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
