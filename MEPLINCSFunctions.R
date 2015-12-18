@@ -123,19 +123,19 @@ filterl4 <- function(dt,lowQALigands){
   
   #Define features for clustering
   fv <- paste("^Barcode","MEP",
-              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm",
-              "Nuclei_CP_AreaShape_Area_RZSNorm",
-              "Nuclei_CP_AreaShape_Eccentricity_RZSNorm",
-              "Nuclei_CP_AreaShape_Perimeter_RZSNorm",
-              "Nuclei_CP_Intensity_MedianIntensity_Dapi_RZSNorm",
-              "Spot_PA_SpotCellCount_RZSNorm",
-              "Nuclei_PA_AreaShape_Neighbors_RZSNorm",
-              "Nuclei_PA_Cycle_DNA2NProportion_RZSNorm$",
-              "Nuclei_CP_Intensity_MedianIntensity_Edu_RZSNorm",
-              "Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_RZSNorm",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm",
-              "Cytoplasm_PA_Intensity_LineageRatio_RZSNorm$",
+              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm",
+              "Nuclei_CP_AreaShape_Area_Norm",
+              "Nuclei_CP_AreaShape_Eccentricity_Norm",
+              "Nuclei_CP_AreaShape_Perimeter_Norm",
+              "Nuclei_CP_Intensity_MedianIntensity_Dapi_Norm",
+              "Spot_PA_SpotCellCount_Norm",
+              "Nuclei_PA_AreaShape_Neighbors_Norm",
+              "Nuclei_PA_Cycle_DNA2NProportion_Norm$",
+              "Nuclei_CP_Intensity_MedianIntensity_Edu_Norm",
+              "Nuclei_PA_Gated_EduPositiveProportion_Norm_Norm",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19_Norm",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm",
+              "Cytoplasm_PA_Intensity_LineageRatio_Norm$",
               sep="$|^")
   
   fv <- grep(fv, colnames(l4QA), value = TRUE)
@@ -148,7 +148,7 @@ plotSCCRobustZScores <- function(dt, thresh = 3){
   #Filter our FBS MEPs then plot spot cell count robust Z scores
   #browser()
   dt <- dt[!grepl("FBS",dt$MEP)]
-  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_bar(binwidth = .1)+
+  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_Norm_RobustZ))+geom_bar(binwidth = .1)+
     geom_vline(xintercept = c(-thresh,thresh), colour = "blue")+
     ggtitle(paste("\n\n","MEP Normalized Spot Cell Count Robust Z Scores Distribution"))+
     ylab("Count")+xlab("Normalized Spot Cell Count Robust Z Scores")+
