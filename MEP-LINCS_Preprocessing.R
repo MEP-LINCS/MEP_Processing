@@ -18,6 +18,8 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   library("MEMA")#merge, annotate and normalize functions
   library("data.table")#fast file reads, data merges and subsetting
   library("parallel")#use multiple cores for faster processing
+  library(RUVnormalize)
+  library(ruv)
   
   #Rules-based classifier thresholds for perimeter cells
   neighborsThresh <- 0.4 #Gates sparse cells on a spot
@@ -279,38 +281,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
   
   #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
-  createl3 <- function(cDT, lthresh = lthresh){
-    #Summarize cell data to medians of the spot parameters
-    parameterNames<-grep(pattern="(Children|_CP_|_PA_|Barcode|^Spot$|^Well$)",x=names(cDT),value=TRUE)
-    
-    #Remove spot-normalized or summarized parameters
-    parameterNames <- grep("SpotNorm|Wedge|Sparse|OuterCell|Center|^Nuclei_PA_Gated_EduPositive$",parameterNames,value=TRUE,invert=TRUE)
-    
-    cDTParameters<-cDT[,parameterNames,with=FALSE]
-    
-    slDT<-cDTParameters[,lapply(.SD,numericMedian),keyby="Barcode,Well,Spot"]
-    slDTse <- cDTParameters[,lapply(.SD,MEMA:::se),keyby="Barcode,Well,Spot"]
-    
-    #Add _SE to the standard error column names
-    setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
-    
-    #Merge back in the spot and well metadata
-    #TODO: Convert the logic to not name the metadata
-    metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Endpoint|ECMp|MEP|Barcode|^Well$|^Spot$)", x=colnames(cDT), value=TRUE)
-    setkey(cDT,Barcode, Well,Spot)
-    mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
-    slDT <- mDT[slDT, mult="first"]
-    #Merge in the standard err values
-    slDT <- slDTse[slDT]
-    #Add a count of replicates
-    slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="LigandAnnotID,ECMpAnnotID"]
-    
-    #Add the loess model of the SpotCellCount on a per well basis
-    slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
-    
-    #Add well level QA Scores to spot level data
-    slDT <- slDT[,QAScore := calcQAScore(.SD, threshold=lthresh, maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
-  }
   
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
@@ -321,9 +291,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   mdDT <- slDT[,grep(paste0(metadataNames,"|Barcode|^Well$|^Spot$"),colnames(slDT),value=TRUE), with = FALSE]
   #Identify parameters to be normalized
   normParameters <- grep(metadataNames,colnames(slDT),value=TRUE,invert=TRUE)
-  #Debug: Remove _SE values and decide where to add back in
   #Apply RUV-3 normalization to each feature
   nDT <- normRUV3Dataset(slDT[,normParameters, with = FALSE], k)
+  nDT$NormMethod <- "RUV3"
   #Merge the normalized data with its metadata
   setkey(nDT,Barcode,Well,Spot)
   setkey(mdDT,Barcode,Well,Spot)
@@ -427,7 +397,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
 }
 
 for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
-  for(ss in c("SS1","SS2","SS3")[2:3]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
+  for(ss in c("SS1","SS2","SS3")[2]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=2, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
   }
 }

@@ -148,7 +148,7 @@ plotSCCRobustZScores <- function(dt, thresh = 3){
   #Filter our FBS MEPs then plot spot cell count robust Z scores
   #browser()
   dt <- dt[!grepl("FBS",dt$MEP)]
-  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_bar(binwidth = .1)+
+  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_Norm_RobustZ))+geom_bar(binwidth = .1)+
     geom_vline(xintercept = c(-thresh,thresh), colour = "blue")+
     ggtitle(paste("\n\n","MEP Normalized Spot Cell Count Robust Z Scores Distribution"))+
     ylab("Count")+xlab("Normalized Spot Cell Count Robust Z Scores")+
@@ -405,7 +405,7 @@ normRUV3Dataset <- function(dt, k){
     nYm <- data.table(nYm)
     
     #Add the name of the signal and convert back to well and spot
-    nYm$Signal <- paste0(signal,"_RUV3Norm")
+    nYm$Signal <- paste0(signal,"_Norm")
     return(nYm)
     
   }, dt=dt, M=matrix(1,nrow=length(unique(dt$Barcode))),mc.cores = detectCores())
