@@ -315,79 +315,10 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
   
-  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Array|ECMp|Ligand|MEP|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State"
+  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Array|ECMp|Ligand|MEP|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|LoessSCC|QAScore"
   
-  RUVIIIPlate <- function(k, Y, M, cIdx){
-    #browser()
-    nY <- RUVIII(Y, M, cIdx, k)["newY"]
-    #melt matrix to have ECMp and Ligand columns
-    nYm <- melt(nY, varnames=c("Barcode","WSE"), as.is=TRUE)
-    #Extract ECMp and Well values into separate columns
-    nYm$ECMp <- sub("([[:alnum:]]*_){2}","",nYm$WSE)
-    nYm$Well <- strsplit2(nYm$WSE,split="_")[,1]
-    
-    nYm <- data.table(nYm)
-    nYm <- nYm[, WSE := NULL]
-    nYm$k <- k
-    return(nYm)
-  }
-  
-  normRUV3Dataset <- function(dt, k){
-    #Identify the metadata used to organize and label the data and signal names
-    metadataNames <- "Barcode|Well|Spot|ECM|Ligand|MEP|Array|_SE$"
-    signalNames <- grep(metadataNames,colnames(dt),invert=TRUE, value=TRUE)
-    
-    #Setup data with plate as the unit
-    #There are 694 negative controls and all plates are replicates 
-    #Order the spot level data by plate, well, spot number
-    
-    #Add in ligand and ECMp names so they will carry through the normalization
-    #dt$BWL <- paste(dt$Barcode,dt$Well,dt$Ligand,sep="_")
-    #dt$SE <- paste(dt$Spot,dt$ECMp,sep="_")
-    #dt$BW <- paste(dt$Barcode,dt$Well,sep="_")
-    dt$WS <- paste(dt$Well, dt$Spot,sep="_")
-    
-    nYL <- lapply(signalNames, function(signal, dt, M){
-      #Cast to get mel values with Barcode rows and Well+Spot+ECMp columns
-      #logit transform the values that are porportions in the [0,1] range
-      #Coerce missing values to have near 0 values before transformation
-      if(grepl("EdU|Proportion|Ecc", signal)){
-        fill <- log2(.01/(1-.01))
-      } else if(grepl("Log", signal)){
-        fill <- log2(.001)
-      } else if(grepl("Intensity|SCC|_Area$|_Perimeter$|_Neighbors$|QAScore$", signal)){
-        fill <- 0
-      } else(stop(paste("Need fill value for",signal," signal"))) 
-      
-      #Use the names to hold the spot contents
-      #Coerce missing values to have near 0 proliferation signals
-      dtc <- dcast(dt, Barcode~WS, value.var=signal, fill=fill)
-      #Remove the Barcode column and use it as rownames in the matrix
-      dtm <- dtc[,grep("Barcode",colnames(dtc), value=TRUE, invert=TRUE), with=FALSE]
-      Y <- matrix(unlist(dtm), nrow=nrow(dtm), dimnames=list(dtc$Barcode, colnames(dtm)))
-      k<-min(k, nrow(Y))
-      cIdx <- which(grepl("A03",colnames(Y)))
-      nY <- RUVIII(Y, M, cIdx, k)[["newY"]]
-      #melt matrix to have ECMp and Ligand columns
-      nYm <- melt(nY, varnames=c("Barcode","WS"),  as.is=TRUE)
-      #Extract ECMp and Well values into separate columns
-      nYm$Well <- strsplit2(nYm$WSE,split="_")[,1]
-      nYm$Spot <- strsplit2(nYm$WSE,split="_")[,2]
-      nYm$Signal <- signal
-      
-      nYm <- data.table(nYm)
-      nYm <- nYm[, WS := NULL]
-      nYm$k <- k
-      return(nYm)
-      
-    }, dt=dt, M=matrix(1,nrow=length(unique(dt$Barcode))))
-    
-    nYdtmelt <- rbindlist(nYL)
-    nY <- dcast(nYdtmelt, Barcode+Well+Spot~Signal, value.var="value")
-  }
-browser()
   #Save the un-normalized parameters to merge in later
-  mdDT <- slDT[,grep(paste0(metadataNames,"|Barcode|^Well$|^Spot$", recursive=TRUE),colnames(slDT),value=TRUE), with = FALSE]
+  mdDT <- slDT[,grep(paste0(metadataNames,"|Barcode|^Well$|^Spot$"),colnames(slDT),value=TRUE), with = FALSE]
   #Identify parameters to be normalized
   normParameters <- grep(metadataNames,colnames(slDT),value=TRUE,invert=TRUE)
   #Debug: Remove _SE values and decide where to add back in
@@ -395,12 +326,19 @@ browser()
   nDT <- normRUV3Dataset(slDT[,normParameters, with = FALSE], k)
   #Merge the normalized data with its metadata
   setkey(nDT,Barcode,Well,Spot)
-  setkey(mdDT,Barcode,Well,Spot,ObjectNumber)
+  setkey(mdDT,Barcode,Well,Spot)
   nmdDT <- merge(nDT,mdDT)
   
-  #Add QA scores to cell level data####
-  setkey(cDT,Barcode, Well, Spot)
+  #merge spot level normalized and raw data
   setkey(slDT, Barcode, Well, Spot)
+  slDT <- merge(slDT[,normParameters, with = FALSE], nmdDT)
+  
+  #Label FBS with their plate index to keep separate
+  slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], barcodes))
+  
+  #Add QAScore and Spot_PA_LoessSCC to cell level data
+  setkey(cDT,Barcode, Well, Spot)
+
   cDT <- cDT[slDT[,list(Barcode, Well, Spot, QAScore, Spot_PA_LoessSCC)]]
   #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
   
@@ -452,7 +390,7 @@ browser()
     #Paste back in the QA and selected raw data
     
     level2Names <- c(metadataNormNames,
-                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Firbillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
+                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
     
     #Write out cDT with normalized values as level 2 dataset
     write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
@@ -476,6 +414,7 @@ browser()
       curatedCols = curatedCols,
       writeFiles = writeFiles,
       limitBarcodes = limitBarcodes,
+      k = k,
       normToSpot = normToSpot,
       lowSpotCellCountThreshold = lowSpotCellCountThreshold,
       lowRegionCellCountThreshold = lowRegionCellCountThreshold,
@@ -488,7 +427,7 @@ browser()
 }
 
 for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
-  for(ss in c("SS1","SS2","SS3")[1]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=1, limitBarcodes=2, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
+  for(ss in c("SS1","SS2","SS3")[2:3]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
   }
 }
