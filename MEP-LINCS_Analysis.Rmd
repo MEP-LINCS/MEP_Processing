@@ -222,11 +222,11 @@ ggplotly(p)
 
 setkey(dt, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
 datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
-
-if(!analysisVersion=="v1"){
-  setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"),escape = FALSE)
-}
+# 
+# if(!analysisVersion=="v1"){
+#   setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
+#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"),escape = FALSE)
+# }
 ```
 
 
@@ -355,10 +355,10 @@ ggplotly(p)
 setkey(dt, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
 datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm,Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
 
-if(!analysisVersion=="v1"){
-  setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm,Cytoplasm_PA_Intensity_LineageRatio_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio", "LineageRatio SE", "Replicate Count"),escape = FALSE)
-}
+# if(!analysisVersion=="v1"){
+#   setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
+#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm,Cytoplasm_PA_Intensity_LineageRatio_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio", "LineageRatio SE", "Replicate Count"),escape = FALSE)
+# }
 ```
 
 ##Spot Cell Count Analysis
