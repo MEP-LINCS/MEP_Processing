@@ -302,3 +302,71 @@ heatmapFromFBS <- function(DT, title = NULL, cols = plateCol, activeThresh = .95
             RowSideColors=cols[activeFV$Barcode], colRow = cols[activeFV$Barcode], na.rm = TRUE)
   return(activeFV)
 }
+
+
+normNaiveReplicateRUVDataset <- function(dt, k){
+  stop("not fully developed")
+  #Identify the metadata used to organize and label the data and signal names
+  metadataNames <- "Barcode|Well|Spot|ECM|Ligand|MEP|Array|_SE$"
+  signalNames <- grep(metadataNames,colnames(dt),invert=TRUE, value=TRUE)
+  
+  #Setup data with plate as the unit
+  #There are 8 'samples' with 694 controls
+  #Order the spot level data by plate, well, spot number
+  
+  #Add in ligand and ECMp names so they will carry through the normalization
+  dt$BWL <- paste(dt$Barcode,dt$Well,dt$Ligand,sep="_")
+  dt$SE <- paste(dt$Spot,dt$ECMp,sep="_")
+  dt$BW <- paste(dt$Barcode,dt$Well,sep="_")
+  dt$WSE <- paste(dt$Well, dt$Spot,dt$ECMp,sep="_")
+  
+  nL <- lapply(signalNames, function(signal){
+    #Cast to get mel values with Barcode rows and Well+Spot+ECMp columns
+    #logit transform the values that are porportions in the [0,1] range
+    #Coerce missing values to have near 0 values before transformation
+    if(grepl("EdU|Proportion|Ecc", signal)){
+      fill <- log2(.01/(1-.01))
+    } else if(grepl("Log", signal)){
+      fill <- log2(.001)
+    } else if(grepl("Intensity|SCC|_Area$|_Perimeter$|_Neighbors$|QAScore$", signal)){
+      fill <- 0
+    } else(stop(paste("Need fill value for",signal," signal"))) 
+    
+    #Use the names to hold the spot contents
+    #Coerce missing values to have near 0 proliferation signals
+    dtPlateC <- dcast(dt, Barcode~WSE, value.var=signal,fill = fill)
+    #Remove the Barcode column and use it as rownames in the matrix
+    dtm <- dtPlateC[,grep("Barcode",colnames(dtPlateC), value=TRUE, invert=TRUE), with=FALSE]
+    YPlate <- matrix(unlist(dtm), nrow=nrow(dtm), dimnames=list(dtPlateC$Barcode, colnames(dtm)))
+  })
+  names(nL) <- signalNames
+  
+  #Set up replicate index matrix with all 8 plates as replicates
+  scIdx <- matrix(1:8, 1, 8)
+}
+
+
+RUVIII = function(Y, M, ctl, k=NULL, eta=NULL, average=FALSE, fullalpha=NULL)
+{
+  #browser()
+  Y = RUV1(Y,eta,ctl)
+  if (is.null(k))
+  {
+    ycyctinv = solve(Y[,ctl]%*%t(Y[,ctl]))
+    newY = (M%*%solve(t(M)%*%ycyctinv%*%M)%*%(t(M)%*%ycyctinv)) %*% Y
+    fullalpha=NULL
+  }
+  else if (k == 0) newY = Y
+  else
+  {
+    m = nrow(Y)
+    Y0 = residop(Y,M)
+    fullalpha = t(svd(Y0%*%t(Y0))$u[,1:(m-ncol(M)),drop=FALSE])%*%Y
+    alpha = fullalpha[1:k,,drop=FALSE]
+    ac = alpha[,ctl,drop=FALSE]
+    W = Y[,ctl]%*%t(ac)%*%solve(ac%*%t(ac))
+    newY = Y - W%*%alpha
+  }
+  if (average) newY = ((1/apply(M,2,sum))*t(M)) %*% newY
+  return(list(newY = newY, fullalpha=fullalpha))
+}
