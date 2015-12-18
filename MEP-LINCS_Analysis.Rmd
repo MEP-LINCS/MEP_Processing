@@ -31,15 +31,15 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-# l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
-# l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",analysisVersion,"_Level2.txt"), showProgress = FALSE)
-# l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
-# l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
+l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",analysisVersion,"_Level2.txt"), showProgress = FALSE)
+l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
+l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
 
-l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
-l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
-l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_Level4.txt"), showProgress = FALSE)
+# l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
+# l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
+# l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE)
+# l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_Level4.txt"), showProgress = FALSE)
 
 barcodes <- sort(unique(l3$Barcode))
 
@@ -130,22 +130,22 @@ setkey(l3,ECMp)
 l3F <- l3[!"fiducial"]
 l3F <- l3F[!"blank"]
 setkey(l3F,"Ligand")
-l3F <- l3F[!"FBS"]
+l3F <- l3F[!grepl("FBS", l3F$Ligand)]
 
 #Remove failed QA wells
 l3F <- l3F[!l3F$QA_LowWellQA]
 l4F <- createl4(l3F)
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
-l4F <- l4F[,Spot_PA_SpotCellCount_RZSNorm_RobustZ := RZScore(Spot_PA_SpotCellCount_RZSNorm)]
+l4F <- l4F[,Spot_PA_SpotCellCount_Norm_RobustZ := RZScore(Spot_PA_SpotCellCount_Norm)]
 
 if (ss == "SS2"){
   #Add Robust Z Score of the Edu Signal
-  l4F <- l4F[,Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_RobustZ := RZScore(Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)]
+  l4F <- l4F[,Nuclei_PA_Gated_EduPositiveProportion_Norm_RobustZ := RZScore(Nuclei_PA_Gated_EduPositiveProportion_Norm)]
 }
 
 if (ss == "SS3"){
   #Add Robust Z Scores of the normalized lineage ratios
-  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)]
+  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatio_Norm_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatio_Norm)]
   
 }
 
@@ -177,7 +177,7 @@ Feature values for all cells in a plate were normalized by subtracting the plate
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm))+geom_bar(binwidth = .0015)+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_bar(binwidth = .0015)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, MitoTracker Intensity Distribution"))+
   ylab("Count")+xlab("Normalized, MitoTracker Intensity")+
@@ -187,7 +187,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByLigand, eval=ss=="SS1"}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -197,7 +197,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByECMp, eval=ss=="SS1"}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -207,8 +207,8 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByMEP, eval=ss=="SS1", fig.width=8, fig.height=6}
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm))+
-  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+
+  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, MitoTracker Intensity Ratio")+
   geom_point(aes(size = Spot_PA_ReplicateCount),colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -220,13 +220,13 @@ ggplotly(p)
 
 ```{r MitoTrackerMEPS, echo = FALSE, eval=ss=="SS1"}
 
-setkey(dt, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm)
-datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
-
-if(!analysisVersion=="v1"){
-  setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"),escape = FALSE)
-}
+setkey(dt, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
+datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
+# 
+# if(!analysisVersion=="v1"){
+#   setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
+#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"),escape = FALSE)
+# }
 ```
 
 
@@ -237,9 +237,9 @@ if(!analysisVersion=="v1"){
 ```{r ProliferationHistogram, eval=ss=="SS2"}
 
 setkey(l4HF,"Ligand")
-dt <- l4HF[!"FBS"]
+dt <- l4HF[!grepl("FBS",l4HF$Ligand)]
 
-p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EduPositiveLogit_RZSNorm))+geom_bar(binwidth = .05)+
+p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EduPositiveLogit_Norm))+geom_bar(binwidth = .05)+
   ggtitle(paste("\n\n","MEP Normalized, EdU+ Proportion Distribution"))+
   ylab("Count")+xlab("Normalized,  EdU+ Proportion")+
   theme(strip.text = element_text(size = 5))
@@ -248,7 +248,7 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByLigand, eval=ss=="SS2"}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_RZSNorm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveLogit_Norm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_Norm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -258,7 +258,7 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByECMp, eval=ss=="SS2"}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_RZSNorm))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogit_Norm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -268,8 +268,8 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByMEP, eval=ss=="SS2", fig.width=8, fig.height=6}
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm), y = Nuclei_PA_Gated_EduPositiveLogit_RZSNorm))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogit_RZSNorm-Nuclei_PA_Gated_EduPositiveLogit_RZSNorm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_RZSNorm+Nuclei_PA_Gated_EduPositiveLogit_RZSNorm_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_Norm), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogit_Norm-Nuclei_PA_Gated_EduPositiveLogit_Norm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_Norm+Nuclei_PA_Gated_EduPositiveLogit_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, EdU+ Proportion Ratio")+
   geom_point(aes(size = Spot_PA_ReplicateCount),colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -281,13 +281,13 @@ ggplotly(p)
 
 ```{r EdUProportionMEPS, echo = FALSE, eval=ss=="SS2"}
 
-setkey(dt, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm)
-datatable(format(dt[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm,Nuclei_PA_Gated_EduPositiveLogit_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"))
-
-if(!analysisVersion=="v1"){
-  setkey(l3HF, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Nuclei_PA_Gated_EduPositiveLogit_RZSNorm,Nuclei_PA_Gated_EduPositiveLogit_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"),escape = FALSE)
-}
+setkey(dt, Nuclei_PA_Gated_EduPositiveLogit_Norm)
+datatable(format(dt[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"))
+# 
+# if(!analysisVersion=="v1"){
+#   setkey(l3HF, Nuclei_PA_Gated_EduPositiveLogit_Norm)
+#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"),escape = FALSE)
+# }
 ```
 
 
@@ -299,7 +299,7 @@ if(!analysisVersion=="v1"){
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm, colour = Ligand))+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_Norm, colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("KRT5")+ylab("KRT19")+
@@ -310,7 +310,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm, y = C
 
 ```{r lineageRatioHistogram, eval=ss=="SS3"}
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_bar(binwidth = .02)+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_bar(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, Logged Lineage Ratio Distribution"))+
   ylab("Count")+xlab("Normalized, Logged Lineage Ratio")+
@@ -319,7 +319,7 @@ suppressWarnings(print(p))
 ```
 
 ```{r LineageRatioByLigand, eval=ss=="SS3"}
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -329,7 +329,7 @@ suppressWarnings(print(p))
 
 ```{r lineageRatioByECMp, eval=ss=="SS3"}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -339,8 +339,8 @@ suppressWarnings(print(p))
 
 ```{r LineageRatioByMEP, eval=ss=="SS3", fig.width=8, fig.height=6}
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm))+
-  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm-Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm+Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm-Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm+Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
   geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -352,13 +352,13 @@ ggplotly(p)
 
 ```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
 
-setkey(dt, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm)
-datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm,Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
+setkey(dt, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
+datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm,Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
 
-if(!analysisVersion=="v1"){
-  setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_RZSNorm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio", "LineageRatio SE", "Replicate Count"),escape = FALSE)
-}
+# if(!analysisVersion=="v1"){
+#   setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
+#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm,Cytoplasm_PA_Intensity_LineageRatio_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio", "LineageRatio SE", "Replicate Count"),escape = FALSE)
+# }
 ```
 
 ##Spot Cell Count Analysis
@@ -371,9 +371,9 @@ plotSCCRobustZScores(l4F,thresh = SCCZscoreThresh)
 
 ```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
 setkey(l4F,"Ligand")
-dt <- l4F[!"FBS"]
+dt <- l4F[!grepl("FBS",l4F$Ligand)]
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_RZSNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_RZSNorm_RobustZ, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_Norm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_Norm_RobustZ, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -381,7 +381,7 @@ suppressWarnings(print(p))
 ```
 
 ```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
-p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_RZSNorm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_Norm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_Norm_RobustZ))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -396,7 +396,7 @@ The interactive heatmap below is arranged by unsupervised clustering of the rows
 ```{r SCCHeatmap, fig.width=8, fig.height=5}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_RZSNorm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_RZSNorm_RobustZ")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCount_Norm_RobustZ)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount_Norm_RobustZ")
 
 rownames(df) <- df$ECMp
 df <- df[,!(names(df) %in% c("ECMp"))]
@@ -417,9 +417,10 @@ d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="5pt", yaxis_font
 
 ```{r SCCTable}
 setkey(l4F,"Ligand")
-dt <- l4F[!"FBS"]
-setkey(dt, Spot_PA_SpotCellCount_RZSNorm_RobustZ)
-datatable(format(dt[, list(ECMp, Ligand,Barcode,Spot_PA_SpotCellCount_RZSNorm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("ECMp","Ligand","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
+dt <- l4F[!grepl("FBS",l4F$Ligand)]
+
+setkey(dt, Spot_PA_SpotCellCount_Norm_RobustZ)
+datatable(format(dt[, list(ECMp, Ligand,Barcode,Spot_PA_SpotCellCount_Norm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("ECMp","Ligand","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
 
 ```
 
@@ -449,7 +450,7 @@ fvDT <- fvDT[!grepl("FBS",fvDT$MEP),]
 fvDT <- fvDT[,Barcode := NULL]
 
 #Shorten the feature names
-setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_RZSNorm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
+setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("_Norm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
 #Remove when not needed
 if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
 
@@ -481,7 +482,7 @@ The heatmap is arranged by unsupervised clustering of the rows and columns and c
 ```{r,}
 #l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
-PCFVNames <- grep("RZSNorm",colnames(l4F),value=TRUE)
+PCFVNames <- grep("Norm",colnames(l4F),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
@@ -530,7 +531,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Barcode)) 
 print(p)
 
 if(ss=="SS1"){
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker_RZSNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker_Norm)) +
     geom_point(size = rel(.8), alpha = .8) +
     labs(colour = "Total MitoTracker")+
     theme(legend.text=element_text(size = 6))+
@@ -538,7 +539,7 @@ if(ss=="SS1"){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_Perimeter_RZSNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_Perimeter_Norm)) +
     geom_point(size = rel(.8), alpha = .8) +
     labs(colour = "Perimeter ProportionStatus")+
     theme(legend.text=element_text(size = 6))+
@@ -549,7 +550,7 @@ if(ss=="SS1"){
 } else if (ss=="SS3"){
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
     geom_point(size = rel(.8), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -557,21 +558,21 @@ if(ss=="SS1"){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
     geom_point(size = rel(.8), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
     geom_point(size = rel(.8), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
     geom_point(size = rel(.8), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
