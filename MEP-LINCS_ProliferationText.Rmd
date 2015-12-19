@@ -3,7 +3,7 @@
 The proliferation analysis methods is as follows:  
 First, the cells within each well are gated into Edu+  
 The proportion of EdU+ cells at each spot is calculated
-The proportions are normalized by subtracting the median by the proportion of cells that are Edu+ in the plate's control well and then divding by the MAD of the plate's control well Edu+ proportion 
+The proportions are logit transformed then normalized
 The normalized proportions are then summarized by the medians of their replicates.  
 Plots show the distributions of the non-zero proportions and the proportions sumarized by ligand and ECM protein.
 
