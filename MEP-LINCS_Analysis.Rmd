@@ -64,17 +64,19 @@ HFRepThresh <- 3
 
 if(!analysisVersion=="v1"){
   l3$OmeroDetailURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+  l3$OmeroThumbnailURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+  l3$OmeroImageURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
 }
 
 ```
-#MEP-LINCS `r cellLine` `r ss` Pilot Analysis
+#MEP-LINCS `r cellLine` `r ss` Pilot Analysis `r analysisVersion`
 ####date: `r Sys.Date()`
 
 ##Summary
 The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!(grepl("FBS",l4$LigandAnnotID)|l4$ECMpAnnotID %in% c("blank","fiducial")),])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID[!l4$ECMpAnnotID %in% c("blank","fiducial")]))` printed ECM proteins and `r length(unique(l4$LigandAnnotID))-1` ligands or growth factors.  
 
 ##Introduction
-The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on a Nikon automated microscope. All data for this staining set comes from the nuclei as defined by the DAPI staining.
+The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on a Nikon automated microscope.
 
 Intensity, position and a limited set of morphology data are gathered for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
 
@@ -90,7 +92,7 @@ The data merging and analysis is done in R using open source software.
 ##QA Scoring of the dataset
 Each well is scored for even cell seeding according to the count of the DAPI-stained nuclei. A detailed explanation of the QA method is in the supplemental material. In brief, the level 2 and 3 data have cell counts at the spot level and locally-averaged cell counts at the neighborhood level. Both of these parameters are used to score the wells and filter the dataset. QA Scores range from 0 to 1 and represent the proportion of the spots that have at least one cell and are not in low cell count neighborhoods.
 
-The following plots are pseudoimages each MEMA's spot cell count and a histogram of the loess model used for QA scoring. 
+The following plots are pseudoimages of each MEMA's spot cell count and a histogram of the loess model used for QA scoring. 
 
 
 ```{r Heatmaps_QAScores, fig.width=3.7,fig.height=4, eval=TRUE}
@@ -158,14 +160,9 @@ l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
 ```
 
-\newpage
 
-##Normalization
-The raw data was normalized to the control well in each plate as follows:
-
-For each feature, the median and median absolute deviation (MAD) of all spots in each plate's control well were calculated.  
-
-Feature values for all cells in a plate were normalized by subtracting the plate's control well median and dividing by the plate's control well MAD*1.48.
+```{r, child='MEP-LINCS_RUV3Text.Rmd', eval=unique(l3$NormMethod)=="RUV3"}
+```
 
 
 ```{r, child='MEP-LINCS_MitoText.Rmd', eval=ss=="SS1"}
@@ -177,7 +174,7 @@ Feature values for all cells in a plate were normalized by subtracting the plate
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_bar(binwidth = .0015)+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_bar(binwidth = .0002)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, MitoTracker Intensity Distribution"))+
   ylab("Count")+xlab("Normalized, MitoTracker Intensity")+
@@ -210,6 +207,7 @@ suppressWarnings(print(p))
 p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+
   geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, MitoTracker Intensity Ratio")+
+  coord_cartesian(ylim=c(.9*min(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm), 1.1*max(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)))+
   geom_point(aes(size = Spot_PA_ReplicateCount),colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by MitoTracker Intensity with SE Bars")
@@ -222,11 +220,11 @@ ggplotly(p)
 
 setkey(dt, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
 datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
-# 
-# if(!analysisVersion=="v1"){
-#   setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
-#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"),escape = FALSE)
-# }
+
+if(!analysisVersion=="v1"){
+  setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
+  datatable(format(l3HF[,list(MEP,Barcode,OmeroThumbnailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero","Row","Column","MitoTracker Int."),escape = FALSE)
+}
 ```
 
 
@@ -283,11 +281,11 @@ ggplotly(p)
 
 setkey(dt, Nuclei_PA_Gated_EduPositiveLogit_Norm)
 datatable(format(dt[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"))
-# 
-# if(!analysisVersion=="v1"){
-#   setkey(l3HF, Nuclei_PA_Gated_EduPositiveLogit_Norm)
-#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"),escape = FALSE)
-# }
+
+if(!analysisVersion=="v1"){
+  setkey(l3HF, Nuclei_PA_Gated_EduPositiveLogit_Norm)
+  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Nuclei_PA_Gated_EduPositiveLogit_Norm)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","EDU+ Prop."),escape = FALSE)
+}
 ```
 
 
@@ -355,10 +353,10 @@ ggplotly(p)
 setkey(dt, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
 datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm,Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
 
-# if(!analysisVersion=="v1"){
-#   setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
-#   datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm,Cytoplasm_PA_Intensity_LineageRatio_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio", "LineageRatio SE", "Replicate Count"),escape = FALSE)
-# }
+if(!analysisVersion=="v1"){
+  setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
+  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio"),escape = FALSE)
+}
 ```
 
 ##Spot Cell Count Analysis
@@ -410,7 +408,7 @@ dfZoom <- function(x, min=.02, max=1){
   }))
   return(data.frame(cl))
 }
-  
+
 d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="5pt", yaxis_font_size="6pt")
 
 ```

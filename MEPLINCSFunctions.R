@@ -302,3 +302,75 @@ heatmapFromFBS <- function(DT, title = NULL, cols = plateCol, activeThresh = .95
             RowSideColors=cols[activeFV$Barcode], colRow = cols[activeFV$Barcode], na.rm = TRUE)
   return(activeFV)
 }
+
+RUVIII = function(Y, M, ctl, k=NULL, eta=NULL, average=FALSE, fullalpha=NULL)
+{
+  #browser()
+  Y = RUV1(Y,eta,ctl)
+  if (is.null(k))
+  {
+    ycyctinv = solve(Y[,ctl]%*%t(Y[,ctl]))
+    newY = (M%*%solve(t(M)%*%ycyctinv%*%M)%*%(t(M)%*%ycyctinv)) %*% Y
+    fullalpha=NULL
+  }
+  else if (k == 0) newY = Y
+  else
+  {
+    m = nrow(Y)
+    Y0 = residop(Y,M)
+    fullalpha = t(svd(Y0%*%t(Y0))$u[,1:(m-ncol(M)),drop=FALSE])%*%Y
+    alpha = fullalpha[1:k,,drop=FALSE]
+    ac = alpha[,ctl,drop=FALSE]
+    W = Y[,ctl]%*%t(ac)%*%solve(ac%*%t(ac))
+    newY = Y - W%*%alpha
+  }
+  if (average) newY = ((1/apply(M,2,sum))*t(M)) %*% newY
+  return(list(newY = newY, fullalpha=fullalpha))
+}
+
+normRUV3Dataset <- function(dt, k){
+  #Setup data with plate as the unit
+  #There are 694 negative controls and all plates are replicates
+  
+  setkey(dt, Barcode,Well,Spot)     #Sort the data
+  metadataNames <- "Barcode|Well|^Spot$"
+  signalNames <- grep(metadataNames,colnames(dt),invert=TRUE, value=TRUE)
+  
+  dt$WS <- paste(dt$Well, dt$Spot,sep="_") #Add to carry metadata to matrix
+  
+  nYL <- mclapply(signalNames, function(signal, dt, M){
+    #Create appropriate fill for missing values for each signal
+    if(grepl("EdU|Proportion|Ecc", signal)){
+      fill <- log2(.01/(1-.01))
+    } else if(grepl("Log", signal)){
+      fill <- log2(.001)
+    } else if(grepl("Intensity|SCC|SpotCellCount|_Area$|_Perimeter$|_Neighbors$|QAScore$", signal)){
+      fill <- 0
+    } else(stop(paste("Need fill value for",signal," signal"))) 
+    
+    #Cast into barcode rows and well spot columns
+    dtc <- dcast(dt, Barcode~WS, value.var=signal, fill=fill)
+    #Remove the Barcode column and use it as rownames in the matrix
+    barcodes <-dtc$Barcode
+    dtc <- dtc[,Barcode := NULL]
+    Y <- matrix(unlist(dtc), nrow=nrow(dtc), dimnames=list(barcodes, colnames(dtc)))
+    k<-min(k, nrow(Y)-1)
+    cIdx <- which(grepl("A03",colnames(Y)))
+    nY <- RUVIII(Y, M, cIdx, k)[["newY"]]
+    #melt matrix to have ECMp and Ligand columns
+    nYm <- melt(nY, varnames=c("Barcode","WS"),  as.is=TRUE)
+    nYm <- data.table(nYm)
+    
+    #Add the name of the signal and convert back to well and spot
+    nYm$Signal <- paste0(signal,"_Norm")
+    return(nYm)
+    
+  }, dt=dt, M=matrix(1,nrow=length(unique(dt$Barcode))),mc.cores = detectCores())
+  
+  nYdtmelt <- rbindlist(nYL)
+  nY <- dcast(nYdtmelt, Barcode+WS~Signal, value.var="value")
+  nY$Well <- gsub("_.*","",nY$WS)
+  nY$Spot <- as.integer(gsub(".*_","",nY$WS))
+  nY <- nY[,WS:=NULL]
+  return(nY)
+}

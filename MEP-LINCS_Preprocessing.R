@@ -98,6 +98,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   if(analysisVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
   
   expDTList <- mclapply(barcodes, function(barcode){
+
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
     wellDataList <- lapply(wells,function(well){
@@ -166,7 +167,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #merge well metadata with the data and spot metadata
     pcDT <- merge(pcDT,wellMetadata,by = "Well")
     pcDT <- pcDT[,Barcode := barcode]
-    
     imageURLFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
     
     #Read in and merge the Omero URLs
@@ -175,6 +175,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
                               "1"="A01",
                               "2"="A02",
                               "3"="A03",
+                              "4"="A04",
                               "5"="B01",
                               "6"="B02",
                               "7"="B03",
@@ -276,7 +277,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
   
   #Add a convenience label for wells and ligands
-    cDT$Well_Ligand <- paste(cDT$Well,cDT$Ligand,sep = "_")
+  cDT$Well_Ligand <- paste(cDT$Well,cDT$Ligand,sep = "_")
+  
+  #Count the number of neighboring cells
   cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
   
   #Rules for classifying perimeter cells
@@ -289,7 +292,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #Classify cells as outer if they have a radial position greater than a thresh
   cDT <- cDT[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
   
-  #Require the cell not be in a sparse region
+  #Require a perimeter cell not be in a sparse region
   denseOuterDT <- cDT[!cDT$Spot_PA_Sparse  & cDT$Spot_PA_OuterCell]
   denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
   setkey(cDT,Barcode,Well,Spot,ObjectNumber)
@@ -320,7 +323,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
   
-  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Array|ECMp|Ligand|MEP|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|LoessSCC|QAScore"
+  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Array|ECMp|Ligand|MEP|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|LoessSCC|QAScore"
   
   #Save the un-normalized parameters to merge in later
   mdDT <- slDT[,grep(paste0(metadataNames,"|Barcode|^Well$|^Spot$"),colnames(slDT),value=TRUE), with = FALSE]
@@ -433,6 +436,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
 
 for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
   for(ss in c("SS1","SS2","SS3")[1]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
   }
 }
