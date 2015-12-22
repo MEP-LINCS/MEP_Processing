@@ -36,11 +36,6 @@ l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",an
 l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
 l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
 
-# l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
-# l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level2.txt"), showProgress = FALSE)
-# l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE)
-# l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_Level4.txt"), showProgress = FALSE)
-
 barcodes <- sort(unique(l3$Barcode))
 
 
@@ -63,7 +58,7 @@ HFSCCThresh <- 20
 HFRepThresh <- 3
 
 if(!analysisVersion=="v1"){
-  l3$OmeroDetailURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+      l3$OmeroDetailURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroThumbnailURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroImageURL <- paste0('<a href="https://graylab.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
 }
@@ -219,11 +214,11 @@ ggplotly(p)
 ```{r MitoTrackerMEPS, echo = FALSE, eval=ss=="SS1"}
 
 setkey(dt, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
-datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
+datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
 
 if(!analysisVersion=="v1"){
   setkey(l3HF, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroThumbnailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero","Row","Column","MitoTracker Int."),escape = FALSE)
+  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero","Row","Column","MitoTracker Int."),escape = FALSE)
 }
 ```
 
@@ -280,11 +275,11 @@ ggplotly(p)
 ```{r EdUProportionMEPS, echo = FALSE, eval=ss=="SS2"}
 
 setkey(dt, Nuclei_PA_Gated_EduPositiveLogit_Norm)
-datatable(format(dt[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"))
+datatable(format(dt[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"))
 
 if(!analysisVersion=="v1"){
   setkey(l3HF, Nuclei_PA_Gated_EduPositiveLogit_Norm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Nuclei_PA_Gated_EduPositiveLogit_Norm)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","EDU+ Prop."),escape = FALSE)
+  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Nuclei_PA_Gated_EduPositiveLogit_Norm)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","EDU+ Prop."),escape = FALSE)
 }
 ```
 
@@ -351,11 +346,11 @@ ggplotly(p)
 ```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
 
 setkey(dt, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
-datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm,Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
+datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm,Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE,Spot_PA_ReplicateCount)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
 
 if(!analysisVersion=="v1"){
   setkey(l3HF, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
-  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio"),escape = FALSE)
+  datatable(format(l3HF[,list(MEP,Barcode,OmeroDetailURL,ArrayRow,ArrayColumn, Cytoplasm_PA_Intensity_LineageRatio_Norm)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode","Omero", "Row","Column","LineageRatio"),escape = FALSE)
 }
 ```
 
@@ -768,7 +763,7 @@ for (barcode in barcodes){
 
 ```{r SCCFBS_response, eval = TRUE}
 
-p <- ggplot(l3[l3$Ligand == "FBS"], aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+geom_boxplot()+
+p <- ggplot(l3[grepl("FBS",l3$Ligand)], aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nSpot Cell Count in High Serum Wells"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))

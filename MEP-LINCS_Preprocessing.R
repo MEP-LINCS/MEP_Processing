@@ -95,7 +95,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   splits <- strsplit2(strsplit2(cellDataFiles,split = "_")[,1],"/")
   
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
-  if(analysisVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
+  #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
   
   expDTList <- mclapply(barcodes, function(barcode){
 
@@ -167,7 +167,13 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #merge well metadata with the data and spot metadata
     pcDT <- merge(pcDT,wellMetadata,by = "Well")
     pcDT <- pcDT[,Barcode := barcode]
-    imageURLFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+    if(rawDataVersion == "v1.1"){
+      imageURLFiles <- grep("reDAPI_imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+    } else {
+      allImageFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+      imageURLFiles <- grep("reDAPI", allImageFiles, invert=TRUE, value=TRUE)
+    }
+
     
     #Read in and merge the Omero URLs
     omeroIndex <- fread(grep(barcode, imageURLFiles, value=TRUE))[,list(WellName,Row,Column,ImageID)]
@@ -434,8 +440,17 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   }
 }
 
-for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
-  for(ss in c("SS1","SS2","SS3")[1]){
+
+#Process the version 1 data
+for(cellLine in c("PC3", "MCF7", "YAPC")[1:3]){
+  for(ss in c("SS1","SS2","SS3")[1:3]){
     preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
   }
 }
+
+# #Also process the reDAPI plates
+# for(cellLine in c("PC3")[1]){
+#   for(ss in c("SS1","SS2","SS3")[3]){
+#     preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.31", rawDataVersion="v1.1", writeFiles = TRUE)
+#   }
+# }
