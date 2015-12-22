@@ -10,7 +10,7 @@ create8WellPseudoImage <- function(DT, pr, prDisplay){
   #move outliers to maximum displayed value
   DT[[pr]][DT[[pr]]>=quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)] <- as.integer(quantile(DT[[pr]],probs = highThresh,na.rm=TRUE))
   p <- ggplot(DT, aes_string(x="ArrayColumn", y="ArrayRow",colour=pr))+
-    geom_point(size=1)+
+    geom_point(size=rel(.3))+
     scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
     scale_colour_gradient(low = "white", high = "red")+
     guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
@@ -68,7 +68,7 @@ plotTotalDAPI <- function(l1, barcodes){
     mDT <- l1[l1$Barcode == barcode]
     mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
     mDT <- mDT[,DNAThresh := min(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==2]), by="Well"]
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_bar(binwidth = 2)+
+    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 2)+
       geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
       facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
       #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
@@ -148,7 +148,7 @@ plotSCCRobustZScores <- function(dt, thresh = 3){
   #Filter our FBS MEPs then plot spot cell count robust Z scores
   #browser()
   dt <- dt[!grepl("FBS",dt$MEP)]
-  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_Norm_RobustZ))+geom_bar(binwidth = .1)+
+  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_Norm_RobustZ))+geom_histogram(binwidth = .1)+
     geom_vline(xintercept = c(-thresh,thresh), colour = "blue")+
     ggtitle(paste("\n\n","MEP Normalized Spot Cell Count Robust Z Scores Distribution"))+
     ylab("Count")+xlab("Normalized Spot Cell Count Robust Z Scores")+
