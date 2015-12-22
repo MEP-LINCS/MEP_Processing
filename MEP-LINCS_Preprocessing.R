@@ -1,7 +1,7 @@
 
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
-# 9/30/2015
+# 11/18/2015
 
 ##Introduction
 
@@ -62,7 +62,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   ##Summary
   # This script prepares cell-level data and metadata for the MEP LINCs Analysis Pipeline. 
   # 
-  # In the code, the variable ss determines which staining set (SS1, SS2 or SS3) to merge and the variable cellLine determines the cell line (PC3,MCF7, etc). All .txt data files in the "./RawData" folder will be merged with the well (xlsx) and log (XML) data from the "./Metadata" folder.
+  # In the code, the variable ss determines which staining set (SS1, SS2 or SS3) to merge and the variable cellLine determines the cell line (PC3,MCF7, etc).
   # 
   # The merging assumes that the actual, physical B row wells (B01-B04) have been printed upside-down. That is, rotated 180 degrees resulting in the spot 1, 1 being in the lower right corner instead of the upper left corner. The metadata is matched to the actual printed orientation.
   
@@ -82,10 +82,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   ARowMetadata <- data.table(spotMetadata,Well=rep(c("A01", "A02","A03","A04"),each=nrow(spotMetadata)))
   BRowMetadata <- data.table(spotMetadata180,Well=rep(c("B01", "B02","B03","B04"),each=nrow(spotMetadata180)))
   
-  # The well metadata describes the cell line, ligands and staining endpoints that are all added on a per well basis. There is one mutlisheet .xlsx file for each plate. Each filename is the plate's barcode.
+  # The well metadata describes the cell line, ligands and staining endpoints that are all added on a per well basis. There is one multisheet .xlsx file for each plate. Each filename is the plate's barcode.
   
-  
-  # The raw data from all wells in all plates in the dataset are read in and merged with their spot and well metadata. The number of nuclei at each spot are counted and a loess model of the spot cell count is added. Then all intensity values are normalized through dividing them by the median intensity value of the control well in the same plate.
+  # The raw data from all wells in all plates in the dataset are read in and merged with their spot and well metadata. The number of nuclei at each spot are counted and a loess model of the spot cell count is added. Then all intensity values are normalized.
   # 
   # Next, the data is filtered to remove objects with a nuclear area less than nuclearAreaThresh pixels or more than nuclearAreaHiThresh pixels.
   
@@ -96,16 +95,14 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   splits <- strsplit2(strsplit2(cellDataFiles,split = "_")[,1],"/")
   
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
-  if(analysisVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
+  #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
   
   expDTList <- mclapply(barcodes, function(barcode){
+
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
     wellDataList <- lapply(wells,function(well){
-      #browser()
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
-      #imageDataFile <- grep("Image",wellDataFiles,value=TRUE,
-      #                     ignore.case = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
                              ignore.case = TRUE)
       if (ss %in% c("SS1","SS3")){
@@ -115,8 +112,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
                                   ignore.case = TRUE)
       }
       #Read in csv data
-      #image <- convertColumnNames(fread(imageDataFile))
-      #setkey(image,CP_ImageNumber)
       nuclei <- convertColumnNames(fread(nucleiDataFile))
       if (curatedOnly) nuclei <- nuclei[,grep(curatedCols,colnames(nuclei)), with=FALSE]
       setkey(nuclei,CP_ImageNumber,CP_ObjectNumber)
@@ -163,7 +158,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
       
       return(DT)
     })
-    #browser()
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #Read the well metadata from a multi-sheet Excel file
@@ -173,6 +167,30 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #merge well metadata with the data and spot metadata
     pcDT <- merge(pcDT,wellMetadata,by = "Well")
     pcDT <- pcDT[,Barcode := barcode]
+    if(rawDataVersion == "v1.1"){
+      imageURLFiles <- grep("reDAPI_imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+    } else {
+      allImageFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+      imageURLFiles <- grep("reDAPI", allImageFiles, invert=TRUE, value=TRUE)
+    }
+
+    
+    #Read in and merge the Omero URLs
+    omeroIndex <- fread(grep(barcode, imageURLFiles, value=TRUE))[,list(WellName,Row,Column,ImageID)]
+    omeroIndex$Well <- sapply(gsub("Well","",strsplit2(omeroIndex$WellName,"_")[,2],""),FUN=switch,
+                              "1"="A01",
+                              "2"="A02",
+                              "3"="A03",
+                              "4"="A04",
+                              "5"="B01",
+                              "6"="B02",
+                              "7"="B03",
+                              "8"="B04")
+    setnames(omeroIndex,"Row","ArrayRow")
+    setnames(omeroIndex,"Column","ArrayColumn")
+    omeroIndex <- omeroIndex[,WellName:=NULL]
+    pcDT <- merge(pcDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
+    
     #Count the cells at each spot
     pcDT<-pcDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
     
@@ -188,11 +206,33 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #Set 2N and 4N DNA status
     pcDT <- pcDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
     #Manually reset clusters for poorly classified wells
-    #This is based on review of the clusters after a prior run
-    pcDT$Nuclei_PA_Cycle_State[pcDT$Barcode=="LI8X00403" & pcDT$Well=="A03" & pcDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi >150] <- 2
     
     pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
     pcDT$Nuclei_PA_Cycle_DNA4NProportion <- 1-pcDT$Nuclei_PA_Cycle_DNA2NProportion
+    
+    #Logit transform DNA Proportions
+    #logit(p) = log[p/(1-p)]
+    if(any(grepl("Nuclei_PA_Cycle_DNA2NProportion",colnames(pcDT)))){
+      DNA2NImpute <- pcDT$Nuclei_PA_Cycle_DNA2NProportion
+      DNA2NImpute[DNA2NImpute==0] <- .01
+      DNA2NImpute[DNA2NImpute==1] <- .99
+      pcDT$Nuclei_PA_Cycle_DNA2NProportionLogit <- log2(DNA2NImpute/(1-DNA2NImpute))
+    }
+    
+    if(any(grepl("Nuclei_PA_Cycle_DNA4NProportion",colnames(pcDT)))){
+      DNA4NImpute <- pcDT$Nuclei_PA_Cycle_DNA4NProportion
+      DNA4NImpute[DNA4NImpute==0] <- .01
+      DNA4NImpute[DNA4NImpute==1] <- .99
+      pcDT$Nuclei_PA_Cycle_DNA4NProportionLogit <- log2(DNA4NImpute/(1-DNA4NImpute))
+    }
+    
+    #logit transform eccentricity
+    if(any(grepl("Nuclei_CP_AreaShape_Eccentricity",colnames(pcDT)))){
+      EccImpute <- pcDT$Nuclei_CP_AreaShape_Eccentricity
+      EccImpute[EccImpute==0] <- .01
+      EccImpute[EccImpute==1] <- .99
+      pcDT$Nuclei_PA_AreaShape_EccentricityLogit <- log2(EccImpute/(1-EccImpute))
+    }
     
     #Add spot level normalizations for selected intensities
     if(normToSpot){
@@ -242,6 +282,10 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   cDT <- rbindlist(expDTList, fill = TRUE)
   densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
   
+  #Add a convenience label for wells and ligands
+  cDT$Well_Ligand <- paste(cDT$Well,cDT$Ligand,sep = "_")
+  
+  #Count the number of neighboring cells
   cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
   
   #Rules for classifying perimeter cells
@@ -254,7 +298,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #Classify cells as outer if they have a radial position greater than a thresh
   cDT <- cDT[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
   
-  #Require the cell not be in a sparse region
+  #Require a perimeter cell not be in a sparse region
   denseOuterDT <- cDT[!cDT$Spot_PA_Sparse  & cDT$Spot_PA_OuterCell]
   denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
   setkey(cDT,Barcode,Well,Spot,ObjectNumber)
@@ -285,7 +329,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
   
-  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Array|ECMp|Ligand|MEP|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|LoessSCC|QAScore"
+  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|Array|ECMp|Ligand|MEP|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|LoessSCC|QAScore"
   
   #Save the un-normalized parameters to merge in later
   mdDT <- slDT[,grep(paste0(metadataNames,"|Barcode|^Well$|^Spot$"),colnames(slDT),value=TRUE), with = FALSE]
@@ -396,8 +440,17 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   }
 }
 
-for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
-  for(ss in c("SS1","SS2","SS3")[2]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=2, analysisVersion="v2.001", rawDataVersion="v1", writeFiles = TRUE)
+
+#Process the version 1 data
+for(cellLine in c("PC3", "MCF7", "YAPC")[1:3]){
+  for(ss in c("SS1","SS2","SS3")[1:3]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
   }
 }
+
+# #Also process the reDAPI plates
+# for(cellLine in c("PC3")[1]){
+#   for(ss in c("SS1","SS2","SS3")[3]){
+#     preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.31", rawDataVersion="v1.1", writeFiles = TRUE)
+#   }
+# }
