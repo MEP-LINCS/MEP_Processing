@@ -205,7 +205,8 @@ p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoT
   geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, MitoTracker Intensity Ratio")+
   coord_cartesian(ylim=c(.9*min(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm), 1.1*max(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)))+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "green", alpha = .5)+
+  #geom_point(aes_(size = ~Spot_PA_ReplicateCount),colour = "green", alpha = .5)+
+  geom_point(colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by MitoTracker Intensity with SE Bars")
 
@@ -266,7 +267,7 @@ suppressWarnings(print(p))
 p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_Norm), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+
   # geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogit_Norm-Nuclei_PA_Gated_EduPositiveLogit_Norm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_Norm+Nuclei_PA_Gated_EduPositiveLogit_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, EdU+ Proportion Ratio")+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "red", alpha = .5)+
+  geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by EdU+ Proportion with SE Bars")
 
@@ -337,7 +338,7 @@ suppressWarnings(print(p))
 p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+
   geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm-Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm+Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
+  geom_point(colour = "blue", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Logged Lineage Ratio with SE Bars")
 
