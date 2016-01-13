@@ -205,7 +205,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoT
   geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, MitoTracker Intensity Ratio")+
   coord_cartesian(ylim=c(.9*min(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm), 1.1*max(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)))+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "green", alpha = .5)+
+  geom_point(colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by MitoTracker Intensity with SE Bars")
 
@@ -264,9 +264,9 @@ suppressWarnings(print(p))
 ```{r ProliferationByMEP, eval=ss=="SS2", fig.width=8, fig.height=6}
 
 p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_Norm), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+
-  # geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogit_Norm-Nuclei_PA_Gated_EduPositiveLogit_Norm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_Norm+Nuclei_PA_Gated_EduPositiveLogit_Norm_SE), width=.01, colour="black") +
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogit_Norm-Nuclei_PA_Gated_EduPositiveLogit_Norm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_Norm+Nuclei_PA_Gated_EduPositiveLogit_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, EdU+ Proportion Ratio")+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "red", alpha = .5)+
+  geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by EdU+ Proportion with SE Bars")
 
@@ -305,7 +305,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm, y = Cyto
 
 ```{r lineageRatioHistogram, eval=ss=="SS3"}
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_bar(binwidth = .02)+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_histogram(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, Logged Lineage Ratio Distribution"))+
   ylab("Count")+xlab("Normalized, Logged Lineage Ratio")+
@@ -337,7 +337,9 @@ suppressWarnings(print(p))
 p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+
   geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm-Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm+Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized, Logged Lineage Ratio")+
-  geom_point(aes(size = Spot_PA_ReplicateCount),colour = "blue", alpha = .5)+
+  #geom_point(aes(size=Spot_PA_ReplicateCount), colour = "blue", alpha = .5)+
+  #Workaround bug in plotly size display
+  geom_point(colour = "blue", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Logged Lineage Ratio with SE Bars")
 
@@ -725,6 +727,7 @@ for (barcode in barcodes){
   p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
+  
   if (ss=="SS1")  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
@@ -759,6 +762,7 @@ for (barcode in barcodes){
   }
 }
 
+
 ```
 
 \newpage
@@ -771,6 +775,53 @@ p <- ggplot(l3[grepl("FBS",l3$Ligand)], aes(x = reorder(Ligand, Spot_PA_SpotCell
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
+```
+
+
+```{r tempDAPIBoxplots, fig.height=5}
+
+  #Remove the fiducial entries
+  setkey(l3,ECMp)
+  DT <- l3[!"fiducial"]
+  DT <- DT[!"blank"]
+  
+  p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_Dapi, colour=Well))+
+    geom_boxplot(outlier.size = .5)+
+    coord_cartesian(ylim = c(0,.2))+
+    guides(colour=FALSE)+
+      xlab("")+ylab("Median Intensity DAPI")+
+    ggtitle("Median DAPI Intensity per Spot by Well and Barcode ")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  print(p)
+  
+    p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_H3, colour=Well))+
+    geom_boxplot(outlier.size = .5)+
+    coord_cartesian(ylim = c(0,.4))+
+    guides(colour=FALSE)+
+      xlab("")+ylab("Median Intensity H3")+
+    ggtitle("Median H3 Intensity per Spot by Well and Barcode ")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  print(p)    
+  
+  p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin, colour=Well))+
+    geom_boxplot(outlier.size = .5)+
+    coord_cartesian(ylim = c(0,20))+
+    guides(colour=FALSE)+
+      xlab("")+ylab("Total Intensity Fibrillarin")+
+    ggtitle("Total Fibrillarin Intensity per Spot by Well and Barcode ")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  print(p)    
+  
+  p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_Edu, colour=Well))+
+    geom_boxplot(outlier.size = .5)+
+    coord_cartesian(ylim = c(0,.04))+
+    guides(colour=FALSE)+
+      xlab("")+ylab("Median Intensity EdU")+
+    ggtitle("Median EdU Intensity per Spot by Well and Barcode ")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  print(p)
+  
+  
 ```
 
 

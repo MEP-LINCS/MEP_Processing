@@ -98,7 +98,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
   
   expDTList <- mclapply(barcodes, function(barcode){
-
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
     wellDataList <- lapply(wells,function(well){
@@ -162,7 +161,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #Read the well metadata from a multi-sheet Excel file
     wellMetadata <- data.table(readMetadata(paste0("./",cellLine,"/",
-                                                   ss,"/Metadata/",barcode,".xlsx")), key="Well")
+                                                   ss,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
     
     #merge well metadata with the data and spot metadata
     pcDT <- merge(pcDT,wellMetadata,by = "Well")
@@ -442,15 +441,8 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
 
 
 #Process the version 1 data
-for(cellLine in c("PC3", "MCF7", "YAPC")[1:3]){
-  for(ss in c("SS1","SS2","SS3")[1:3]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
+for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
+  for(ss in c("SS1","SS2","SS3")[2]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1.1", writeFiles = TRUE)
   }
 }
-
-# #Also process the reDAPI plates
-# for(cellLine in c("PC3")[1]){
-#   for(ss in c("SS1","SS2","SS3")[3]){
-#     preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.31", rawDataVersion="v1.1", writeFiles = TRUE)
-#   }
-# }
