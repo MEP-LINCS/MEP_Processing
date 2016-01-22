@@ -228,6 +228,11 @@ if(!analysisVersion=="v1"){
 ```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=ss=="SS2"}
 ```
 
+<br>
+
+##Filtering
+A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4HF$MEP))` unique MEPs in the HF dataset. 
+
 
 ```{r ProliferationHistogram, eval=ss=="SS2"}
 
@@ -418,11 +423,6 @@ setkey(dt, Spot_PA_SpotCellCount_Norm_RobustZ)
 datatable(format(dt[, list(ECMp, Ligand,Barcode,Spot_PA_SpotCellCount_Norm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("ECMp","Ligand","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
 
 ```
-
-##Filtering
-A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4HF$MEP))` unique MEPs in the HF dataset. 
-
-Each spot represents a MEP that is a pairwise combination of the ECM protein printed at a  spot and the ligand in the solution of the well. 
 
 ##Unbiased Analysis
 
@@ -845,6 +845,37 @@ if (ss == "SS2") {
     suppressWarnings(print(p))
   }
 }
+
+```
+
+
+
+```{r spectral, eval=FALSE}
+
+DT <- l1[grepl("COL1_EGF",l1$MEP)]
+DT <- DT[DT$Spot==391,]
+
+p <- ggplot(DT, aes(x=log2(MeanIntensityDAPI+1), y=log2(MeanIntensityAlexa488Cyto+1)))+
+  geom_point(size=.1)+
+  geom_rug(col=rgb(.5,0,0,alpha=.01))+
+  ggtitle("KRT5 vs. Mean DAPI in NegCtrl")+
+  facet_wrap(~Well,scales = "free_y",labeller = labeller(Plate = label_both, CellLine = label_value))
+print(p)
+
+p <- ggplot(DT, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT19+1), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5+1)))+
+  geom_point(size=.1)+
+  geom_rug(col=rgb(.5,0,0,alpha=.01))+
+  ggtitle("KRT19 vs. KRT5")+
+  coord_cartesian(xlim=c(0,.25),ylim=c(0,0.05))+
+  facet_wrap(~Well,scales = "free_y",labeller = labeller(Plate = label_both, CellLine = label_value))
+print(p)
+
+p <- ggplot(DT, aes(x=log2(MeanIntensityAlexa555Cyto+1), y=log2(MeanIntensityAlexa647+1)))+
+  geom_point(size=.1)+
+  geom_rug(col=rgb(.5,0,0,alpha=.01))+
+  ggtitle("EdU vs. KRT19 in NegCtrl")+
+  facet_wrap(~Well,scales = "free_y",labeller = labeller(Plate = label_both, CellLine = label_value))
+print(p)
 
 ```
 

@@ -417,6 +417,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
       ss=ss,
       cellLine = cellLine,
       analysisVersion = analysisVersion,
+      rawDataVersion = rawDataVersion,
       neighborhoodNucleiRadii = neighborhoodNucleiRadii,
       neighborsThresh = neighborsThresh,
       wedgeAngs = wedgeAngs,
@@ -443,6 +444,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
 #Process the version 1 data
 for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
   for(ss in c("SS1","SS2","SS3")[2]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1.1", writeFiles = TRUE)
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
   }
 }
