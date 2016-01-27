@@ -70,10 +70,10 @@ if(!analysisVersion=="v1"){
 ####date: `r Sys.Date()`
 
 ##Summary
-The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!(grepl("FBS",l4$LigandAnnotID)|l4$ECMpAnnotID %in% c("blank","fiducial")),])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID[!l4$ECMpAnnotID %in% c("blank","fiducial")]))` printed ECM proteins and `r length(unique(l4$LigandAnnotID))-1` ligands or growth factors.  
+The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!grepl("PBS|Fiducial",l4$ECMpAnnotID),][!grepl("FBS",l4$LigandAnnotID)])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID[!grepl("PBS|Fiducial",l4$ECMpAnnotID)]))` printed ECM proteins and `r length(unique(l4$LigandAnnotID[!grepl("FBS",l4$LigandAnnotID)]))` ligands or growth factors.  
 
 ##Introduction
-The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in eight 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)` (488nm), `r unique(l4$Endpoint555)` (555nm) and `r unique(l4$Endpoint647)` (647nm). Four color images of the cells at each spot were gathered on a Nikon automated microscope.
+The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope.
 
 Intensity, position and a limited set of morphology data are gathered for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
 
@@ -126,9 +126,7 @@ for (barcode in barcodes){
 
 #Remove the fiducial and blank data
 setkey(l3,ECMp)
-l3F <- l3[!"fiducial"]
-l3F <- l3F[!"blank"]
-setkey(l3F,"Ligand")
+l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
 l3F <- l3F[!grepl("FBS", l3F$Ligand)]
 
 #Remove failed QA wells
@@ -137,12 +135,12 @@ l4F <- createl4(l3F)
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCount_Norm_RobustZ := RZScore(Spot_PA_SpotCellCount_Norm)]
 
-if (ss == "SS2"){
+if (grepl("SS2",ss)){
   #Add Robust Z Score of the Edu Signal
   l4F <- l4F[,Nuclei_PA_Gated_EduPositiveProportion_Norm_RobustZ := RZScore(Nuclei_PA_Gated_EduPositiveProportion_Norm)]
 }
 
-if (ss == "SS3"){
+if (grepl("SS3",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatio_Norm_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatio_Norm)]
   
@@ -162,11 +160,11 @@ l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 ```
 
 
-```{r, child='MEP-LINCS_MitoText.Rmd', eval=ss=="SS1"}
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",ss)}
 ```
 
 
-```{r MitoTrackerHistogram, eval=ss=="SS1"}
+```{r MitoTrackerHistogram, eval=grepl("SS1",ss)}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
@@ -179,7 +177,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+
 suppressWarnings(print(p))
 ```
 
-```{r MitoTrackerByLigand, eval=ss=="SS1"}
+```{r MitoTrackerByLigand, eval=grepl("SS1",ss)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by Ligand"))+
@@ -189,7 +187,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r MitoTrackerByECMp, eval=ss=="SS1"}
+```{r MitoTrackerByECMp, eval=grepl("SS1",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
@@ -199,7 +197,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r MitoTrackerByMEP, eval=ss=="SS1", fig.width=8, fig.height=6}
+```{r MitoTrackerByMEP, eval=grepl("SS1",ss), fig.width=8, fig.height=6}
 
 p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+
   geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE), width=.01, colour="black") +
@@ -213,7 +211,7 @@ ggplotly(p)
 ```
 
 
-```{r MitoTrackerMEPS, echo = FALSE, eval=ss=="SS1"}
+```{r MitoTrackerMEPS, echo = FALSE, eval=grepl("SS1",ss)}
 
 setkey(dt, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm)
 datatable(format(dt[,list(MEP,Barcode, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm,Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm_SE,Spot_PA_ReplicateCount)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "MitoTracker Int.", "MitoTracker Int. SE", "Replicate Count"))
@@ -225,7 +223,7 @@ if(!analysisVersion=="v1"){
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=ss=="SS2"}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2",ss)}
 ```
 
 <br>
@@ -234,7 +232,7 @@ if(!analysisVersion=="v1"){
 A highly filtered dataset termed "HF" is created as follows. Spots with less than `r HFSCCThresh` cells, wells with QA scores below `r wellQAThresh `, wells with low quality DAPI, MEPS with less than `r HFRepThresh` replicates and the FBS control wells are removed from further analysis of the dataset. After filtering there are `r length(unique(l4HF$MEP))` unique MEPs in the HF dataset. 
 
 
-```{r ProliferationHistogram, eval=ss=="SS2"}
+```{r ProliferationHistogram, eval=grepl("SS2",ss)}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!grepl("FBS",l4HF$Ligand)]
@@ -246,7 +244,7 @@ p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EduPositiveLogit_Norm))+geom_histogram(bin
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationByLigand, eval=ss=="SS2"}
+```{r ProliferationByLigand, eval=grepl("SS2",ss)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveLogit_Norm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_Norm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand"))+
@@ -256,7 +254,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByECMp, eval=ss=="SS2"}
+```{r ProliferationByECMp,eval=grepl("SS2",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogit_Norm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein"))+
@@ -266,7 +264,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByMEP, eval=ss=="SS2", fig.width=8, fig.height=6}
+```{r ProliferationByMEP,eval=grepl("SS2",ss), fig.width=8, fig.height=6}
 
 p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_Norm), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+
   geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogit_Norm-Nuclei_PA_Gated_EduPositiveLogit_Norm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_Norm+Nuclei_PA_Gated_EduPositiveLogit_Norm_SE), width=.01, colour="black") +
@@ -279,7 +277,7 @@ ggplotly(p)
 ```
 
 
-```{r EdUProportionMEPS, echo = FALSE, eval=ss=="SS2"}
+```{r EdUProportionMEPS, echo = FALSE,eval=grepl("SS2",ss)}
 
 setkey(dt, Nuclei_PA_Gated_EduPositiveLogit_Norm)
 datatable(format(dt[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveLogit_Norm,Nuclei_PA_Gated_EduPositiveLogit_Norm_SE,Spot_PA_ReplicateCount)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "EDU+ Prop.", "EDU+ Prop. SE", "Replicate Count"))
@@ -291,10 +289,10 @@ if(!analysisVersion=="v1"){
 ```
 
 
-```{r, child='MEP-LINCS_LineageText.Rmd', eval=ss=="SS3"}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3",ss)}
 ```
 
-```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=ss=="SS3"}
+```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS3",ss)}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
@@ -308,7 +306,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm, y = Cyto
 ```
 
 
-```{r lineageRatioHistogram, eval=ss=="SS3"}
+```{r lineageRatioHistogram,eval=grepl("SS3",ss)}
 
 p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_histogram(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
@@ -318,7 +316,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_histog
 suppressWarnings(print(p))
 ```
 
-```{r LineageRatioByLigand, eval=ss=="SS3"}
+```{r LineageRatioByLigand,eval=grepl("SS3",ss)}
 p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
@@ -327,7 +325,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r lineageRatioByECMp, eval=ss=="SS3"}
+```{r lineageRatioByECMp,eval=grepl("SS3",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
@@ -337,7 +335,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r LineageRatioByMEP, eval=ss=="SS3", fig.width=8, fig.height=6}
+```{r LineageRatioByMEP,eval=grepl("SS3",ss), fig.width=8, fig.height=6}
 
 p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+
   geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm-Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm+Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE), width=.01, colour="black") +
@@ -350,7 +348,7 @@ ggplotly(p)
 ```
 
 
-```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
+```{r LineageRatioMEPS, echo = FALSE,eval=grepl("SS3",ss)}
 
 setkey(dt, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm)
 datatable(format(dt[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm,Cytoplasm_PA_Intensity_LineageRatioLog2_Norm_SE,Spot_PA_ReplicateCount)], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("MEP", "Barcode", "Lineage Ratio", "Lineage Ratio SE", "Replicate Count"))
@@ -441,7 +439,7 @@ The following heatmap shows the normalized MEP responses based on the curated fe
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
 fvDT <- filterl4(l4, lowQALigands)
 setkey(fvDT, MEP)
-fvDT <- fvDT[!grepl("FBS",fvDT$MEP),]
+fvDT <- fvDT[!grepl("FBS|Fiducial|fiducial|blank|PBS",fvDT$MEP),]
 fvDT <- fvDT[,Barcode := NULL]
 
 #Shorten the feature names
@@ -525,7 +523,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Barcode)) 
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-if(ss=="SS1"){
+if(grepl("SS1",ss)){
   p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker_Norm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Total MitoTracker")+
@@ -588,37 +586,33 @@ datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, ns
 
 
 ##MEMA Layout
-All MEMAs in the experiment are in separate wells and have the same design of 46 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
+All MEMAs in the experiment are in separate wells and have the same design of 48 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
 
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6}
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=7}
 
 #Select the A row wells and delete the blanks
 setkey(l1,Well)
 DT <- unique(l1[grep("A",unique(l1$Well),value=TRUE),list(ArrayRow,ArrayColumn,ECMp)])
 setkey(DT,ECMp)
-DT <- DT[!"blank"]
+DT <- DT[!grepl("blank|PBS",DT$ECMp),]
 
 p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
   geom_point(shape=21, size = 2.2)+
-  guides(fill=guide_legend(ncol = 4))+
+  guides(fill=guide_legend(ncol = 2))+
   theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
   scale_y_reverse()+
   xlab("")+ylab("")+
   ggtitle(" \n\nLINCS MEMA A Row Layout")
 print(p)
 
+DT <- DT[!grepl("Fiducial|fiducial",DT$ECMp),]
+
 ```
 
-
 ##Replicate Count
-The MEMAs have an average of 15 replicates with a range from 13 to 19.  
+The average replicate count is `r  sprintf("%3.1f",mean(table(DT$ECMp)))` and the range of the replicate counts is `r range(table(DT$ECMp))`.  
 
 ```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3}
-#Remove the fiducial and blank entries
-setkey(DT,ECMp)
-DT <- DT[!"fiducial"]
-DT <- DT[!"blank"]
-
 
 p <- ggplot(DT, aes(x=ECMp))+
   geom_bar(width=.8)+geom_hline(yintercept = mean(table(DT$ECMp)), colour="blue")+
@@ -726,7 +720,7 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
   
   
-  if (ss=="SS1")  {
+  if (grepl("SS1",ss))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
     
@@ -740,13 +734,14 @@ for (barcode in barcodes){
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_H3", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
     
+  } else if (grepl("SS2",ss)){   
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
     
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Edu",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
     
-  } else if (ss=="SS3"){
+  } else if (grepl("SS3",ss)){
     
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
@@ -768,7 +763,7 @@ for (barcode in barcodes){
 ```{r SCCFBS_response, eval = TRUE}
 
 p <- ggplot(l3[grepl("FBS",l3$Ligand)], aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nSpot Cell Count in High Serum Wells"))+
+  ggtitle(paste("\n\nSpot Cell Count in Control Wells"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -791,7 +786,9 @@ suppressWarnings(print(p))
     ggtitle("Median DAPI Intensity per Spot by Well and Barcode ")+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   print(p)
-  
+```
+
+```{r, eval=("SS2"==ss)}
     p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_H3, colour=Well))+
     geom_boxplot(outlier.size = .5)+
     coord_cartesian(ylim = c(0,.4))+
@@ -801,6 +798,9 @@ suppressWarnings(print(p))
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   print(p)    
   
+```
+
+```{r, eval=grepl("SS2",ss)}
   p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin, colour=Well))+
     geom_boxplot(outlier.size = .5)+
     coord_cartesian(ylim = c(0,20))+
@@ -834,7 +834,7 @@ Cell Cycle plots include univariate plots of the total DAPI signal. The blue ver
 l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="_")
 plotTotalDAPI(l1, barcodes)
 
-if (ss == "SS2") {
+if (grepl("SS2",ss)) {
   for (barcode in barcodes){
     mDT <- l1[l1$Barcode == barcode] 
     mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]

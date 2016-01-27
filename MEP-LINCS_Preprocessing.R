@@ -13,7 +13,8 @@ library("parallel")#use multiple cores for faster processing
 
 source("MEPLINCSFunctions.R")
 
-preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, writeFiles= TRUE){
+preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, mergeOmeroIDs=FALSE, writeFiles= TRUE){
+  #browser()
   library("limma")#read GAL file and strsplit2
   library("MEMA")#merge, annotate and normalize functions
   library("data.table")#fast file reads, data merges and subsetting
@@ -33,7 +34,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   
   #Only process a curated set of the data
   curatedOnly <- TRUE
-  curatedCols <- "ImageNumber|ObjectNumber|_Area$|_Eccentricity|_Perimeter|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_"
+  curatedCols <- "ImageNumber|ObjectNumber|AreaShape|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_|Texture"
   
   #Flag to control files updates
   writeFiles <- writeFiles
@@ -69,12 +70,12 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   # Read and clean spotmetadata
   
   #Read in the spot metadata from the gal file
-  smd <- readSpotMetadata(paste0("./",cellLine,"/",ss,"/Metadata/20150515_LI8X001_v1.2.gal"))
+  smd <- readSpotMetadata(dir(paste0("./",cellLine,"/",ss,"/Metadata/"),pattern = ".gal",full.names = TRUE))
   #Relabel the column Name to ECMpAnnotID
   setnames(smd, "Name", "ECMpAnnotID")
   
   #Add the print order and deposition number to the metadata
-  ldf <- readLogData(paste0("./",cellLine,"/",ss,"/Metadata/20150512-112336.xml"))
+  ldf <- readLogData(dir(paste0("./",cellLine,"/",ss,"/Metadata"),pattern = ".xml",full.names = TRUE))
   spotMetadata <- merge(smd,ldf, all=TRUE)
   setkey(spotMetadata,Spot)
   #Make a rotated version of the spot metadata to match the print orientation
@@ -166,29 +167,30 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #merge well metadata with the data and spot metadata
     pcDT <- merge(pcDT,wellMetadata,by = "Well")
     pcDT <- pcDT[,Barcode := barcode]
-    if(rawDataVersion == "v1.1"){
-      imageURLFiles <- grep("reDAPI_imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
-    } else {
-      allImageFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
-      imageURLFiles <- grep("reDAPI", allImageFiles, invert=TRUE, value=TRUE)
+    if(mergeOmeroIDs){
+      if(rawDataVersion == "v1.1"){
+        imageURLFiles <- grep("reDAPI_imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+      } else {
+        allImageFiles <- grep("imageIDs",dir(paste0("./",cellLine,"/", ss,"/Metadata/"),full.names = TRUE), value=TRUE)
+        imageURLFiles <- grep("reDAPI", allImageFiles, invert=TRUE, value=TRUE)
+      }
+      
+      #Read in and merge the Omero URLs
+      omeroIndex <- fread(grep(barcode, imageURLFiles, value=TRUE))[,list(WellName,Row,Column,ImageID)]
+      omeroIndex$Well <- sapply(gsub("Well","",strsplit2(omeroIndex$WellName,"_")[,2],""),FUN=switch,
+                                "1"="A01",
+                                "2"="A02",
+                                "3"="A03",
+                                "4"="A04",
+                                "5"="B01",
+                                "6"="B02",
+                                "7"="B03",
+                                "8"="B04")
+      setnames(omeroIndex,"Row","ArrayRow")
+      setnames(omeroIndex,"Column","ArrayColumn")
+      omeroIndex <- omeroIndex[,WellName:=NULL]
+      pcDT <- merge(pcDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
     }
-
-    
-    #Read in and merge the Omero URLs
-    omeroIndex <- fread(grep(barcode, imageURLFiles, value=TRUE))[,list(WellName,Row,Column,ImageID)]
-    omeroIndex$Well <- sapply(gsub("Well","",strsplit2(omeroIndex$WellName,"_")[,2],""),FUN=switch,
-                              "1"="A01",
-                              "2"="A02",
-                              "3"="A03",
-                              "4"="A04",
-                              "5"="B01",
-                              "6"="B02",
-                              "7"="B03",
-                              "8"="B04")
-    setnames(omeroIndex,"Row","ArrayRow")
-    setnames(omeroIndex,"Column","ArrayColumn")
-    omeroIndex <- omeroIndex[,WellName:=NULL]
-    pcDT <- merge(pcDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
     
     #Count the cells at each spot
     pcDT<-pcDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
@@ -255,9 +257,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     pcDT$MEP <- paste(pcDT$ECMp,pcDT$Ligand,sep = "_")
     
     #Create staining set specific derived parameters
-    if(ss %in% c("SS1")){
+    if(grepl("SS1",ss)){
       
-    } else if (ss == "SS2"){
+    } else if (grepl("SS2",ss)){
       pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
       #Calculate the EdU Positive Percent at each spot
       pcDT <- pcDT[,Nuclei_PA_Gated_EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
@@ -268,7 +270,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
       EdUppImpute[EdUppImpute==1] <- .99
       pcDT$Nuclei_PA_Gated_EduPositiveLogit <- log2(EdUppImpute/(1-EdUppImpute))
       
-    } else if (ss == "SS3"){
+    } else if (grepl("SS3",ss)){
       #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := log2(Cytoplasm_PA_Intensity_LineageRatio)]
@@ -276,6 +278,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     } else stop("Invalid ss parameter")
     #browser()
     return(pcDT)
+    
   }, mc.cores=detectCores())
   
   cDT <- rbindlist(expDTList, fill = TRUE)
@@ -443,7 +446,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
 
 #Process the version 1 data
 for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
-  for(ss in c("SS1","SS2","SS3")[2]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
+  for(ss in c("SS1","SS2noH3","SS3")[2]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=6, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
   }
 }
