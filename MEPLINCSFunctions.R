@@ -329,6 +329,7 @@ RUVIII = function(Y, M, ctl, k=NULL, eta=NULL, average=FALSE, fullalpha=NULL)
 }
 
 normRUV3Dataset <- function(dt, k){
+  #browser()
   #Setup data with plate as the unit
   #There are 694 negative controls and all plates are replicates
   
@@ -338,13 +339,13 @@ normRUV3Dataset <- function(dt, k){
   
   dt$WS <- paste(dt$Well, dt$Spot,sep="_") #Add to carry metadata to matrix
   
-  nYL <- mclapply(signalNames, function(signal, dt, M){
+  nYL <- lapply(signalNames, function(signal, dt, M){
     #Create appropriate fill for missing values for each signal
     if(grepl("EdU|Proportion|Ecc", signal)){
       fill <- log2(.01/(1-.01))
     } else if(grepl("Log", signal)){
       fill <- log2(.001)
-    } else if(grepl("Intensity|SCC|SpotCellCount|_Area$|_Perimeter$|_Neighbors$|QAScore$", signal)){
+    } else if(grepl("Intensity|SCC|SpotCellCount|_Area$|_Perimeter$|_Neighbors$|QAScore$|Texture|AreaShape", signal)){
       fill <- 0
     } else(stop(paste("Need fill value for",signal," signal"))) 
     
@@ -365,7 +366,9 @@ normRUV3Dataset <- function(dt, k){
     nYm$Signal <- paste0(signal,"_Norm")
     return(nYm)
     
-  }, dt=dt, M=matrix(1,nrow=length(unique(dt$Barcode))),mc.cores = detectCores())
+  }, dt=dt, M=matrix(1,nrow=length(unique(dt$Barcode)))
+ # ,mc.cores = detectCores())
+  )
   
   nYdtmelt <- rbindlist(nYL)
   nY <- dcast(nYdtmelt, Barcode+WS~Signal, value.var="value")
@@ -373,4 +376,25 @@ normRUV3Dataset <- function(dt, k){
   nY$Spot <- as.integer(gsub(".*_","",nY$WS))
   nY <- nY[,WS:=NULL]
   return(nY)
+}
+
+createl4 <- function (l3) 
+{
+  l3 <- l3[, `:=`(Spot_PA_ReplicateCount, .N), by = "LigandAnnotID,ECMpAnnotID"]
+  l4Names <- grep("Norm|LigandAnnotID|ECMpAnnotID|Barcode|Spot_PA_SpotCellCount$|Spot_PA_ReplicateCount$", 
+                  x = names(l3), value = TRUE)
+  l4Names <- grep("_SE|NormMethod", l4Names, value = TRUE, 
+                  invert = TRUE)
+  l4Keep <- l3[, l4Names, with = FALSE]
+  l4DT <- l4Keep[, lapply(.SD, numericMedian), keyby = "LigandAnnotID,ECMpAnnotID,Barcode"]
+  l4DTse <- l4Keep[, lapply(.SD, MEMA:::se), keyby = "LigandAnnotID,ECMpAnnotID,Barcode"]
+  setnames(l4DTse, grep("Barcode|^Well$|^Spot$|Ligand|ECMp", 
+                        colnames(l4DTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$|Ligand|ECMp", 
+                                                                                    colnames(l4DTse), value = TRUE, invert = TRUE), "_SE"))
+  keepCols <- grep("Well|CellLine|Ligand|Endpoint488|Endpoint555|Endpoint647|EndpointDAPI|ECMp|MEP|LigandAnnotID|ECMpAnnotID|Barcode",colnames(l3),value=TRUE)
+  mDT <- l3[, keepCols, with=FALSE]
+  setkey(mDT, LigandAnnotID,ECMpAnnotID,Barcode)
+  l4DT <- mDT[l4DT, mult = "first"]
+  l4DT <- l4DTse[l4DT]
+  return(l4DT)
 }
