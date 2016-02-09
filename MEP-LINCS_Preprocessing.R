@@ -35,7 +35,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #Only process a curated set of the data
   curatedOnly <- TRUE
   curatedCols <- "ImageNumber|ObjectNumber|AreaShape|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_|Texture"
-  
+ 
   #Flag to control files updates
   writeFiles <- writeFiles
   
@@ -114,13 +114,18 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
       #Read in csv data
       nuclei <- convertColumnNames(fread(nucleiDataFile))
       if (curatedOnly) nuclei <- nuclei[,grep(curatedCols,colnames(nuclei)), with=FALSE]
+      #Remove selected columns
+      nuclei <- nuclei[,grep("Euler",colnames(nuclei),invert=TRUE), with=FALSE]
+      
       setkey(nuclei,CP_ImageNumber,CP_ObjectNumber)
       if (ss %in% c("SS1","SS3")){
         cells <- convertColumnNames(fread(cellsDataFile))
         if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
+        cells <- cells[,grep("Euler",colnames(cells),invert=TRUE), with=FALSE]
         setkey(cells,CP_ImageNumber,CP_ObjectNumber)
         cytoplasm <- convertColumnNames(fread(cytoplasmDataFile))
         if (curatedOnly) cytoplasm <- cytoplasm[,grep(curatedCols,colnames(cytoplasm)), with=FALSE]
+        cytoplasm <- cytoplasm[,grep("Euler",colnames(cytoplasm),invert=TRUE), with=FALSE]
         setkey(cytoplasm,CP_ImageNumber,CP_ObjectNumber)
       }
       
@@ -192,11 +197,12 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
       pcDT <- merge(pcDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
     }
     
-    #Count the cells at each spot
-    pcDT<-pcDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
     
     pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
     pcDT <- pcDT[pcDT$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
+    #Count the cells at each spot
+    pcDT<-pcDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
+
     
     #Add the local polar coordinates and Neighbor Count
     pcDT <- pcDT[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
@@ -205,9 +211,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     pcDT <- pcDT[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
     
     #Set 2N and 4N DNA status
-    pcDT <- pcDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
-    #Manually reset clusters for poorly classified wells
-    
+    #pcDT <- pcDT[,Nuclei_PA_Cycle_State := kmeansDNACluster(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
+    pcDT <- pcDT[,Nuclei_PA_Cycle_State := gateOnlocalMinima(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
+
     pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
     pcDT$Nuclei_PA_Cycle_DNA4NProportion <- 1-pcDT$Nuclei_PA_Cycle_DNA2NProportion
     
@@ -256,11 +262,19 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     
     pcDT$MEP <- paste(pcDT$ECMp,pcDT$Ligand,sep = "_")
     
+    #Add a convenience label for wells and ligands
+    pcDT$Well_Ligand <- paste(pcDT$Well,pcDT$Ligand,sep = "_")
+    
+    # Eliminate Variations in the Endpoint metadata
+    endpointNames <- grep("End",colnames(pcDT), value=TRUE)
+    endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
+    setnames(pcDT,endpointNames,paste0("Endpoint",endpointWL))
+    
     #Create staining set specific derived parameters
     if(grepl("SS1",ss)){
-      
     } else if (grepl("SS2",ss)){
-      pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD, value="Nuclei_CP_Intensity_MedianIntensity_Edu", ctrlLigand = "FBS"), by="Barcode"]
+      pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_Edu",ctrlLigand = "FBS"), by="Barcode"]
+      #pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := gateOnlocalMinima(Nuclei_CP_Intensity_MedianIntensity_Edu)-1, by="Barcode,Well"]
       #Calculate the EdU Positive Percent at each spot
       pcDT <- pcDT[,Nuclei_PA_Gated_EduPositiveProportion := sum(Nuclei_PA_Gated_EduPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
       #Logit transform EduPositiveProportion
@@ -279,14 +293,11 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #browser()
     return(pcDT)
     
-  }, mc.cores=detectCores())
+  },mc.cores=detectCores())
   
   cDT <- rbindlist(expDTList, fill = TRUE)
   densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
-  
-  #Add a convenience label for wells and ligands
-  cDT$Well_Ligand <- paste(cDT$Well,cDT$Ligand,sep = "_")
-  
+
   #Count the number of neighboring cells
   cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
   
@@ -320,11 +331,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   # The intensity values are normalized at each spot so that spot-level variations can be analyzed.
   # 
   # The cell level raw data and metadata is saved as Level 1 data. naiveReplicateRUV does not create a level 2 dataset.
-  
-  # Eliminate Variations in the Endpoint metadata
-  endpointNames <- grep("End",colnames(cDT), value=TRUE)
-  endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
-  setnames(cDT,endpointNames,paste0("Endpoint",endpointWL))
+
   
   #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
   
@@ -338,6 +345,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #Identify parameters to be normalized
   normParameters <- grep(metadataNames,colnames(slDT),value=TRUE,invert=TRUE)
   #Apply RUV-3 normalization to each feature
+  #browser()
   nDT <- normRUV3Dataset(slDT[,normParameters, with = FALSE], k)
   nDT$NormMethod <- "RUV3"
   #Merge the normalized data with its metadata
@@ -443,10 +451,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   }
 }
 
-
 #Process the version 1 data
-for(cellLine in c("PC3", "MCF7", "YAPC")[1]){
-  for(ss in c("SS1","SS2noH3","SS3")[2]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=6, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE)
+for(cellLine in c("PC3", "MCF7", "YAPC")){
+  for(ss in c("SS1","SS2noH3","SS2","SS3","SS0")[3]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=2, limitBarcodes=8, analysisVersion="v1.3", rawDataVersion="v1", writeFiles = TRUE, mergeOmeroIDs = TRUE)
   }
 }

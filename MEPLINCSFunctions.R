@@ -79,6 +79,21 @@ plotTotalDAPI <- function(l1, barcodes){
   }
 }
 
+plotTotalDAPIINCell <- function(l1, barcodes){
+  for (barcode in barcodes){
+    mDT <- l1[l1$Barcode == barcode]
+    mDT <- mDT[mDT$Nuclei_IxANuc > quantile(mDT$Nuclei_IxANuc, probs=.01, na.rm=TRUE) & mDT$Nuclei_IxANuc < quantile(mDT$Nuclei_IxANuc,probs=.98, na.rm=TRUE)]
+    mDT <- mDT[,DNAThresh := min(Nuclei_IxANuc[Nuclei_PA_Cycle_State==2]), by="Well"]
+    p <- ggplot(mDT, aes(x=Nuclei_IxANuc))+geom_histogram(binwidth = 1e+05)+
+      geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
+      facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+      #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
+      ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
+      ylab("Count")+xlab("Total Intensity DAPI")+
+      theme(strip.text = element_text(size = 5))
+    suppressWarnings(print(p))
+  }
+}
 
 plotSCCHeatmapsQAHistograms <- function(l3, barcodes){
   for (barcode in barcodes){
@@ -345,9 +360,9 @@ normRUV3Dataset <- function(dt, k){
       fill <- log2(.01/(1-.01))
     } else if(grepl("Log", signal)){
       fill <- log2(.001)
-    } else if(grepl("Intensity|SCC|SpotCellCount|_Area$|_Perimeter$|_Neighbors$|QAScore$|Texture|AreaShape", signal)){
+    } else {
       fill <- 0
-    } else(stop(paste("Need fill value for",signal," signal"))) 
+    }
     
     #Cast into barcode rows and well spot columns
     dtc <- dcast(dt, Barcode~WS, value.var=signal, fill=fill)
@@ -381,7 +396,7 @@ normRUV3Dataset <- function(dt, k){
 createl4 <- function (l3) 
 {
   l3 <- l3[, `:=`(Spot_PA_ReplicateCount, .N), by = "LigandAnnotID,ECMpAnnotID"]
-  l4Names <- grep("Norm|LigandAnnotID|ECMpAnnotID|Barcode|Spot_PA_SpotCellCount$|Spot_PA_ReplicateCount$", 
+  l4Names <- grep("Norm|LigandAnnotID|ECMpAnnotID|Barcode|Spot_PA_SpotCellCount$|Spot_PA_ReplicateCount$|Nuclei_PA_Gated_EduPositiveProportion$|Nuclei_PA_Cycle_DNA2NProportion|Nuclei_PA_Cycle_DNA4NProportion", 
                   x = names(l3), value = TRUE)
   l4Names <- grep("_SE|NormMethod", l4Names, value = TRUE, 
                   invert = TRUE)
@@ -397,4 +412,32 @@ createl4 <- function (l3)
   l4DT <- mDT[l4DT, mult = "first"]
   l4DT <- l4DTse[l4DT]
   return(l4DT)
+}
+
+
+localMinima <- function(x, probs=c(.2,.8)){
+  #browser()
+  #Finds the local minima between the probs quantiles
+  #x numeric vector
+  #probs interval limits on where to search for the minima
+  h <- hist(x,breaks=300, plot=FALSE)
+  if(length(h$mids)<2) return(max(x))
+  f <- approxfun(h$mids, h$counts)
+  o <- optimise(f, interval=quantile(x, probs))
+  if(length(o)>2) stop()
+  return(o$minimum)
+}
+
+gateOnlocalMinima <- function(x, ...){
+  thresh <- localMinima(x, ...)
+  cluster <- rep.int(1,times=length(x))
+  cluster[x>thresh] <- 2
+  return(cluster)
+}
+
+gateOnLocalMinima <- function(x, ...){
+  thresh <- localMinima(x, ...)
+  cluster <- rep.int(1,times=length(x))
+  cluster[x>thresh] <- 2
+  return(cluster)
 }
