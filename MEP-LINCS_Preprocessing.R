@@ -11,14 +11,14 @@
 
 library("parallel")#use multiple cores for faster processing
 
-source("MEPLINCSFunctions.R")
+#source("MEPLINCSFunctions.R")
 
 preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, mergeOmeroIDs=FALSE, calcAdjacency=TRUE, writeFiles= TRUE)
 {
-  library("limma")#read GAL file and strsplit2
-  library("MEMA")#merge, annotate and normalize functions
-  library("data.table")#fast file reads, data merges and subsetting
-  library("parallel")#use multiple cores for faster processing
+  library(limma)#read GAL file and strsplit2
+  library(MEMA)#merge, annotate and normalize functions
+  library(data.table)#fast file reads, data merges and subsetting
+  library(parallel)#use multiple cores for faster processing
   library(RUVnormalize)
   library(ruv)
   
@@ -97,7 +97,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
   #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
-
+  
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
@@ -203,9 +203,12 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     #Count the cells at each spot
     pcDT <- pcDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
     pcDT <- pcDT[,Spot_PA_SpotCellCountLog2 := log2(Spot_PA_SpotCellCount)]
-
     #log transform all intensity values
-    pcDT <- logIntensities(pcDT)
+    #pcDT <- logIntensities(pcDT)
+    intensityNames <- grep("Intensity",colnames(pcDT), value=TRUE, ignore.case = TRUE)
+    dtLog <- pcDT[,lapply(.SD,log2),.SDcols=intensityNames]
+    setnames(dtLog,colnames(dtLog),paste0(colnames(dtLog),"Log2"))
+    pcDT <- cbind(pcDT,dtLog)
     
     if(any(grepl("Nuclei_CP_AreaShape_Center",colnames(pcDT)))){
       #Add the local polar coordinates and Neighbor Count
@@ -268,7 +271,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     
     #Add a convenience label for wells and ligands
     pcDT$Well_Ligand <- paste(pcDT$Well,pcDT$Ligand,sep = "_")
-
+    
     # Eliminate Variations in the Endpoint metadata
     endpointNames <- grep("End",colnames(pcDT), value=TRUE)
     endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
@@ -296,7 +299,8 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     } else stop("Invalid ss parameter")
     return(pcDT)
     
-  }, mc.cores=detectCores())
+      }, mc.cores=detectCores())
+
   
   cDT <- rbindlist(expDTList, fill = TRUE)
   
@@ -345,9 +349,9 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #### Level3 ####
   slDT <- createl3(cDT, lthresh)
   slDT <- slDT[!grepl("fiducial|Fiducial|blank",slDT$ECMp),]
-
+  
   metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|ECMpAnnotID|LigandAnnotID|MEP|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore"
-
+  
   #Save the un-normalized parameters to merge in later
   mdDT <- slDT[,grep(paste(metadataNames,"Barcode|Well|^Spot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$",sep="|"),colnames(slDT),value=TRUE), with = FALSE]
   #Identify parameters to be normalized
