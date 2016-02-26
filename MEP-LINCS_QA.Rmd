@@ -137,16 +137,16 @@ l3F <- l3F[!grepl("FBS", l3F$Ligand)]
 l3F <- l3F[!l3F$QA_LowWellQA]
 l4F <- createl4(l3F)
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
-l4F <- l4F[,Spot_PA_SpotCellCount_Norm_RobustZ := RZScore(Spot_PA_SpotCellCount_Norm)]
+l4F <- l4F[,Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUV3Loess)]
 
 if (grepl("SS2",ss)){
   #Add Robust Z Score of the Edu Signal
-  l4F <- l4F[,Nuclei_PA_Gated_EduPositiveProportion_Norm_RobustZ := RZScore(Nuclei_PA_Gated_EduPositiveProportion_Norm)]
+  l4F <- l4F[,Nuclei_PA_Gated_EduPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EduPositiveProportionRUV3Loess)]
 }
 
 if (grepl("SS3",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
-  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatio_Norm_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatio_Norm)]
+  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioRUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)]
   
 }
 
@@ -172,7 +172,7 @@ l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 setkey(l4,"Ligand")
 dt <- l4[!"FBS"]
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_histogram(binwidth = .0002)+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+geom_histogram(binwidth = .0002)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, MitoTracker Intensity Distribution"))+
   ylab("Count")+xlab("Normalized, MitoTracker Intensity")+
@@ -182,7 +182,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByLigand, eval=grepl("SS1",ss)}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -192,7 +192,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByECMp, eval=grepl("SS1",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -205,13 +205,45 @@ suppressWarnings(print(p))
 ```
 
 
+```{r ProliferationHistogramFull, eval=grepl("SS2",ss)}
+
+dt <- l4F
+
+p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_histogram(binwidth = .02)+
+  ggtitle(paste("\n\n","MEP Normalized, EdU+ Proportion Distribution (full dataset)"))+
+  ylab("Count")+xlab("Normalized,  EdU+ Proportion")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+```
+
+```{r ProliferationByLigandFull, eval=grepl("SS2",ss)}
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand (full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r ProliferationByECMpFull,eval=grepl("SS2",ss)}
+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein (full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+
 ```{r ProliferationHistogram, eval=grepl("SS2",ss)}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!grepl("FBS",l4HF$Ligand)]
 
-p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EduPositiveLogit_Norm))+geom_histogram(binwidth = .05)+
-  ggtitle(paste("\n\n","MEP Normalized, EdU+ Proportion Distribution"))+
+p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_histogram(binwidth = .02)+
+  ggtitle(paste("\n\n","MEP Normalized, EdU+ Proportion Distribution (HF dataset)"))+
   ylab("Count")+xlab("Normalized,  EdU+ Proportion")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
@@ -219,8 +251,8 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByLigand, eval=grepl("SS2",ss)}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveLogit_Norm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_Norm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand"))+
+p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand (HF dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -229,8 +261,8 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByECMp,eval=grepl("SS2",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogit_Norm, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogit_Norm))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein"))+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein (HF dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -246,7 +278,7 @@ suppressWarnings(print(p))
 setkey(l4HF,"Ligand")
 dt <- l4HF[!"FBS"]
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19_Norm, colour = Ligand))+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5RUV3Loess, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19RUV3Loess, colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("KRT5")+ylab("KRT19")+
@@ -257,7 +289,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm, y = Cyto
 
 ```{r lineageRatioHistogram,eval=grepl("SS3",ss)}
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_histogram(binwidth = .02)+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_histogram(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, Logged Lineage Ratio Distribution"))+
   ylab("Count")+xlab("Normalized, Logged Lineage Ratio")+
@@ -266,7 +298,7 @@ suppressWarnings(print(p))
 ```
 
 ```{r LineageRatioByLigand,eval=grepl("SS3",ss)}
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -276,7 +308,7 @@ suppressWarnings(print(p))
 
 ```{r lineageRatioByECMp,eval=grepl("SS3",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2_Norm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2_Norm))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -289,13 +321,46 @@ suppressWarnings(print(p))
 All cells are stained with DAPI and classified as DNA 2n or 4n. The proportion of 2n and 4n cells at each spot is calculated and will always sum to 1. The proportions are plotted below and detailed in the datatables.
 
 
+```{r DNAHistogramFull}
+
+dt <- l4F
+
+p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_histogram(binwidth = .08, alpha=.8)+
+  ggtitle(paste("\n\n","MEP DNA 2N Proportion Distribution (Normalized, full dataset"))+
+  ylab("Count")+xlab("DNA 2N Proportion")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+```
+
+```{r DNA2NByLigandFull}
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP DNA 2N Proportion by Ligand (Normalized, full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r DNA2NByECMpFull}
+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP DNA 2N Proportion by ECM Protein (Normalized, full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+
+
 ```{r DNAHistogram}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!grepl("FBS",l4HF$Ligand)]
 
-p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportion))+geom_histogram(binwidth = .008, alpha=.8)+
-  ggtitle(paste("\n\n","MEP DNA 2N Proportion Distribution"))+
+p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_histogram(binwidth = .08, alpha=.8)+
+  ggtitle(paste("\n\n","MEP DNA 2N Proportion Distribution (Normalized, HF dataset"))+
   ylab("Count")+xlab("DNA 2N Proportion")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
@@ -303,8 +368,8 @@ suppressWarnings(print(p))
 
 ```{r DNA2NByLigand}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Cycle_DNA2NProportion, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportion, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP DNA 2N Proportion by Ligand"))+
+p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP DNA 2N Proportion by Ligand (Normalized, HF dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -313,37 +378,56 @@ suppressWarnings(print(p))
 
 ```{r DNA2NByECMp}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Cycle_DNA2NProportion, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportion))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP DNA 2N Proportion by ECM Protein"))+
+p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP DNA 2N Proportion by ECM Protein (normalized, HF dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
 ```
 
-
 ##Spot Cell Count Analysis
 The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. Below the distribution plot are plots with Z scores stratified by ligand and ECM protein. 
-```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=TRUE}
+```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=FALSE}
 
 plotSCCRobustZScores(l4F,thresh = SCCZscoreThresh)
 ```
 
 
-```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
-setkey(l4F,"Ligand")
-dt <- l4F[!grepl("FBS",l4F$Ligand)]
+```{r SCC_responseFull, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCount_Norm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_Norm_RobustZ, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by Ligand"))+
+dt <- l4F
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("MEP Normalized Spot Cell Count by Ligand (full dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 ```
 
 ```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
-p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount_Norm_RobustZ, FUN=median), y = Spot_PA_SpotCellCount_Norm_RobustZ))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count Robust Z Scores by ECM Protein"))+
+p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
+setkey(l4F,"Ligand")
+dt <- l4F[!grepl("FBS",l4F$Ligand)]
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by Ligand (HF Dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+```
+
+```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
+p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (HF dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -363,7 +447,7 @@ The heatmap is arranged by unsupervised clustering of the rows and columns and c
 ```{r,}
 #l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
-PCFVNames <- grep("Norm",colnames(l4F),value=TRUE)
+PCFVNames <- grep("Norm|RUV3",colnames(l4F),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
@@ -411,8 +495,29 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Barcode)) 
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Well)) +
+  geom_point(size = rel(.7), alpha = .8) +
+  labs(colour = "Well")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4F$Well)) +
+  geom_point(size = rel(.7), alpha = .8) +
+  labs(colour = "Well")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Well)) +
+  geom_point(size = rel(.7), alpha = .8) +
+  labs(colour = "Well")+
+  theme(legend.text=element_text(size = 6))+
+  guides(colour = guide_legend(override.aes = list(size=6)))
+print(p)
+
 if(grepl("SS1",ss)){
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker_Norm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTrackerRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Total MitoTracker")+
     theme(legend.text=element_text(size = 6))+
@@ -420,7 +525,7 @@ if(grepl("SS1",ss)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_Perimeter_Norm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_PerimeterRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Perimeter ProportionStatus")+
     theme(legend.text=element_text(size = 6))+
@@ -428,10 +533,16 @@ if(grepl("SS1",ss)){
   print(p)
 } else if (ss=="SS2"){
   
+    p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Nuclei_CP_Intensity_MedianIntensity_EduRUV3Loess)) +
+    geom_point(size = rel(.7), alpha = .8) +
+    labs(colour = "Median Intensity EdU")+
+    theme(legend.text=element_text(size = 6))+
+    guides(colour = guide_legend(override.aes = list(size=6)))
+    
 } else if (ss=="SS3"){
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -439,21 +550,21 @@ if(grepl("SS1",ss)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatio_Norm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -637,9 +748,7 @@ suppressWarnings(print(p))
 ```{r tempDAPIBoxplots, fig.height=5}
 
   #Remove the fiducial entries
-  setkey(l3,ECMp)
-  DT <- l3[!"fiducial"]
-  DT <- DT[!"blank"]
+  DT <- l3F
   
   p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_Dapi, colour=Well))+
     geom_boxplot(outlier.size = .5)+
