@@ -102,7 +102,7 @@ plotSCCHeatmapsQAHistograms(l3, barcodes)
 
 ```
 
-The following histograms show the spot cell counts for each array.  
+The following histograms show the raw spot cell counts for each array.  
 ```{r SCCHistograms, fig.width=3.7,fig.height=4, eval=TRUE}
 xLimits <- quantile(l3$Spot_PA_SpotCellCount, probs=c(0,.995))
 yLimits <- c(0,75)
@@ -116,15 +116,56 @@ for (barcode in barcodes){
     coord_cartesian(xlim=xLimits, ylim=yLimits)+
     ggtitle(paste("\n\n Spot Cell Count in",unique(dt$CellLine), "cells in plate",unique(dt$Barcode)))+
     xlab("Spot Cell Count")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.7)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
-    facet_wrap(~Well, ncol=4)
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)),
+          axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.7)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.3)),
+          legend.title=element_text(size = rel(.3)))+
+    facet_wrap(~Well_Ligand, ncol=4)
   suppressWarnings(print(p))
   
 }
 
 ```
 
+```{r SCCBoxplots, fig.height=5}
 
+  p <- ggplot(l3, aes(x=factor(Barcode), y=Spot_PA_SpotCellCount, colour=Well))+
+    geom_boxplot(outlier.size = .5)+
+    #coord_cartesian(ylim = c(0,.2))+
+    guides(colour=FALSE)+
+      xlab("")+ylab("Spot Cell Count")+
+    ggtitle("Spot Cell Count by Well and Barcode ")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = median(l3$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
+  print(p)
+  
+```
+
+###DAPI QA
+
+<br>
+
+```{r rawDAPIPlots, fig.width=3.7,fig.height=4 eval=TRUE}
+l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="_")
+plotTotalDAPI(l1, barcodes)
+
+```
+
+
+```{r DAPIBoxplots, fig.height=5}
+
+  p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_Dapi), colour=Well))+
+    geom_boxplot(outlier.size = .5)+
+    #coord_cartesian(ylim = c(0,.2))+
+    guides(colour=FALSE)+
+      xlab("")+ylab("Median Intensity DAPI (log2)")+
+    ggtitle("Median DAPI Intensity per Spot by Well and Barcode ")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  print(p)
+  
+```
 
 ```{r Filtering, echo=FALSE, eval=TRUE}
 
@@ -136,8 +177,7 @@ l3F <- l3F[!grepl("FBS", l3F$Ligand)]
 #Remove failed QA wells
 l3F <- l3F[!l3F$QA_LowWellQA]
 l4F <- createl4(l3F)
-#Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
-l4F <- l4F[,Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUV3Loess)]
+
 
 if (grepl("SS2",ss)){
   #Add Robust Z Score of the Edu Signal
@@ -159,7 +199,55 @@ l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
 ```
 
+##Spot Cell Count QA
+The spot cell count QA uses  The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. Below the distribution plot are plots with Z scores stratified by ligand and ECM protein. 
+
+
+```{r SCC_responseFull, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
+
+dt <- l4F
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("MEP Normalized Spot Cell Count by Ligand (full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+```
+
+```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
+p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (full dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
+setkey(l4F,"Ligand")
+dt <- l4F[!grepl("FBS",l4F$Ligand)]
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by Ligand (HF Dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+```
+
+```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
+p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (HF dataset)"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+
 ```{r, child='MEP-LINCS_RUV3Text.Rmd', eval=unique(l3$NormMethod)=="RUV3"}
+```
+
+```{r, child='MEP-LINCS_RUV3LoessResidualsText.Rmd', eval=unique(l3$NormMethod)=="RUV3LoessResiduals"}
 ```
 
 
@@ -273,20 +361,6 @@ suppressWarnings(print(p))
 ```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3",ss)}
 ```
 
-```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS3",ss)}
-
-setkey(l4HF,"Ligand")
-dt <- l4HF[!"FBS"]
-
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5RUV3Loess, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19RUV3Loess, colour = Ligand))+
-  geom_point(alpha=.5)+
-  guides(colour=FALSE)+
-  xlab("KRT5")+ylab("KRT19")+
-  ggtitle("MEP Normalized Lineage Marker Intensities by Ligand")
-(gg <- ggplotly(p))
-```
-
-
 ```{r lineageRatioHistogram,eval=grepl("SS3",ss)}
 
 p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_histogram(binwidth = .02)+
@@ -386,53 +460,6 @@ suppressWarnings(print(p))
 
 ```
 
-##Spot Cell Count Analysis
-The spot cell count analysis uses robust Z scores to identify MEPs with extreme population sizes. The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. Below the distribution plot are plots with Z scores stratified by ligand and ECM protein. 
-```{r SCCRobustZScores, echo=FALSE, fig.width=8, fig.height=3.5, eval=FALSE}
-
-plotSCCRobustZScores(l4F,thresh = SCCZscoreThresh)
-```
-
-
-```{r SCC_responseFull, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
-
-dt <- l4F
-
-p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized Spot Cell Count by Ligand (full dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-```
-
-```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
-p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (full dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
-setkey(l4F,"Ligand")
-dt <- l4F[!grepl("FBS",l4F$Ligand)]
-
-p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by Ligand (HF Dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-```
-
-```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
-p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (HF dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
 
 ###PCA Unbiased Analysis  
 The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
@@ -444,7 +471,7 @@ Perform unsupervised hierarchical clustering of the first `r nrPCs` PCFVs.
 
 The heatmap is arranged by unsupervised clustering of the rows and columns and colored by the normalized principal component values. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap. 
 
-```{r,}
+```{r, eval=FALSE}
 #l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
 PCFVNames <- grep("Norm|RUV3",colnames(l4F),value=TRUE)
@@ -463,12 +490,12 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 
 ```
 
-```{r PCAHeatmap, fig.height=8, fig.width=7}
+```{r PCAHeatmap, fig.height=8, fig.width=7, eval=FALSE}
 #Plot the heat map of the entire dataset
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
 
-```{r, fig.height=3, fig.width=4}
+```{r, fig.height=3, fig.width=4, eval=FALSE}
 
 var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
@@ -745,21 +772,6 @@ suppressWarnings(print(p))
 ```
 
 
-```{r tempDAPIBoxplots, fig.height=5}
-
-  #Remove the fiducial entries
-  DT <- l3F
-  
-  p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_Dapi, colour=Well))+
-    geom_boxplot(outlier.size = .5)+
-    coord_cartesian(ylim = c(0,.2))+
-    guides(colour=FALSE)+
-      xlab("")+ylab("Median Intensity DAPI")+
-    ggtitle("Median DAPI Intensity per Spot by Well and Barcode ")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  print(p)
-```
-
 ```{r, eval=("SS2"==ss)}
     p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_H3, colour=Well))+
     geom_boxplot(outlier.size = .5)+
@@ -825,10 +837,6 @@ print(p)
 ```
 
 ```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
-
-l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="_")
-plotTotalDAPI(l1, barcodes)
-
 
 
 if (grepl("SS2",ss)) {

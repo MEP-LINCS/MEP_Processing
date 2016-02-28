@@ -97,7 +97,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
   #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
-  
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
@@ -266,6 +265,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     pcDT$Ligand[grepl("NRG1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = pcDT$LigandAnnotID[grepl("NRG1",pcDT$Ligand)])
     pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = pcDT$LigandAnnotID[grepl("TGFB1",pcDT$Ligand)])
     pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = pcDT$LigandAnnotID[grepl("CXCL12",pcDT$Ligand)])
+    pcDT$Ligand[grepl("IGF1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = pcDT$LigandAnnotID[grepl("IGF1",pcDT$Ligand)])
     
     pcDT$MEP <- paste(pcDT$ECMp,pcDT$Ligand,sep = "_")
     
@@ -304,6 +304,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   
   cDT <- rbindlist(expDTList, fill = TRUE)
   
+  #Change to mclapply
   if(calcAdjacency){
     densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
     
@@ -451,7 +452,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
 
 #Process the MEP-LINCS data
 for(cellLine in c("PC3", "MCF7", "YAPC","MCF10A")[c(1)]){
-  for(ss in c("SS1","SS2noH3","SS2","SS3","SS0")[c(2)]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=7, limitBarcodes=8, analysisVersion="v1.4", rawDataVersion="v1", calcAdjacency=FALSE, writeFiles = TRUE, mergeOmeroIDs = TRUE)
+  for(ss in c("SS1","SS2noH3","SS2","SS3","SS0")[c(4)]){
+    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=5, limitBarcodes=6, analysisVersion="v1.4", rawDataVersion="v2", calcAdjacency=TRUE, writeFiles = TRUE, mergeOmeroIDs = TRUE)
   }
 }

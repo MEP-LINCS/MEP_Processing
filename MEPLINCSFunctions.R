@@ -15,8 +15,13 @@ create8WellPseudoImage <- function(DT, pr, prDisplay){
     scale_colour_gradient(low = "white", high = "red")+
     guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
     ggtitle(paste("\n\n",prDisplay,"for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
-    xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.5)),plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
-    facet_wrap(~Well, ncol=4)
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(.5)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
+    facet_wrap(~Well_Ligand, ncol=4)
 }
 
 create8WellHistograms <- function(DT, pr, prDisplay, binwidth = diff(quantile(DT[[pr]],probs = c(0,.98),na.rm=TRUE))/50, upperProb = .99, ncol = 4) {
@@ -26,7 +31,12 @@ create8WellHistograms <- function(DT, pr, prDisplay, binwidth = diff(quantile(DT
     scale_x_continuous(limits = quantile(DT[[pr]],probs = c(0,upperProb),na.rm=TRUE))+
     ggtitle(paste("\n\n",prDisplay,"in",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
     xlab(prDisplay)+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), 
+          plot.title = element_text(size = rel(.5)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.3)),
+          legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=ncol)
 }
 
@@ -71,7 +81,6 @@ plotTotalDAPI <- function(l1, barcodes){
     p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 2)+
       geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
       facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
-      #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
       ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
       ylab("Count")+xlab("Total Intensity DAPI")+
       theme(strip.text = element_text(size = 5))
@@ -106,15 +115,22 @@ plotSCCHeatmapsQAHistograms <- function(l3, barcodes){
     p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count")
     suppressWarnings(print(p))
     
-    wellScores <- unique(DT[,list(Well, QAScore=sprintf("%.2f",QAScore))])
+    wellScores <- unique(DT[,list(Well_Ligand, QAScore=sprintf("%.2f",QAScore))])
     
     p <- ggplot(DT, aes(x=Spot_PA_LoessSCC))+
       geom_histogram(binwidth=.04)+
       geom_vline(xintercept=lthresh, colour="blue")+
       geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
-      ggtitle(paste("\n\n\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Normalized Spot Cell Count")+xlim(0,3)+
-      theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.x = element_text( size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.title.y = element_text( size=rel(.5)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
-      facet_wrap(~Well, ncol=4)
+      ggtitle(paste("\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Loess Normalized Spot Cell Count")+xlim(0,3)+
+      theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)),
+            axis.title.x = element_text( size=rel(.5)),
+            axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)),
+            axis.title.y = element_text( size=rel(.5)),
+            plot.title = element_text(size = rel(.8)),
+            strip.text = element_text(size = rel(.5)),
+            legend.text=element_text(size = rel(.3)),
+            legend.title=element_text(size = rel(.3)))+
+      facet_wrap(~Well_Ligand, ncol=4)
     suppressWarnings(print(p))
   }
 }
@@ -174,15 +190,15 @@ filterl4RUV3 <- function(dt,lowQALigands){
               "Nuclei_CP_AreaShape_AreaRUV3Loess",
               "Nuclei_CP_AreaShape_EccentricityRUV3Loess",
               "Nuclei_CP_AreaShape_PerimeterRUV3Loess",
-              "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3Loess",
+              "Nuclei_CP_Intensity_MedianIntensity_DapiLog2RUV3Loess",
               "Spot_PA_SpotCellCountRUV3Loess",
               "Nuclei_PA_AreaShape_NeighborsRUV3Loess",
               "Nuclei_PA_Cycle_DNA2NProportionRUV3Loess$",
-              "Nuclei_CP_Intensity_MedianIntensity_EduRUV3Loess",
-              "Nuclei_PA_Gated_EduPositiveProportionRUV3LoessRUV3Loess",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19RUV3Loess",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5RUV3Loess",
-              "Cytoplasm_PA_Intensity_LineageRatioRUV3Loess$",
+              "Nuclei_CP_Intensity_MedianIntensity_EduLog2RUV3Loess",
+              "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3LoessRUV3Loess",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUV3Loess",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess",
+              "Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess$",
               sep="$|^")
   
   fv <- grep(fv, colnames(l4QA), value = TRUE)
@@ -350,4 +366,19 @@ heatmapFromFBS <- function(DT, title = NULL, cols = plateCol, activeThresh = .95
   return(activeFV)
 }
 
-#These functions don't execute correctly in the MEMA package
+dfZoom <- function(x, min=.02, max=1){
+  minMax <- quantile(unlist(x), probs=c(min,max), na.rm=TRUE)
+  cl <- t(apply(x,1, function(c){
+    c[c<minMax[1]] <- minMax[1]
+    c[c>minMax[2]] <- minMax[2]
+    return(c)
+  }))
+  return(data.frame(cl))
+}
+
+fvZoom <- function(x, min=.02, max=1){
+  minMax <- quantile(unlist(x), probs=c(min,max), na.rm=TRUE)
+  x[x<minMax[1]] <- minMax[1]
+  x[x>minMax[2]] <- minMax[2]
+  return(x)
+}
