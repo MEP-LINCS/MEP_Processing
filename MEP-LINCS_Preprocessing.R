@@ -13,15 +13,26 @@ library("parallel")#use multiple cores for faster processing
 
 #source("MEPLINCSFunctions.R")
 
-preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, mergeOmeroIDs=FALSE, calcAdjacency=TRUE, writeFiles= TRUE)
-{
+preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
+  ss<-ssDataset[["ss"]]
+  cellLine<-ssDataset[["cellLine"]]
+  k<-ssDataset[["k"]]
+  analysisVersion<-ssDataset[["analysisVersion"]]
+  rawDataVersion<-ssDataset[["rawDataVersion"]]
+  limitBarcodes<-ssDataset[["limitBarcodes"]]
+  mergeOmeroIDs<-ssDataset[["mergeOmeroIDs"]]
+  calcAdjacency<-ssDataset[["calcAdjacency"]]
+  writeFiles<-ssDataset[["writeFiles"]]
+  seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Fibrillarin")
+  
+  #preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, mergeOmeroIDs=FALSE, calcAdjacency=TRUE, writeFiles= TRUE, seNames=NULL, ...)
+  
   library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
   library(parallel)#use multiple cores for faster processing
   library(RUVnormalize)
   library(ruv)
-  
   #Rules-based classifier thresholds for perimeter cells
   neighborsThresh <- 0.4 #Gates sparse cells on a spot
   wedgeAngs <- 20 #Size in degrees of spot wedges used in perimeter gating
@@ -35,9 +46,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #Only process a curated set of the data
   curatedOnly <- TRUE
   curatedCols <- "ImageNumber|ObjectNumber|AreaShape|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_|Texture"
-  
-  #Flag to control files updates
-  writeFiles <- writeFiles
   
   #Do not normalized to Spot level
   normToSpot <- TRUE
@@ -97,10 +105,13 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
   #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
+  if(verbose) cat("Reading and annotating cell level data\n")
+  
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
     wellDataList <- lapply(wells,function(well){
+      
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
                              ignore.case = TRUE)
@@ -134,7 +145,6 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
         setnames(cells,paste0("Cells_",colnames(cells)))
         setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
       }
-      
       #Merge the cells, cytoplasm and nuclei data
       if (ss %in% c("SS1","SS3")){
         setkey(cells,Cells_CP_ImageNumber,Cells_CP_ObjectNumber)
@@ -299,13 +309,16 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
     } else stop("Invalid ss parameter")
     return(pcDT)
     
-      }, mc.cores=detectCores())
-
+  }, mc.cores=detectCores())
+  
   
   cDT <- rbindlist(expDTList, fill = TRUE)
   
   #Change to mclapply
   if(calcAdjacency){
+    #cDTList <- mclapply(barcodes, function(barcode, dt){
+    if(verbose) cat("Calculating adjacency data\n")
+    
     densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
     
     #Count the number of neighboring cells
@@ -346,9 +359,10 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   
   #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
   ##Remove nuclear objects that dont'have cell and cytoplasm data
+  if(verbose) cat("Creating level 3 data\n")
   if(any(grepl("SS1|SS3",ss))) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
   #### Level3 ####
-  slDT <- createl3(cDT, lthresh)
+  slDT <- createl3(cDT, lthresh,seNames = seNames)
   slDT <- slDT[!grepl("fiducial|Fiducial|blank",slDT$ECMp),]
   
   metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|ECMpAnnotID|LigandAnnotID|MEP|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore"
@@ -358,6 +372,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #Identify parameters to be normalized
   signalsWithMetadata <- grep(metadataNames,colnames(slDT),value=TRUE,invert=TRUE)
   #Normalize each feature, pass with location and content metadata
+  if(verbose) cat("Normalizing\n")
   nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUV3LoessResiduals"
   #Merge the normalized data with its metadata
@@ -377,7 +392,8 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
   
   #Level4Data
-  mepDT <- createl4(slDT)
+  if(verbose) cat("Creating level 4 data\n")
+  mepDT <- createl4(slDT,seNames = seNames)
   
   #Write QA flags into appropriate data levels
   #Low cell count spots
@@ -405,6 +421,7 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
     level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
+    if(verbose) cat("Writing level 1 file to disk\n")
     write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
     normParmameterNames <- grep("Norm|RUV3|Loess$",colnames(cDT), value=TRUE)
@@ -416,10 +433,13 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
                      grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
     
     #Write out cDT with normalized values as level 2 dataset
+    if(verbose) cat("Writing level 2 file to disk\n")
     write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
+    if(verbose) cat("Writing level 3 file to disk\n")
     write.table(format(slDT, digits = 4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
+    if(verbose) cat("Writing level 24 file to disk\n")
     write.table(format(mepDT, digits = 4, trim=TRUE), paste0("./",cellLine,"/",ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
@@ -450,9 +470,50 @@ preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion,
   }
 }
 
-#Process the MEP-LINCS data
-for(cellLine in c("PC3", "MCF7", "YAPC","MCF10A")[c(1)]){
-  for(ss in c("SS1","SS2noH3","SS2","SS3","SS0")[c(4)]){
-    preprocessMEPLINCS(ss=ss, cellLine=cellLine, k=5, limitBarcodes=6, analysisVersion="v1.4", rawDataVersion="v2", calcAdjacency=TRUE, writeFiles = TRUE, mergeOmeroIDs = TRUE)
-  }
-}
+PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
+                    ss=c("SS1", "SS2","SS3","SS2noH3"),
+                    analysisVersion="av1.4",
+                    rawDataVersion=c("v2","v2.1","v2.1", "v1"),
+                    limitBarcodes=8,
+                    k=7,
+                    calcAdjacency=TRUE,
+                    writeFiles = TRUE,
+                    mergeOmeroIDs = TRUE,
+                    stringsAsFactors=FALSE)
+
+MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
+                     ss=c("SS1", "SS2","SS3"),
+                     analysisVersion="av1.4",
+                     rawDataVersion=c("v2","v2","v2"),
+                     limitBarcodes=8,
+                     k=7,
+                     calcAdjacency=TRUE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = TRUE,
+                     stringsAsFactors=FALSE)
+
+YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
+                     ss=c("SS1", "SS2","SS3"),
+                     analysisVersion="av1.4",
+                     rawDataVersion=c("v2","v2","v2"),
+                     limitBarcodes=8,
+                     k=7,
+                     calcAdjacency=TRUE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = TRUE,
+                     stringsAsFactors=FALSE)
+
+MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 2),
+                       ss=c("SS1","SS3"),
+                       analysisVersion="av1.4",
+                       rawDataVersion=c("v2","v2"),
+                       limitBarcodes=c(8,5),
+                       k=c(7,4),
+                       calcAdjacency=TRUE,
+                       writeFiles = TRUE,
+                       mergeOmeroIDs = TRUE,
+                       stringsAsFactors=FALSE)
+
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
+
+tmp <- apply(ssDatasets, 1, preprocessMEPLINCS, verbose=TRUE)

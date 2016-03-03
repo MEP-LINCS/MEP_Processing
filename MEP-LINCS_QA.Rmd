@@ -42,7 +42,7 @@ barcodes <- sort(unique(l3$Barcode))
 
 
 #Set a threshold for filtering wells on their QA score
-wellQAThresh <- 0.7
+wellQAThresh <- 0.8
 
 #TODO: Read this from Level 3 data
 lthresh <- 0.6
@@ -60,9 +60,9 @@ HFSCCThresh <- 20
 HFRepThresh <- 3
 
 # https://meplincs.ohsu.edu/webclient/
-  
+
 if(!analysisVersion=="v1"){
-      l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+  l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
 }
@@ -129,42 +129,236 @@ for (barcode in barcodes){
 
 ```
 
+<br>
+
+###Spot Cell Count Boxplots
+Boxplots of the spot cell counts show the values stratified by plate and well.The blue line shows the dataset median.   
+
 ```{r SCCBoxplots, fig.height=5}
 
-  p <- ggplot(l3, aes(x=factor(Barcode), y=Spot_PA_SpotCellCount, colour=Well))+
-    geom_boxplot(outlier.size = .5)+
-    #coord_cartesian(ylim = c(0,.2))+
-    guides(colour=FALSE)+
-      xlab("")+ylab("Spot Cell Count")+
-    ggtitle("Spot Cell Count by Well and Barcode ")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- ggplot(l3, aes(x=factor(Barcode), y=Spot_PA_SpotCellCount, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  #coord_cartesian(ylim = c(0,.2))+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Spot Cell Count")+
+  ggtitle("Spot Cell Count by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 p <- p + geom_hline(yintercept = median(l3$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
-  print(p)
-  
+print(p)
+
 ```
 
 ###DAPI QA
+DAPI intensity plots include univariate plots of the total DAPI signal. The blue vertical line shows the auto-gate for classifying 2N and 4N populations.
 
 <br>
 
-```{r rawDAPIPlots, fig.width=3.7,fig.height=4 eval=TRUE}
+```{r rawDAPIPlots, fig.width=3.7,fig.height=4}
 l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="_")
 plotTotalDAPI(l1, barcodes)
 
 ```
 
+<br>
+
+Boxplots of the DAPI intensities show the values stratified by plate and well.
 
 ```{r DAPIBoxplots, fig.height=5}
 
-  p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_Dapi), colour=Well))+
-    geom_boxplot(outlier.size = .5)+
-    #coord_cartesian(ylim = c(0,.2))+
-    guides(colour=FALSE)+
-      xlab("")+ylab("Median Intensity DAPI (log2)")+
-    ggtitle("Median DAPI Intensity per Spot by Well and Barcode ")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  print(p)
-  
+p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_Dapi), colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  #coord_cartesian(ylim = c(0,.2))+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity DAPI (log2)")+
+  ggtitle("Median DAPI Intensity per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = log2(median(l3$Nuclei_CP_Intensity_MedianIntensity_Dapi)), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",ss)}
+```
+
+<br>
+
+```{r rawMitoHistograms, fig.width=3.7,fig.height=4, eval=grepl("SS1",ss)}
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  mDT <- mDT[log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) > quantile(log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), probs=.01, na.rm=TRUE) & log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) < quantile(log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker),probs=.98, na.rm=TRUE)]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker))+
+    geom_histogram(binwidth = .001)+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median MitoTracker Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity MitoTracker")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r rawMitoBoxplots, fig.height=5, eval=grepl("SS1",ss)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity MitoTracker (log2)")+
+  ggtitle("Median Intensity MitoTracker per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = log2(median(l3$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2",ss)}
+```
+
+<br>
+
+```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=grepl("SS2",ss)}
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  mDT <- mDT[log2(mDT$Nuclei_CP_Intensity_MedianIntensity_Edu) > quantile(log2(mDT$Nuclei_CP_Intensity_MedianIntensity_Edu), probs=.01, na.rm=TRUE) & log2(mDT$Nuclei_CP_Intensity_MedianIntensity_Edu) < quantile(log2(mDT$Nuclei_CP_Intensity_MedianIntensity_Edu),probs=.98, na.rm=TRUE)]
+  p <- ggplot(mDT, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_Edu)))+
+    geom_histogram(binwidth = .01)+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median EdU Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity EdU")+
+    theme(strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r rawEdUBoxplots, fig.height=5, eval=grepl("SS2",ss)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity EdU (log2)")+
+  ggtitle("Median Intensity EdU per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = log2(median(l3$Nuclei_CP_Intensity_MedianIntensity_Edu)), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+
+```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3",ss)}
+```
+
+<br>
+
+```{r rawKrt5Histograms, fig.width=3.7,fig.height=4, eval=grepl("SS3",ss)}
+
+xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2))+
+    geom_histogram(binwidth = .01)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median KRT5 Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT5")+
+    theme(strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r rawKrt5Boxplots, fig.height=5, eval=grepl("SS3",ss)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity KRT5 (log2)")+
+  ggtitle("Median Intensity KRT5 per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = median(l3$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2), colour="blue", alpha=.5)
+print(p)
+
+```
+
+<br>
+
+```{r rawKrt19Histograms, fig.width=3.7,fig.height=4, eval=grepl("SS3",ss)}
+xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2))+
+    geom_histogram(binwidth = .01)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median KRT19 Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT19")+
+    theme(strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r rawKrt19Boxplots, fig.height=5, eval=grepl("SS3",ss)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity KRT19 (log2)")+
+  ggtitle("Median Intensity KRT19 per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = median(l3$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+<br>
+
+```{r rawlineageRatioHistograms, fig.width=3.7,fig.height=4, eval=grepl("SS3",ss)}
+xMin <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2))+
+    geom_histogram(binwidth = .01)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median Lineage Ratio Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity Lineage Ratio")+
+    theme(strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r rawLineageRatioBoxplots, fig.height=5, eval=grepl("SS3",ss)}
+
+yMin <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.01, na.rm=TRUE)
+yMax <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.99, na.rm=TRUE)
+p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_PA_Intensity_LineageRatioLog2, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  coord_cartesian(ylim=c(yMin,yMax))+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity Lineage Ratio (log2)")+
+  ggtitle("Median Intensity  Lineage Ratio per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p + geom_hline(yintercept = median(l3$Cytoplasm_PA_Intensity_LineageRatioLog2), colour="blue", alpha=.5)
+print(p)
+
 ```
 
 ```{r Filtering, echo=FALSE, eval=TRUE}
@@ -176,7 +370,8 @@ l3F <- l3F[!grepl("FBS", l3F$Ligand)]
 
 #Remove failed QA wells
 l3F <- l3F[!l3F$QA_LowWellQA]
-l4F <- createl4(l3F)
+l3F <- l3F[l3F$QAScore>wellQAThresh]
+l4F <- createl4(l3F,seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Fibrillarin"))
 
 
 if (grepl("SS2",ss)){
@@ -194,27 +389,54 @@ if (grepl("SS3",ss)){
 l3HF <- l3F[l3F$Spot_PA_SpotCellCount > HFSCCThresh]
 l3HF <- l3HF[!l3HF$QA_LowDAPIQuality]
 l3HF <- l3HF[!l3HF$QA_LowRegionCellCount]
-l4HF <- createl4(l3HF)
+l4HF <- createl4(l3HF, seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Fibrillarin"))
 l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
 ```
 
+```{r, child='MEP-LINCS_RUV3Text.Rmd', eval=unique(l3$NormMethod)=="RUV3"}
+```
+
+```{r, child='MEP-LINCS_RUV3LoessResidualsText.Rmd', eval=unique(l3$NormMethod)=="RUV3LoessResiduals"}
+```
+
+
 ##Spot Cell Count QA
-The spot cell count QA uses  The normalized spot cell counts are summarized by the median of their replicates. The median and mad of the distribution of normalized and summarized values are used to convert to robust Z scores and are shown below. Below the distribution plot are plots with Z scores stratified by ligand and ECM protein. 
 
 
-```{r SCC_responseFull, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
+```{r SCC_responseFull, fig.width=8,  fig.height=10, echo=FALSE, eval=TRUE}
 
 dt <- l4F
+dt <- l4F[,list(Barcode,Ligand,Spot_PA_SpotCellCount, Spot_PA_SpotCellCountLog2RUV3, Spot_PA_SpotCellCountLog2RUV3Loess )]
+dt <- dt[,Spot_PA_SpotCellCountLog2:= log2(Spot_PA_SpotCellCount)]
+dt <- melt(dt,id.vars=c("Barcode","Ligand"),measure.vars=c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3","Spot_PA_SpotCellCountLog2RUV3Loess"), variable.name = "Processed",value.name = "SpotCellCount", variable.factor = FALSE)
+dt$Processed[!grepl("RUV3",dt$Processed)] <- "RawLog2"
+dt$Processed[grepl("RUV3$",dt$Processed)] <- "RUV3"
+dt$Processed[grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess"
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
+
+p <- ggplot(dt, aes(x = reorder(Barcode, SpotCellCount, FUN=median), y = SpotCellCount, colour = Ligand))+geom_boxplot()+
+  ggtitle(paste("MEP Normalized Spot Cell Count by Barcode (full dataset)"))+
+  xlab("")+ylab("")+
+  facet_wrap(~Processed, ncol=1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p+geom_hline(yintercept = median(dt$SpotCellCount), colour="blue", alpha=.5)
+suppressWarnings(print(p))
+
+
+p <- ggplot(dt, aes(x = reorder(Ligand, SpotCellCount, FUN=median), y = SpotCellCount, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("MEP Normalized Spot Cell Count by Ligand (full dataset)"))+
   xlab("")+ylab("")+
+  facet_wrap(~Processed, ncol=1)+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+p <- p+geom_hline(yintercept = median(dt$SpotCellCount), colour="blue", alpha=.5)
 suppressWarnings(print(p))
 ```
 
+
 ```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
+dt <- l4F
+
 p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=median), y = Spot_PA_SpotCellCountLog2RUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein (full dataset)"))+
   xlab("")+ylab("")+
@@ -243,16 +465,6 @@ suppressWarnings(print(p))
 
 ```
 
-
-```{r, child='MEP-LINCS_RUV3Text.Rmd', eval=unique(l3$NormMethod)=="RUV3"}
-```
-
-```{r, child='MEP-LINCS_RUV3LoessResidualsText.Rmd', eval=unique(l3$NormMethod)=="RUV3LoessResiduals"}
-```
-
-
-```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",ss)}
-```
 
 
 ```{r MitoTrackerHistogram, eval=grepl("SS1",ss)}
@@ -397,84 +609,31 @@ All cells are stained with DAPI and classified as DNA 2n or 4n. The proportion o
 
 ```{r DNAHistogramFull}
 
-dt <- l4F
+dt <- l3
 
-p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_histogram(binwidth = .08, alpha=.8)+
-  ggtitle(paste("\n\n","MEP DNA 2N Proportion Distribution (Normalized, full dataset"))+
+p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportionLogit))+geom_histogram(binwidth = .1, alpha=.8)+
+  ggtitle(paste("\n\n","Spot DNA 2N Proportion Histogam"))+
   ylab("Count")+xlab("DNA 2N Proportion")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 ```
 
-```{r DNA2NByLigandFull}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP DNA 2N Proportion by Ligand (Normalized, full dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r DNA2NByECMpFull}
-
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP DNA 2N Proportion by ECM Protein (Normalized, full dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-
-
-```{r DNAHistogram}
-
-setkey(l4HF,"Ligand")
-dt <- l4HF[!grepl("FBS",l4HF$Ligand)]
-
-p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_histogram(binwidth = .08, alpha=.8)+
-  ggtitle(paste("\n\n","MEP DNA 2N Proportion Distribution (Normalized, HF dataset"))+
-  ylab("Count")+xlab("DNA 2N Proportion")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
-```
-
-```{r DNA2NByLigand}
-
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP DNA 2N Proportion by Ligand (Normalized, HF dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r DNA2NByECMp}
-
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP DNA 2N Proportion by ECM Protein (normalized, HF dataset)"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
+```{r, eval=TRUE}
 
 
 ###PCA Unbiased Analysis  
-The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
-
-The unbiased PCA analysis method is:
-Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV).  
-Perform unsupervised hierarchical clustering of the first `r nrPCs` PCFVs.  
-
-
-The heatmap is arranged by unsupervised clustering of the rows and columns and colored by the normalized principal component values. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap. 
-
-```{r, eval=FALSE}
+# The unbiased analysis is extended by using Principal Component Analysis (PCA) to reduce the dimensions of the feature vector.
+# 
+# The unbiased PCA analysis method is:
+# Use PCA to transform the entire normalized feature set to a much smaller number of principal components (PCFV).  
+# Perform unsupervised hierarchical clustering of the first `r nrPCs` PCFVs.  
+# 
+# 
+# The heatmap is arranged by unsupervised clustering of the rows and columns and colored by the normalized principal component values. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap. 
 #l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
-PCFVNames <- grep("Norm|RUV3",colnames(l4F),value=TRUE)
+PCFVNames <- grep("Norm|Loess",colnames(l4F),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
@@ -495,7 +654,7 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
 
-```{r, fig.height=3, fig.width=4, eval=FALSE}
+```{r, fig.height=3, fig.width=4, eval=TRUE}
 
 var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
@@ -560,12 +719,12 @@ if(grepl("SS1",ss)){
   print(p)
 } else if (ss=="SS2"){
   
-    p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Nuclei_CP_Intensity_MedianIntensity_EduRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Nuclei_CP_Intensity_MedianIntensity_EduRUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Median Intensity EdU")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
-    
+  
 } else if (ss=="SS3"){
   
   
@@ -605,6 +764,31 @@ datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, ns
 
 ```
 
+
+
+```{r, eval=FALSE}
+
+
+###PCA Unbiased Analysis  on raw l3 data
+
+
+PCFVNames <- grep("Norm|Loess",colnames(l3F),value=TRUE)
+PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
+PCFVNames <- gsub("RUV3Loess","", PCFVNames)
+tmp <- grep()
+
+#Get the PCFVs
+l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4F, scale= TRUE)
+
+#Extract the first PCs of each MEP into a matrix
+l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
+
+#Convert to dataframe for use in D3heatmap
+l4pcvDT <- data.frame(l4pcvDT)
+rownames(l4pcvDT) <- l4pcvDT$MEP
+l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
+
+```
 
 \newpage
 
@@ -756,64 +940,46 @@ for (barcode in barcodes){
   }
 }
 
-
-```
-
-\newpage
-
-```{r SCCFBS_response, eval = TRUE}
-
-p <- ggplot(l3[grepl("FBS",l3$Ligand)], aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nSpot Cell Count in Control Wells"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
 ```
 
 
 ```{r, eval=("SS2"==ss)}
-    p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_H3, colour=Well))+
-    geom_boxplot(outlier.size = .5)+
-    coord_cartesian(ylim = c(0,.4))+
-    guides(colour=FALSE)+
-      xlab("")+ylab("Median Intensity H3")+
-    ggtitle("Median H3 Intensity per Spot by Well and Barcode ")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  print(p)    
-  
+p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_H3, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  coord_cartesian(ylim = c(0,.4))+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity H3")+
+  ggtitle("Median H3 Intensity per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+print(p)    
+
 ```
 
 ```{r, eval=grepl("SS2",ss)}
-  p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin, colour=Well))+
-    geom_boxplot(outlier.size = .5)+
-    coord_cartesian(ylim = c(0,20))+
-    guides(colour=FALSE)+
-      xlab("")+ylab("Total Intensity Fibrillarin")+
-    ggtitle("Total Fibrillarin Intensity per Spot by Well and Barcode ")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  print(p)    
-  
-  p <- ggplot(DT, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_Edu, colour=Well))+
-    geom_boxplot(outlier.size = .5)+
-    coord_cartesian(ylim = c(0,.04))+
-    guides(colour=FALSE)+
-      xlab("")+ylab("Median Intensity EdU")+
-    ggtitle("Median EdU Intensity per Spot by Well and Barcode ")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  print(p)
-  
-  
+p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  coord_cartesian(ylim = c(0,20))+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Total Intensity Fibrillarin")+
+  ggtitle("Total Fibrillarin Intensity per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+print(p)    
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_Edu, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  #coord_cartesian(ylim = c(0,.04))+
+  guides(colour=FALSE)+
+  xlab("")+ylab("Median Intensity EdU")+
+  ggtitle("Median EdU Intensity per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+print(p)
+
+
 ```
 
 
-\newpage
-
-##Cell Cycle Plots
-Cell Cycle plots include univariate plots of the total DAPI signal. The blue vertical line shows the auto-gate for classifying 2N and 4N populations.
-
 ```{r, , fig.height=10, eval=grepl("SS2",ss)}
-  
+
 p <- ggplot(l1, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_Edu)))+
   geom_histogram(binwidth=.05)+
   xlab("Mean Intensity EdU (logged)")+
@@ -823,7 +989,7 @@ p <- ggplot(l1, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_Edu)))+
   theme(strip.text = element_text(size = rel(.5)), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 print(p)
 
-  
+
 p <- ggplot(l3, aes(y=Nuclei_PA_Gated_EduPositiveProportion, x=Well, colour=Well))+
   geom_boxplot()+
   xlab("Well")+
@@ -836,24 +1002,22 @@ print(p)
 
 ```
 
-```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
+```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=grepl("SS2",ss)}
 
-
-if (grepl("SS2",ss)) {
-  for (barcode in barcodes){
-    mDT <- l1[l1$Barcode == barcode] 
-    mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
-    
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour = Nuclei_PA_Gated_EduPositive))+geom_point(size = rel(.2), alpha = .6)+
-       geom_rug(col=rgb(.5,0,0,alpha=.01))+
-      coord_cartesian(xlim=c(0,160),ylim=c(-9,-4))+
-      facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","Edu vs. Total DAPI Signal,",barcode))+ylab("Edu (log2)")+xlab("Total Intensity DAPI")+
-      guides(colour=FALSE)+
-      theme(strip.text = element_text(size = 5),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-    
-    suppressWarnings(print(p))
-  }
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode] 
+  mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
+  
+  p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_Edu), colour = Nuclei_PA_Gated_EduPositive))+geom_point(size = rel(.2), alpha = .6)+
+    geom_rug(col=rgb(.5,0,0,alpha=.01))+
+    coord_cartesian(xlim=c(0,160),ylim=c(-9,-4))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","Edu vs. Total DAPI Signal,",barcode))+ylab("Edu (log2)")+xlab("Total Intensity DAPI")+
+    guides(colour=FALSE)+
+    theme(strip.text = element_text(size = 5),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  
+  suppressWarnings(print(p))
 }
+
 
 ```
 
