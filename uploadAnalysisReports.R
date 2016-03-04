@@ -33,8 +33,8 @@ uploadToSynapse <- function(x, parentId) {
   obj
 }
 
-for(cellLine in c("MCF7","PC3","YAPC")){
-  for (ss in c("SS1","SS2","SS3")){
+for(cellLine in c("MCF7","PC3","YAPC")[2]){
+  for (ss in c("SS1","SS2","SS3","SS2noH3")[4]){
     dataDir <- paste0("/Users/dane/Documents/MEP-LINCS/AnalysisReports")
     # Take file names and turn into basic annotation set
     # Replace this with a better way to get basic annotations from 

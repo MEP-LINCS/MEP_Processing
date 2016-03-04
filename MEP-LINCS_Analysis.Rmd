@@ -567,7 +567,7 @@ tSNEParameters <- grep("MEP|Ligand|ECMp|Replicate|Barcode",colnames(filterl4RUV3
 data_matrix <- scale(as.matrix(dt[,tSNEParameters, with=FALSE]))
 
 set.seed(1234)
-data_tsne <- Rtsne(data_matrix)
+data_tsne <- Rtsne(data_matrix, perplexity = 15)
 dtt <- cbind(dt,data_tsne$Y)
 
 ```
