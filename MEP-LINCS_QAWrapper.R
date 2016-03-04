@@ -26,13 +26,13 @@ MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 2),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
 
-renderAnalysisReports <- function(x){
+renderQAReports <- function(x){
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("MEP-LINCS_Analysis.Rmd",
-         output_file = paste0("./AnalysisReports/MEP-LINCS_Analysis_",
+  render("MEP-LINCS_QA.Rmd",
+         output_file = paste0("./QAReports/MEP-LINCS_QA_",
                               x[["cellLine"]],"_",
                               x[["ss"]],"_",
                               x[["rawDataVersion"]],"_",
@@ -40,4 +40,4 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(1:8,10:11),], 1, renderAnalysisReports)
+tmp <- apply(ssDatasets[c(1:8,10:11),], 1, renderQAReports)

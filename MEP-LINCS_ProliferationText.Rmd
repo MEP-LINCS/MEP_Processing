@@ -1,10 +1,9 @@
 
 ##Proliferation Analysis
-The proliferation analysis methods is as follows:  
-First, the cells within each well are gated into Edu+  
+The proliferation analysis method is as follows:  
+First, the cells within each well are auto-gated into Edu+  
 The proportion of EdU+ cells at each spot is calculated
-The proportions are logit transformed then normalized
+The proportions are logit transformed then RUV3 and loess normalized
 The normalized proportions are then summarized by the medians of their replicates.  
-Plots show the distributions of the non-zero proportions and the proportions sumarized by ligand and ECM protein.
 
-The table that follows shows the MEPs ranked by their EdU Proliferation Proportion.
+The normalized EdU+ proportions in the plot below are summarized by the median and standard error of their replicates. Hovering over the the interactive plot below shows the MEP identities. Clicking and dragging over a section of the plot will zoom into the selected location. Double clicking on the zooomed plot will restore the original plot. The first plot is for the full dataset while the second is for the HF dataset.
