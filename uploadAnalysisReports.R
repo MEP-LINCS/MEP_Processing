@@ -5,15 +5,14 @@ library(dplyr)
 library(stringr)
 library(rGithubClient)
 
-analysisVersion <- "v1"
-
 synapseLogin()
 
-repo <- getRepo("MEP-LINCS/MEP_LINCS_Pilot", ref="branch", refName="updateReports")
-thisScript <- getPermlink(repo, "uploadAnalysisReports.R")
+repo <- getRepo("MEP-LINCS/MEP_LINCS_Pilot", ref="branch", refName="master")
+thisScript <- getPermlink(repo, "uploadReports.R")
 
-synapseDevelAnalysisDir <- "syn5555312"
-
+synapseRawDataDir <- "syn5706233"
+synapseAnnotatedDataDir <- "syn5706203"
+synapseReportDir <- "syn4939350"
 
 # Take row of data frame and remove file name
 # Convert to a list to use as Synapse annotations
@@ -27,26 +26,53 @@ uploadToSynapse <- function(x, parentId) {
   annots <- toAnnotationList(x)
   obj <- File(x$filename, parentId=parentId)
   synSetAnnotations(obj) <- annots
+  
   obj <- synStore(obj, 
                   activityName="Upload", 
+                  forceVersion=FALSE,
                   executed=thisScript)
   obj
 }
 
-for(cellLine in c("MCF7","PC3","YAPC")[2]){
-  for (ss in c("SS1","SS2","SS3","SS2noH3")[4]){
-    dataDir <- paste0("/Users/dane/Documents/MEP-LINCS/AnalysisReports")
-    # Take file names and turn into basic annotation set
-    # Replace this with a better way to get basic annotations from 
-    # a standardized source
-    dataFiles <- data.frame(filename=list.files(path=dataDir, pattern = ".html", full.names = TRUE), stringsAsFactors = FALSE) %>%
-      mutate(fileType="html",
-             level="AnalysisReportDevel",
-             basename=str_replace(filename, ".*/MEP-LINCS_Analysis_", "")) %>% 
-      mutate(basename=str_replace(basename, "\\.html", "")) %>% 
-      separate(basename, c("CellLine","analysisVersion","StainingSet" ))
-    
-    res <- dlply(dataFiles[, ], .(filename), uploadToSynapse, parentId=synapseDevelAnalysisDir)
-    
-  }
+#Select datasets to upload
+ssDatasets <- rbind(
+  data.frame(CellLine=rep(c("PC3"), 4),
+             StainingSet=c("SS1", "SS2","SS3","SS2noH3"),
+             Preprocess="av1.4",
+             Segmentation=c("v2","v2.1","v2.1", "v1"),
+             stringsAsFactors=FALSE),
+  data.frame(CellLine=rep(c("MCF7"), 3),
+             StainingSet=c("SS1", "SS2","SS3"),
+             Preprocess="av1.4",
+             Segmentation=c("v2","v2","v2"),
+             stringsAsFactors=FALSE),
+  data.frame(CellLine=rep(c("YAPC"), 2),
+             StainingSet=c("SS1","SS3"),
+             Preprocess="av1.4",
+             Segmentation=c("v2","v2"),
+             stringsAsFactors=FALSE),
+  data.frame(CellLine=rep(c("MCF10A"), 2),
+             StainingSet=c("SS1","SS3"),
+             Preprocess="av1.4",
+             Segmentation=c("v2","v2"),
+             stringsAsFactors=FALSE)
+)
+
+uploadReport <- function(x){
+  dataDir <- "/Users/dane/Documents/MEP-LINCS/AnalysisReports"
+  # Take file names and turn into basic annotation set
+  # Replace this with a better way to get basic annotations from 
+  # a standardized source
+  dataFile <- data.frame(CellLine=x$CellLine,
+                          StainingSet=x$StainingSet,
+                          ReportType="Analysis",
+                          Filename=paste0(paste("MEP-LINCS","Analysis",x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"), stringsAsFactors = FALSE)
+  dataFile$filename <- paste(dataDir,dataFile$Filename,sep="/")
+  
+  uploadToSynapse(dataFile, parentId=synapseReportDir)
+  
 }
+
+res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadReport)
+
+
