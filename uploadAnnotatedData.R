@@ -7,7 +7,7 @@ library(rGithubClient)
 
 synapseLogin()
 
-repo <- getRepo("MEP-LINCS/MEP_LINCS_Pilot", ref="branch", refName="master")
+repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
 thisScript <- getPermlink(repo, "uploadAnnotatedData.R")
 
 synapseRawDataDir <- "syn5706233"
@@ -57,7 +57,6 @@ ssDatasets <- rbind(
              Segmentation=c("v2","v2"),
              stringsAsFactors=FALSE)
 )
-ssDatasets$fileType <- "tsv"
 
 
 getPaths <- function(x){
