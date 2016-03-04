@@ -29,7 +29,6 @@ uploadToSynapse <- function(x, parentId) {
   
   obj <- synStore(obj, 
                   activityName="Upload", 
-                  contentType="text/tab-separated-values",
                   forceVersion=False,
                   executed=thisScript)
   obj
