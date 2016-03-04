@@ -22,7 +22,6 @@ toAnnotationList <- function(x) {
 # Take row of data frame with filename and annots
 # Upload to Synapse and set annotations
 uploadToSynapse <- function(x, parentId) {
-  browser()
   annots <- toAnnotationList(x)
   obj <- File(x$filename, parentId=parentId)
   synSetAnnotations(obj) <- annots
@@ -65,15 +64,15 @@ getPaths <- function(x){
     mutate(level=0,
            CellLine=x$CellLine,
            StainingSet=x$StainingSet,
-           Filename=as.character(filename),
+           Filename=str_replace(filename, ".*/", ""),
            basename=str_replace(filename, ".*/", "")) %>% 
     mutate(basename=str_replace(basename, "\\.csv", "")) %>% 
     separate(basename, c("Barcode", "Well", "Location"))
 
-  res <- dlply(dataFiles[1, ], .(filename), uploadToSynapse, parentId=synapseRawDataDir)
+  res <- dlply(dataFiles[1,], .(filename), uploadToSynapse, parentId=synapseRawDataDir)
   
 }
 
-dataFiles <- do.call(rbind, dlply(ssDatasets, c("CellLine","StainingSet"), getPaths))
+dataFiles <- do.call(rbind, dlply(ssDatasets[1,], c("CellLine","StainingSet"), getPaths))
 
 
