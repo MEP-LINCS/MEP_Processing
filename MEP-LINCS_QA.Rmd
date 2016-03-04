@@ -98,7 +98,7 @@ The following plots are pseudoimages of each MEMA's spot cell count and a histog
 
 ```{r Heatmaps_QAScores, fig.width=3.7,fig.height=4, eval=TRUE}
 
-plotSCCHeatmapsQAHistograms(l3, barcodes)
+plotSCCHeatmapsQAHistograms(l3, barcodes, lthresh=lthresh)
 
 ```
 

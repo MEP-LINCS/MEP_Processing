@@ -23,7 +23,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   mergeOmeroIDs<-ssDataset[["mergeOmeroIDs"]]
   calcAdjacency<-ssDataset[["calcAdjacency"]]
   writeFiles<-ssDataset[["writeFiles"]]
-  seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Fibrillarin")
+  seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Lineage","Fibrillarin")
   
   #preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, mergeOmeroIDs=FALSE, calcAdjacency=TRUE, writeFiles= TRUE, seNames=NULL, ...)
   
@@ -105,7 +105,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
   #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
-  if(verbose) cat("Reading and annotating cell level data\n")
+  if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
   
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
@@ -215,7 +215,9 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     #log transform all intensity values
     #pcDT <- logIntensities(pcDT)
     intensityNames <- grep("Intensity",colnames(pcDT), value=TRUE, ignore.case = TRUE)
-    dtLog <- pcDT[,lapply(.SD,log2),.SDcols=intensityNames]
+
+
+    dtLog <- pcDT[,lapply(.SD,boundedLog2),.SDcols=intensityNames]
     setnames(dtLog,colnames(dtLog),paste0(colnames(dtLog),"Log2"))
     pcDT <- cbind(pcDT,dtLog)
     
@@ -317,7 +319,10 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   #Change to mclapply
   if(calcAdjacency){
     #cDTList <- mclapply(barcodes, function(barcode, dt){
-    if(verbose) cat("Calculating adjacency data\n")
+    if(verbose){
+      cat("Calculating adjacency data\n")
+      #save(cDT, file="cDT.RData")
+    } 
     
     densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area)/pi)
     
@@ -359,7 +364,9 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   
   #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
   ##Remove nuclear objects that dont'have cell and cytoplasm data
-  if(verbose) cat("Creating level 3 data\n")
+  if(verbose) {
+    cat("Creating level 3 data\n")
+  }
   if(any(grepl("SS1|SS3",ss))) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
   #### Level3 ####
   slDT <- createl3(cDT, lthresh,seNames = seNames)
@@ -372,7 +379,10 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   #Identify parameters to be normalized
   signalsWithMetadata <- grep(metadataNames,colnames(slDT),value=TRUE,invert=TRUE)
   #Normalize each feature, pass with location and content metadata
-  if(verbose) cat("Normalizing\n")
+  if(verbose) {
+    cat("Normalizing\n")
+    #save(slDT, file="slDT.RData")
+  }
   nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUV3LoessResiduals"
   #Merge the normalized data with its metadata
@@ -392,7 +402,10 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
   
   #Level4Data
-  if(verbose) cat("Creating level 4 data\n")
+  if(verbose) {
+    cat("Creating level 4 data\n")
+    #save(slDT,file="slDT.RData")
+  }
   mepDT <- createl4(slDT,seNames = seNames)
   
   #Write QA flags into appropriate data levels
@@ -439,7 +452,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     if(verbose) cat("Writing level 3 file to disk\n")
     write.table(format(slDT, digits = 4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
-    if(verbose) cat("Writing level 24 file to disk\n")
+    if(verbose) cat("Writing level 4 file to disk\n")
     write.table(format(mepDT, digits = 4, trim=TRUE), paste0("./",cellLine,"/",ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
@@ -503,10 +516,10 @@ YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      mergeOmeroIDs = TRUE,
                      stringsAsFactors=FALSE)
 
-MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 2),
+MCF10Adf <- data.frame(cellLine="MCF10A",
                        ss=c("SS1","SS3"),
                        analysisVersion="av1.4",
-                       rawDataVersion=c("v2","v2"),
+                       rawDataVersion="v2",
                        limitBarcodes=c(8,5),
                        k=c(7,4),
                        calcAdjacency=TRUE,
@@ -516,4 +529,4 @@ MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 2),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
 
-tmp <- apply(ssDatasets, 1, preprocessMEPLINCS, verbose=TRUE)
+tmp <- apply(ssDatasets[10:12,], 1, preprocessMEPLINCS, verbose=TRUE)

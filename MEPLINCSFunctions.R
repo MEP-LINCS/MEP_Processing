@@ -104,7 +104,7 @@ plotTotalDAPIINCell <- function(l1, barcodes){
   }
 }
 
-plotSCCHeatmapsQAHistograms <- function(l3, barcodes){
+plotSCCHeatmapsQAHistograms <- function(l3, barcodes, lthresh){
   for (barcode in barcodes){
     DT <-l3[l3$Barcode==barcode,]
     #Remove the fiducial entries
@@ -382,3 +382,4 @@ fvZoom <- function(x, min=.02, max=1){
   x[x>minMax[2]] <- minMax[2]
   return(x)
 }
+
