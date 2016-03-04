@@ -7,7 +7,7 @@ library(rGithubClient)
 
 synapseLogin()
 
-repo <- getRepo("MEP-LINCS/MEP_LINCS_Pilot", ref="branch", refName="master")
+repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
 thisScript <- getPermlink(repo, "uploadRawData.R")
 
 synapseRawDataDir <- "syn5706233"
@@ -61,10 +61,12 @@ getPaths <- function(x){
   # Replace this with a better way to get basic annotations from 
   # a standardized source
   dataFiles <- data.frame(filename=list.files(path=dataDir, full.names = TRUE), stringsAsFactors = FALSE) %>%
-    mutate(level=0,
+    mutate(Level=0,
+           Consortia="MEP-LINCS",
+           DataType="Quantitative Imaging",
            CellLine=x$CellLine,
            StainingSet=x$StainingSet,
-           Filename=str_replace(filename, ".*/", ""),
+           Segmentation=x$Segmentation,
            basename=str_replace(filename, ".*/", "")) %>% 
     mutate(basename=str_replace(basename, "\\.csv", "")) %>% 
     separate(basename, c("Barcode", "Well", "Location"))
@@ -73,6 +75,6 @@ getPaths <- function(x){
   
 }
 
-dataFiles <- do.call(rbind, dlply(ssDatasets, c("CellLine","StainingSet"), getPaths))
+dataFiles <- do.call(rbind, dlply(ssDatasets[1,], c("CellLine","StainingSet"), getPaths))
 
 
