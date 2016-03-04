@@ -7,12 +7,12 @@ library(rGithubClient)
 
 synapseLogin()
 
-repo <- getRepo("MEP-LINCS/MEP_LINCS_Pilot", ref="branch", refName="master")
-thisScript <- getPermlink(repo, "uploadReports.R")
+repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
+thisScript <- getPermlink(repo, "uploadAnalysisReports.R")
 
 synapseRawDataDir <- "syn5706233"
 synapseAnnotatedDataDir <- "syn5706203"
-synapseReportDir <- "syn4939350"
+synapseReportDir <- "syn5007815"
 
 # Take row of data frame and remove file name
 # Convert to a list to use as Synapse annotations
@@ -64,10 +64,11 @@ uploadReport <- function(x){
   # Replace this with a better way to get basic annotations from 
   # a standardized source
   dataFile <- data.frame(CellLine=x$CellLine,
-                          StainingSet=x$StainingSet,
-                          ReportType="Analysis",
-                          Filename=paste0(paste("MEP-LINCS","Analysis",x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"), stringsAsFactors = FALSE)
-  dataFile$filename <- paste(dataDir,dataFile$Filename,sep="/")
+                         StainingSet=x$StainingSet,
+                         ReportType="Analysis",
+                         stringsAsFactors = FALSE)
+  
+  dataFile$filename <- paste(dataDir,paste0(paste("MEP-LINCS","Analysis",x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"),sep="/")
   
   uploadToSynapse(dataFile, parentId=synapseReportDir)
   
