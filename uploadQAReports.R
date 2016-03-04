@@ -8,10 +8,11 @@ library(rGithubClient)
 synapseLogin()
 
 repo <- getRepo("MEP-LINCS/MEP_LINCS_Pilot", ref="branch", refName="master")
-thisScript <- getPermlink(repo, "uploadAnnotatedData.R")
+thisScript <- getPermlink(repo, "uploadReports.R")
 
 synapseRawDataDir <- "syn5706233"
 synapseAnnotatedDataDir <- "syn5706203"
+synapseReportDir <- "syn4939350"
 
 # Take row of data frame and remove file name
 # Convert to a list to use as Synapse annotations
@@ -28,7 +29,6 @@ uploadToSynapse <- function(x, parentId) {
   
   obj <- synStore(obj, 
                   activityName="Upload", 
-                  contentType="text/tab-separated-values",
                   forceVersion=FALSE,
                   executed=thisScript)
   obj
@@ -57,17 +57,22 @@ ssDatasets <- rbind(
              Segmentation=c("v2","v2"),
              stringsAsFactors=FALSE)
 )
-ssDatasets$fileType <- "tsv"
 
-
-getPaths <- function(x){
-  AllFilePaths <- dir(paste(x$CellLine,x$StainingSet,"AnnotatedData",sep="/"),full.names = TRUE)
-  filePaths <- grep(paste0(x$Segmentation,"_",x$Preprocess),AllFilePaths, value=TRUE)
-  files <- data.frame(x,filename=filePaths,stringsAsFactors=FALSE, row.names=NULL)
-  files$Level <- as.integer(gsub(".*Level|.txt","",files$filename))
-  return(files)
+uploadReport <- function(x){
+  dataDir <- "/Users/dane/Documents/MEP-LINCS/QAReports"
+  # Take file names and turn into basic annotation set
+  # Replace this with a better way to get basic annotations from 
+  # a standardized source
+  dataFile <- data.frame(CellLine=x$CellLine,
+                          StainingSet=x$StainingSet,
+                          ReportType="QA",
+                          Filename=paste0(paste("MEP-LINCS","QA",x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"), stringsAsFactors = FALSE)
+  dataFile$filename <- paste(dataDir,dataFile$Filename,sep="/")
+  
+  uploadToSynapse(dataFile, parentId=synapseReportDir)
+  
 }
 
-dataFiles <- do.call(rbind,dlply(ssDatasets, c("CellLine","StainingSet"), getPaths))
+res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadReport)
 
-res <- dlply(dataFiles, .(filename), uploadToSynapse, parentId=synapseAnnotatedDataDir)
+

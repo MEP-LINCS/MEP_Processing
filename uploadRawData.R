@@ -28,7 +28,7 @@ uploadToSynapse <- function(x, parentId) {
   
   obj <- synStore(obj, 
                   activityName="Upload", 
-                  forceVersion=False,
+                  forceVersion=FALSE,
                   executed=thisScript)
   obj
 }
@@ -69,10 +69,10 @@ getPaths <- function(x){
     mutate(basename=str_replace(basename, "\\.csv", "")) %>% 
     separate(basename, c("Barcode", "Well", "Location"))
 
-  res <- dlply(dataFiles[1,], .(filename), uploadToSynapse, parentId=synapseRawDataDir)
+  res <- dlply(dataFiles, .(filename), uploadToSynapse, parentId=synapseRawDataDir)
   
 }
 
-dataFiles <- do.call(rbind, dlply(ssDatasets[1,], c("CellLine","StainingSet"), getPaths))
+dataFiles <- do.call(rbind, dlply(ssDatasets, c("CellLine","StainingSet"), getPaths))
 
 
