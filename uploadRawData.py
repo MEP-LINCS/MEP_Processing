@@ -7,6 +7,9 @@ import synapseclient
 # synapseAnnotatedDataDir = "syn5706203"
 
 def updateRow(row, key="name", path="./"):
+    """Remove the key from the dictionary, return it as the absolute path.
+
+    """
 
     newrow = dict(row)
 
@@ -16,6 +19,10 @@ def updateRow(row, key="name", path="./"):
     return (os.path.abspath("%s/%s" % (path, filename)), newrow)
 
 def process(row, syn, key, path, parentId):
+    """Proces the row, storing and adding annotations to the file.
+    
+    """
+
     filename, annots = updateRow(row, key, path)
     f = synapseclient.File(filename, parentId=parentId)
 
