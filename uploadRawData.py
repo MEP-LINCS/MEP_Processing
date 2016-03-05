@@ -3,10 +3,8 @@ import sys
 
 import synapseclient
 
-# library(rGithubClient)
 # synapseRawDataDir = "syn5706233"
-synapseRawDataDir = "syn5706954"
-synapseAnnotatedDataDir = "syn5706203"
+# synapseAnnotatedDataDir = "syn5706203"
 
 def updateRow(row, key="name", path="./"):
 
@@ -33,6 +31,7 @@ def main():
     parser = argparse.ArgumentParser("Upload raw data files.")
     parser.add_argument("-d", "--directory", type=str, help="Path to where raw data files are.")
     parser.add_argument("-k", "--key", type=str, default="name", help="Column in datafile with file name.")
+    parser.add_argument("-p", "--parentId", type=str, help="Folder parentId to upload to.")
     parser.add_argument("datafile", type=str, "csv file containing file name and annotations")
 
     args = parser.parse_args()
@@ -45,7 +44,7 @@ def main():
         reader = csv.DictReader(f)
 
         map(lambda x: process(x, syn, key=args.key, path=args.directory,
-                              parentId=synapseRawDataDir),
+                              parentId=args.parentId),
             reader)
 
 if __name__ == "__main__":
