@@ -32,11 +32,9 @@ def main():
     parser.add_argument("-d", "--directory", type=str, help="Path to where raw data files are.")
     parser.add_argument("-k", "--key", type=str, default="name", help="Column in datafile with file name.")
     parser.add_argument("-p", "--parentId", type=str, help="Folder parentId to upload to.")
-    parser.add_argument("datafile", type=str, "csv file containing file name and annotations")
+    parser.add_argument("datafile", type=str, help="csv file containing file name and annotations")
 
     args = parser.parse_args()
-
-    print args
 
     syn = synapseclient.login(silent=True)
 
