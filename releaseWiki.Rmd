@@ -1,0 +1,60 @@
+```{r knit2synapse, include=FALSE, eval=FALSE}
+library(synapseClient)
+synapseLogin()
+
+knit2synapse::knitToFolderEntity(file='./prereleaseWiki.Rmd', parentId = "syn2862345",
+                                 folderName = "Pre-release")
+```
+```{r setup, include=FALSE}
+library(DT)
+library(plyr)
+library(dplyr)
+library(data.table)
+library(stringr)
+library(tidyr)
+library(reshape2)
+library(knitr)
+library(synapseClient)
+synapseLogin()
+
+set.seed(4)
+
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+
+manifestTableId <- "syn5691738"
+
+```
+
+## Data Release: **Pre-Release**
+
+This is the testing release and consists of data available `r date()`.
+
+The file manifest is available at `r manifestTableId`.
+
+### Release Notes
+
+Anything here about the normalization, etc.
+
+```{r filesquery}
+manifestTableSchema <- synTableQuery(paste("select * from ", manifestTableId))
+
+manifestTable <- manifestTableSchema@values
+```
+### Annotated Data and Analysis Reports
+```{r annotateddata}
+manifestTable %>% 
+  filter(Level %in% c(1:4, "QualityAssurance", "Analysis")) %>% 
+  mutate(id=paste(id, versionNumber, sep=".")) %>%
+  dcast(CellLine + StainingSet ~ Level, value.var="id", fill=NA) %>% 
+  knitr::kable()
+```
+
+#### Raw data files
+```{r rawdata, results='asis'}
+manifestTable %>%
+  filter(Level == 0) %>% 
+  mutate(id=paste(id, versionNumber, sep=".")) %>%
+  dcast(Barcode + CellLine + StainingSet + Location ~ Well, value.var="id", fill=NA) %>% 
+  arrange(CellLine, Location, Barcode, StainingSet) %>% 
+  knitr::kable()
+```
