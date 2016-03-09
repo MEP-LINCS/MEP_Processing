@@ -5,6 +5,7 @@ library(dplyr)
 library(reshape2)
 library(stringr)
 library(tidyr)
+library(knit2synapse)
 
 library(synapseClient)
 synapseLogin()
@@ -29,9 +30,18 @@ allFiles <- allFiles %>%
   arrange(Level, CellLine, StainingSet) %>% 
   select(id,versionNumber,name,Level,Barcode,CellLine,StainingSet,Location,Well)
 
-tableName <- "Pre-release manifest"
+tableName <- sprintf("Release %s", format(Sys.time(), "%d-%b-%Y %H%M%S"))
 tblCols <- as.tableColumns(allFiles)
 schema <- TableSchema(name=tableName, columns=tblCols$tableColumns, 
                       parent="syn2862345")
 tbl <- synStore(Table(tableSchema = schema, values=allFiles))
 
+manifestTableId <- tbl@schema@properties$id
+
+rmarkdown::render("./releaseWiki.Rmd", 
+                  params = list(manifestTableId=manifestTableId),
+                  clean=FALSE)
+
+knit2synapse::knitfile2synapse(file="./releaseWiki.knit.md", 
+                               owner='syn4215176', overwrite=TRUE,
+                               knitmd=FALSE)
