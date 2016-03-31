@@ -509,8 +509,8 @@ YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      ss=c("SS1", "SS2","SS3"),
                      analysisVersion="av1.4",
                      rawDataVersion=c("v2","v2","v2"),
-                     limitBarcodes=8,
-                     k=7,
+                     limitBarcodes=c(8,6,8),
+                     k=c(7,5,7),
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
@@ -529,4 +529,4 @@ MCF10Adf <- data.frame(cellLine="MCF10A",
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
 
-tmp <- apply(ssDatasets[10:12,], 1, preprocessMEPLINCS, verbose=TRUE)
+tmp <- apply(ssDatasets[9,], 1, preprocessMEPLINCS, verbose=TRUE)

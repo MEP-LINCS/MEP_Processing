@@ -40,4 +40,4 @@ renderQAReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(12),], 1, renderQAReports)
+tmp <- apply(ssDatasets[c(9),], 1, renderQAReports)

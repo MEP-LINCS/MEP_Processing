@@ -8,7 +8,7 @@ library(rGithubClient)
 synapseLogin()
 
 repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
-thisScript <- getPermlink(repo, "uploadAnalysisReports.R")
+thisScript <- getPermlink(repo, "MEP-LINCS_QA.Rmd")
 
 synapseRawDataDir <- "syn5706233"
 synapseAnnotatedDataDir <- "syn5706203"
@@ -28,7 +28,7 @@ uploadToSynapse <- function(x, parentId) {
   synSetAnnotations(obj) <- annots
   
   obj <- synStore(obj, 
-                  activityName="Upload", 
+                  activityName="QA the Staining Set", 
                   forceVersion=FALSE,
                   executed=thisScript)
   obj
@@ -46,10 +46,10 @@ ssDatasets <- rbind(
              Preprocess="av1.4",
              Segmentation=c("v2","v2","v2"),
              stringsAsFactors=FALSE),
-  data.frame(CellLine=rep(c("YAPC"), 2),
-             StainingSet=c("SS1","SS3"),
+  data.frame(CellLine=rep(c("YAPC"), 3),
+             StainingSet=c("SS1","SS2","SS3"),
              Preprocess="av1.4",
-             Segmentation=c("v2","v2"),
+             Segmentation=c("v2","v2","v2"),
              stringsAsFactors=FALSE),
   data.frame(CellLine=rep(c("MCF10A"), 2),
              StainingSet=c("SS1","SS3"),
@@ -59,16 +59,17 @@ ssDatasets <- rbind(
 )
 
 uploadReport <- function(x){
-  dataDir <- "/Users/dane/Documents/MEP-LINCS/AnalysisReports"
+  dataDir <- "/Users/dane/Documents/MEP-LINCS/QAReports"
   # Take file names and turn into basic annotation set
   # Replace this with a better way to get basic annotations from 
   # a standardized source
   dataFile <- data.frame(CellLine=x$CellLine,
                          StainingSet=x$StainingSet,
-                         ReportType="Analysis",
+                         Level="QualityAssurance",
+                         Consortia="MEP-LINCS",
                          stringsAsFactors = FALSE)
   
-  dataFile$filename <- paste(dataDir,paste0(paste("MEP-LINCS","Analysis",x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"),sep="/")
+  dataFile$filename <- paste(dataDir,paste0(paste("MEP-LINCS","QA",x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"),sep="/")
   
   uploadToSynapse(dataFile, parentId=synapseReportDir)
   

@@ -7,22 +7,28 @@ library(rGithubClient)
 
 synapseLogin()
 
-reportType <- "Analysis"
-activityName <- "Analyze the Staining Set"
-reportDesc <- "Analysis"
+reportType <- "Preprocessing"
+dataType <- "Quantitative Imaging"
+#dataType <- "Metadata"
+#activityName <- "Annotate data"
+activityName <- "Normalize Cell Data"
+#reportDesc <- "Analysis"
 
 
 repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
-scriptLink <- getPermlink(repo, paste0("MEP-LINCS_",reportType,".Rmd"))
+scriptLink <- getPermlink(repo, paste0("MEP-LINCS_",reportType,".R"))
 
 synapseRawDataDir <- "syn5706233"
 synapseAnnotatedDataDir <- "syn5706203"
 synapseReportDir <- "syn5007815"
+synapseMetadataDir <- "syn4997970"
 
 # Take row of data frame and remove file name
 # Convert to a list to use as Synapse annotations
 toAnnotationList <- function(x) {
-  as.list(x %>% select(-c(filename, Level3SynID, Level4SynID)))
+  as.list(x %>% select(-c(filename,Level1SynID)))
+  #as.list(x %>% select(-c(filename)))
+  
 }
 
 # Take row of data frame with filename and annots
@@ -34,7 +40,7 @@ uploadToSynapse <- function(x, parentId) {
   
   obj <- synStore(obj, 
                   activityName=activityName,
-                  used=c(x$Level3SynID,x$Level4SynID),
+                  used=c(x$Level1SynID),
                   forceVersion=FALSE,
                   executed=scriptLink)
   obj
@@ -73,23 +79,26 @@ ssDatasets <- select(ssDatasets, -name)
 ssDatasets <- reshape2::dcast(ssDatasets,CellLine+StainingSet+Preprocess+Segmentation~Level, value.var="id")
 
 uploadReport <- function(x){
-  dataDir <- paste0("/Users/dane/Documents/MEP-LINCS/",reportType,"Reports")
+  dataDir <- paste("/Users/dane/Documents/MEP-LINCS",x$CellLine,x$StainingSet,"AnnotatedData",sep="/")
   # Take file names and turn into basic annotation set
   # Replace this with a better way to get basic annotations from 
   # a standardized source
   dataFile <- data.frame(CellLine=x$CellLine,
                          StainingSet=x$StainingSet,
-                         ReportType=reportDesc,
-                         Level3SynID=x[["3"]],
-                         Level4SynID=x[["4"]],
+                         Preprocess=x$Preprocess,
+                         Segmentation=x$Segmentation,
+                         DataType=dataType,
+                         Consortia="MEP-LINCS",
+                         Level=2,
+                         Level1SynID=x[["1"]],
                          stringsAsFactors = FALSE)
   
-  dataFile$filename <- paste(dataDir,paste0(paste("MEP-LINCS",reportType,x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,sep="_"),".html"),sep="/")
-  
-  uploadToSynapse(dataFile, parentId=synapseReportDir)
+  dataFile$filename <- paste(dataDir,paste0(paste(x$CellLine,x$StainingSet,x$Segmentation,x$Preprocess,"Level2",sep="_"),".txt"),sep="/")
+  #filename=list.files(path=dataDir), stringsAsFactors = FALSE
+  uploadToSynapse(dataFile, parentId=synapseAnnotatedDataDir)
   
 }
  
-res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadReport)
+res <- dlply(ssDatasets[10:7,], c("CellLine","StainingSet"), uploadReport)
 
 

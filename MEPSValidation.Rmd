@@ -12,12 +12,12 @@ output: html_document
 
 
 ```{r }
-#Author: Mark Dane, copyright 2015
+#Author: Mark Dane, copyright 2016
 
 getl4HF <- function(cellLine, analysisVersion){
   ss="SS2"
   
-  l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
+  l3 <- fread(paste0(cellLine, "_",ss,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
   
   #Set a threshold for filtering wells on their QA score
   wellQAThresh <- 0.7
@@ -55,6 +55,19 @@ getl4HF <- function(cellLine, analysisVersion){
   return(l4HF)
 }
 
+validationMEPS <- function(cellLine, analysisVersion){
+  ss="SS2"
+  l4HF <- getl4HF(cellLine,analysisVersion)
+  set.seed(1234)
+  setkey(l4HF,Nuclei_PA_Gated_EduPositiveLogit_Norm)
+  midMEPs <- round(quantile(1:nrow(l4HF), probs=c(.25,.75)))
+  selectedMEPS <-l4HF[c(1:10, 
+                        sample(seq(midMEPs[1], midMEPs[2], by=1), size = 5),
+                        (nrow(l4HF)-9):nrow(l4HF))]
+  
+  return(selectedMEPS=selectedMEPS)
+}
+
 ```
 
 
@@ -66,62 +79,6 @@ library(reshape2)
 library(data.table)
 library(DT)
 
-
-validationMEPS <- function(cellLine, analysisVersion){
-  ss="SS2"
-#   
-#   l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
-#   
-#   barcodes <- sort(unique(l3$Barcode))
-#   
-#   
-#   #Set a threshold for filtering wells on their QA score
-#   wellQAThresh <- 0.7
-#   
-#   #TODO: Read this from Level 3 data
-#   lthresh <- 0.6
-#   
-#   #Number of PCS components to use
-#   nrPCs <- 9
-#   
-#   #Z score threshold for extreme spot cell count
-#   SCCZscoreThresh <- 3
-#   
-#   #Spot cell count threshold for HF dataset
-#   HFSCCThresh <- 20
-#   
-#   #Replicate count threshold for HF Dataset
-#   HFRepThresh <- 3
-#   
-#   l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
-#   l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
-#   l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
-#   
-#   #Remove the fiducial and blank data
-#   setkey(l3,ECMp)
-#   l3F <- l3[!"fiducial"]
-#   l3F <- l3F[!"blank"]
-#   setkey(l3F,"Ligand")
-#   l3F <- l3F[!grepl("FBS", l3F$Ligand)]
-#   
-#   #Remove failed QA wells
-#   l3F <- l3F[!l3F$QA_LowWellQA]
-#   #Filter for high spot occupancy and good quality DAPI####
-#   l3HF <- l3F[l3F$Spot_PA_SpotCellCount > HFSCCThresh]
-#   l3HF <- l3HF[!l3HF$QA_LowDAPIQuality]
-#   l3HF <- l3HF[!l3HF$QA_LowRegionCellCount]
-#   l4HF <- createl4(l3HF)
-#   l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
-  l4HF <- getl4HF(cellLine,analysisVersion)
-  set.seed(1234)
-  setkey(l4HF,Nuclei_PA_Gated_EduPositiveLogit_Norm)
-  midMEPs <- round(quantile(1:nrow(l4HF), probs=c(.25,.75)))
-  selectedMEPS <-l4HF[c(1:10, 
-                        sample(seq(midMEPs[1], midMEPs[2], by=1), size = 5),
-                        (nrow(l4HF)-9):nrow(l4HF))]
-  
-  return(selectedMEPS=selectedMEPS)
-}
 ```
 
 
@@ -146,7 +103,7 @@ MEPS <-setkey(rbind(PC3MEPS,MCF7MEPS),MEP)
 #What are the EdU+ values for the 50 MEPs in the PC3 and MCF7 cell lines
 #Merge the l4 HF MCF7 and PC3 datasets
 l4HFDT <- rbindlist(lapply(c("PC3","MCF7"), getl4HF, analysisVersion="v1.3"))
-#Plot the rank ordered EdU+ values, colored by cellline, shape by in set
+
 l4HFDT$MC <-paste(l4HFDT$MEP,l4HFDT$CellLine,sep="_")
 l4HFDT$Selected <- FALSE
 l4HFDT$Selected[l4HFDT$MEP %in% MEPS$MEP] <- TRUE
@@ -167,20 +124,24 @@ l4HFDT$Nuclei_PA_Gated_EduPositiveLogit_Norm[l4HFDT$MEP=="NID1_FGF6"] <- -7.17
 The MEPs validation set is chosen from the highly filtered (HF) PC3 (`r paste0("n=",sum(l4HFDT$CellLine=="PC3"))`) and MCF7 (`r paste0("n=",sum(l4HFDT$CellLine=="MCF7"))`)  datasets. These datasets include responses from spots with 20 or more cells and 3 or more replicate spots. The validation set is selected from the RUV3 normalized EdU+ logit values.  
 
 
-```{r}
+```{r }
 #write.csv(setkey(l4HFDT[l4HFDT$Selected,list(MEP,ECMp, Ligand, CellLine,Nuclei_PA_Gated_EduPositiveLogit_Norm,Barcode)],CellLine,Nuclei_PA_Gated_EduPositiveLogit_Norm), file = paste0("validationMEPSInBothCellLines_v1.csv"))
+
+#Plot the rank ordered EdU+ values, colored by cellline, shape by in set
 
 for(cellLine in c("PC3","MCF7")){
   setkey(l4HFDT,CellLine)
   DT <- l4HFDT[cellLine]
-  p <- ggplot(DT, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_Norm), y = Nuclei_PA_Gated_EduPositiveLogit_Norm, colour=SelectedFrom, shape=Selected, size=Selected))+
+  setkey(DT,Selected)
+  p <- ggplot(DT,aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogit_Norm), ymin=Nuclei_PA_Gated_EduPositiveLogit_Norm-Nuclei_PA_Gated_EduPositiveLogit_Norm_SE, ymax=Nuclei_PA_Gated_EduPositiveLogit_Norm+Nuclei_PA_Gated_EduPositiveLogit_Norm_SE))+
     xlab("MEP")+ylab("Normalized, EdU+ Proportion Ratio (logit)")+
-    geom_point(alpha = 1)+
+    geom_linerange()+
     theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-    ggtitle(paste("Validation MEPs in",cellLine,"Ordered by EdU+ Proportion"))
-  
+    ggtitle(paste("\n\nValidation MEPs in",cellLine,"Ordered by EdU+ Proportion"))
+  p <- p+geom_point(aes(y = Nuclei_PA_Gated_EduPositiveLogit_Norm, colour=SelectedFrom, size=Selected,  shape=Selected), alpha = 1)
   print(p)
 }
+
 ```
 
 ```{r MCF7vsPC3, fig.width=4.5,fig.height=4}

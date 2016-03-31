@@ -8,7 +8,7 @@ library(rGithubClient)
 synapseLogin()
 
 repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
-thisScript <- getPermlink(repo, "uploadAnnotatedData.R")
+thisScript <- getPermlink(repo, "MEP-LINCS_Preprocessing.R")
 
 synapseRawDataDir <- "syn5706233"
 synapseAnnotatedDataDir <- "syn5706203"
@@ -27,7 +27,7 @@ uploadToSynapse <- function(x, parentId) {
   synSetAnnotations(obj) <- annots
   
   obj <- synStore(obj, 
-                  activityName="Upload", 
+                  activityName="Normalize and Summarize to Spot Level",
                   contentType="text/tab-separated-values",
                   forceVersion=FALSE,
                   executed=thisScript)
@@ -46,10 +46,10 @@ ssDatasets <- rbind(
              Preprocess="av1.4",
              Segmentation=c("v2","v2","v2"),
              stringsAsFactors=FALSE),
-  data.frame(CellLine=rep(c("YAPC"), 2),
-             StainingSet=c("SS1","SS3"),
+  data.frame(CellLine=rep(c("YAPC"), 3),
+             StainingSet=c("SS1","SS2","SS3"),
              Preprocess="av1.4",
-             Segmentation=c("v2","v2"),
+             Segmentation=c("v2","v2","v2"),
              stringsAsFactors=FALSE),
   data.frame(CellLine=rep(c("MCF10A"), 2),
              StainingSet=c("SS1","SS3"),
@@ -64,9 +64,12 @@ getPaths <- function(x){
   filePaths <- grep(paste0(x$Segmentation,"_",x$Preprocess),AllFilePaths, value=TRUE)
   files <- data.frame(x,filename=filePaths,stringsAsFactors=FALSE, row.names=NULL)
   files$Level <- as.integer(gsub(".*Level|.txt","",files$filename))
+  files$Consortia <- "MEP-LINCS"
+  files$DataType <- "Quantitative Imaging"
+
   return(files)
 }
 
-dataFiles <- do.call(rbind,dlply(ssDatasets, c("CellLine","StainingSet"), getPaths))
+dataFiles <- do.call(rbind,dlply(ssDatasets[9,], c("CellLine","StainingSet"), getPaths))
 
-res <- dlply(dataFiles, .(filename), uploadToSynapse, parentId=synapseAnnotatedDataDir)
+res <- dlply(dataFiles[dataFiles$Level==3&!is.na(dataFiles$Level),], .(filename), uploadToSynapse, parentId=synapseAnnotatedDataDir)
