@@ -74,7 +74,7 @@ if(!analysisVersion=="v1"){
 ####date: `r Sys.Date()`
 
 ##Summary
-The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!grepl("PBS|Fiducial",l4$ECMpAnnotID),][!grepl("FBS",l4$LigandAnnotID)])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMpAnnotID[!grepl("PBS|Fiducial",l4$ECMpAnnotID)]))` printed ECM proteins and `r length(unique(l4$LigandAnnotID[!grepl("FBS",l4$LigandAnnotID)]))` ligands or growth factors.  
+The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!grepl("PBS|Fiducial",l4$ECMp),][!grepl("FBS",l4$Ligand)])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMp[!grepl("PBS|Fiducial",l4$ECMp)]))` printed ECM proteins and `r length(unique(l4$Ligand[!grepl("FBS",l4$Ligand)]))` ligands or growth factors.  
 
 ##Introduction
 The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r rawDataVersion` performed the segmentation and the analysis pipeline is `r analysisVersion`.
@@ -492,7 +492,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByECMp, eval=grepl("SS1",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -528,7 +528,7 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByECMpFull,eval=grepl("SS2",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein (full dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -561,7 +561,7 @@ suppressWarnings(print(p))
 
 ```{r ProliferationByECMp,eval=grepl("SS2",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein (HF dataset)"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -594,7 +594,7 @@ suppressWarnings(print(p))
 
 ```{r lineageRatioByECMp,eval=grepl("SS3",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMpAnnotID, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
