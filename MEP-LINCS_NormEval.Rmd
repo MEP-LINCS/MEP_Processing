@@ -99,7 +99,6 @@ l3 <- l3[!grepl("TGFB2",l3$Ligand)]
 l3 <- l3[!grepl("Brevican_CXCL12_AGB0414021|CEACAM6_CXCL12_AGB0414021|Cadherin-8 Fc Chimera_CXCL12_AGB0414021|Decorin_CXCL12_AGB0414021|Integrin A3B1_CXCL12_AGB0414021",l3$MEP)]
   
 
-
 #Make the FBS in each plate unique
 l3$Ligand[grepl("FBS",l3$Ligand)] <- paste("FBS",sub("LI8XXX00","",l3$Barcode[grepl("FBS",l3$Ligand)]))
 l3$MEP<- paste(l3$ECMp,l3$Ligand,sep="_")
@@ -149,7 +148,7 @@ if(!analysisVersion=="v1"){
 The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!grepl("PBS|Fiducial",l4$ECMp),][!grepl("FBS",l4$Ligand)])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMp[!grepl("PBS|Fiducial",l4$ECMp)]))` printed ECM proteins and `r length(unique(l4$Ligand[!grepl("FBS",l4$Ligand)]))` ligands or growth factors.  
 
 ###Filtering
-All MEPs with ligand TGFB2, ECMp Nidogen-1 and specific MEPs Brevican_CXCL12_AGB0414021, CEACAM6_CXCL12_AGB0414021, Cadherin-8 Fc Chimera_CXCL12_AGB0414021, Decorin_CXCL12_AGB0414021 and Integrin A3B1_CXCL12_AGB0414021 have been removed from the analysis due to poor DAPI quality and spatial artifacts in the cell counts. 
+All MEPs with ligand TGFB2, ECM protein Nidogen 1 and specific MEPs Brevican_CXCL12_AGB0414021, CEACAM6_CXCL12_AGB0414021, Cadherin-8 Fc Chimera_CXCL12_AGB0414021, Decorin_CXCL12_AGB0414021 and Integrin A3B1_CXCL12_AGB0414021 have been removed from the analysis due to poor DAPI quality and spatial artifacts in the cell counts. 
 
 <br>
 ```{r PCARawData, eval=TRUE}
@@ -188,6 +187,8 @@ plotPCs(m = rawPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title 
 
 plotPCs(m = rawPCAModel,PCs = c("PC4","PC5","PC6"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
 
+plotPCs(m = rawPCAModel,PCs = c("PC7","PC8","PC9"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
+
 ```
 
 ```{r plotRUV3PCA, fig.height=3, fig.width=4}
@@ -197,6 +198,8 @@ plotPCs(m = RUV3PCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title
 
 plotPCs(m = RUV3PCAModel,PCs = c("PC4","PC5","PC6"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
 
+plotPCs(m = RUV3PCAModel,PCs = c("PC7","PC8","PC9"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
+
 ```
 
 ```{r plotRUV3LoessPCA, fig.height=3, fig.width=4}
@@ -205,6 +208,8 @@ plotScree(m = RUV3LoessPCAModel, main=list("PCA Scree Plot of RUV3Loess Normaliz
 plotPCs(m = RUV3LoessPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of RUV3Loess Normalized Data", legendTitle = "Barcode")
 
 plotPCs(m = RUV3LoessPCAModel,PCs = c("PC4","PC5","PC6"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
+
+plotPCs(m = RUV3LoessPCAModel,PCs = c("PC7","PC8","PC9"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
 
 ```
 
@@ -347,5 +352,18 @@ datatable(format(round(RUV3PCAModel$x[,1:9],2)), options = list(pageLength = 5))
 ```{r RUV3LoessPCAdatatable}
 
 datatable(format(round(RUV3LoessPCAModel$x[,1:9],2)), options = list(pageLength = 5))
+
+```
+
+
+<br>
+
+###Principal Components within a well on raw level 3 data
+```{r RawPCAlevel3}
+
+#Get a PCA model from the raw data
+rawFVNames <- grep("ECMp|Ligand|MEP|Barcode|Well|Loess|RUV3",colnames(l4),invert = TRUE, value = TRUE)
+rawPCAModel <- createPCAModel(dt=l4, fvNames = rawFVNames)
+
 
 ```

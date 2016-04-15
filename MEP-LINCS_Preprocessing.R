@@ -145,9 +145,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   useJSONMetadata<-as.logical(ssDataset[["useJSONMetadata"]])
   
   seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Lineage","Fibrillarin")
-  
-  #preprocessMEPLINCS <- function(ss, cellLine, k, analysisVersion, rawDataVersion, limitBarcodes=8, mergeOmeroIDs=FALSE, calcAdjacency=TRUE, writeFiles= TRUE, seNames=NULL, ...)
-  
+
   library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
@@ -501,13 +499,13 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   
   #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
   ##Remove nuclear objects that dont'have cell and cytoplasm data
-  if(verbose) {
-    cat("Creating level 3 data\n")
-  }
+  if(verbose) cat("Creating level 3 data\n")
+  
   if(any(grepl("SS1|SS3",ss))) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
   #### Level3 ####
   slDT <- createl3(cDT, lthresh,seNames = seNames)
-  slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank",slDT$ECMp),]
+  #save(slDT,file="slDT.RData")
+  slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
   metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|ECMpAnnotID|LigandAnnotID|ECMpPK|LigandPK|MEP|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore"
   
@@ -628,7 +626,7 @@ PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
                     calcAdjacency=TRUE,
                     writeFiles = TRUE,
                     mergeOmeroIDs = TRUE,
-                    useJSONMetadata=TRUE,
+                    useJSONMetadata=FALSE,
                     stringsAsFactors=FALSE)
 
 MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
@@ -669,4 +667,4 @@ MCF10Adf <- data.frame(cellLine="MCF10A",
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
 
-tmp <- apply(ssDatasets[6,], 1, preprocessMEPLINCS, verbose=TRUE)
+tmp <- apply(ssDatasets[4,], 1, preprocessMEPLINCS, verbose=TRUE)

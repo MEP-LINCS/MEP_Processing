@@ -14,10 +14,12 @@ source("~/Documents/MEP-LINCS/MEPLINCSFunctions.R")
 createl4KeepRaw <- function (l3) 
 {
   #Select all signal names and the minimal metadata
-  l4Names <- grep("^Ligand|^ECMp|Barcode|MEP|^Well$|_CP_|_PA_",x = names(l3), value = TRUE)
+  l4Names <- grep("^Ligand$|^ECMp$|Barcode|MEP|^Well$|StainingSet|_CP_|_PA_",x = names(l3), value = TRUE)
+  #Remove the SE names
   l4Names <- grep("_SE", l4Names, value = TRUE, invert = TRUE)
+  #Create a datatable of the signals and minimal metadata
   l4Keep <- l3[, l4Names, with = FALSE]
-  l4DT <- l4Keep[, lapply(.SD, numericMedian), keyby = "Ligand,ECMp,MEP,Barcode,Well"]
+  l4DT <- l4Keep[, lapply(.SD, numericMedian), keyby = "Ligand,ECMp,MEP,Barcode,Well,StainingSet"]
   return(l4DT)
 }
 
@@ -27,35 +29,46 @@ createPCAModel <- function(dt,fvNames){
   if(any(stdDevs==0))  cat(paste("Deleting",fvNames[stdDevs==0], "due to 0 variance\n"))
   fvNames <- fvNames[!stdDevs==0]
   PCAModel <- prcomp(as.formula(paste(" ~ ", paste(fvNames, collapse = "+"))), data = dt, scale= TRUE)
+  rownames(PCAModel$x)<-paste(dt$MEP,gsub("LI8X00","",dt$Barcode), sep="_")
+  return(PCAModel)
 }
 
-plotPCs <- function(m, PCs, colour, title, legendTitle){
+plotPCs <- function(m, PCs, colour, title, legendTitle, xlim=NULL, ylim=NULL){
   if(!(length(PCs)==3&class(m)=="prcomp")) stop("PCs must have a length of 3 and m must be of class prcomp")
   p <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[2], colour = colour)) +
     geom_point(size = rel(.5), alpha = .5) +
     labs(colour = legendTitle)+
     ggtitle(title)+
+    coord_cartesian(xlim=xlim, ylim=ylim)+
     theme(legend.text=element_text(size = 6),
           plot.title=element_text(size = rel(.7)))+
-    guides(colour = guide_legend(override.aes = list(size=6)))
+    guides(colour=FALSE)
+  
+  p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
   print(p)
   
   p <- ggplot(data.frame(m$x), aes_string(x = PCs[2], y = PCs[3], colour = colour)) +
     geom_point(size = rel(.5), alpha = .5) +
     labs(colour = legendTitle)+
-    ggtitle(title)+
+    ggtitle(title)+guides(colour=FALSE)+
+    coord_cartesian(xlim=xlim, ylim=ylim)+
     theme(legend.text=element_text(size = 6),
           plot.title=element_text(size = rel(.7)))+
-    guides(colour = guide_legend(override.aes = list(size=6)))
+    guides(colour=FALSE)
+  #guides(colour = guide_legend(override.aes = list(size=6)))
+  p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
   print(p)
   
   p <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[3], colour = colour)) +
     geom_point(size = rel(.5), alpha = .5) +
+    coord_cartesian(xlim=xlim, ylim=ylim)+
     labs(colour = legendTitle)+
     ggtitle(title)+
     theme(legend.text=element_text(size = 6),
           plot.title=element_text(size = rel(.7)))+
-    guides(colour = guide_legend(override.aes = list(size=6)))
+    guides(colour=FALSE)
+  #guides(colour = guide_legend(override.aes = list(size=6)))
+  p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
   print(p)
   
 }
@@ -65,6 +78,7 @@ plotScree <- function(m,nrPCs=9,main  = paste("PCA Scree Plot for",cellLine,ss))
   var.percent <- var/sum(var) * 100
   barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main=main)
 }
+
 
 ```
 
@@ -81,6 +95,8 @@ library(DT)
 library(d3heatmap)
 library(plotly)
 library(corrplot)
+library(RUVnormalize)
+library(ruv)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -88,7 +104,9 @@ plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 #Read in the 3 level 3 datasets
 l3List <- apply(x, 1, function(fn){
-  fread(paste0("./",fn[["cellLine"]],"/",fn[["ss"]],"/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
+  dt <- fread(paste0("./",fn[["cellLine"]],"/",fn[["ss"]],"/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
+  dt$StainingSet <- fn[["ss"]]
+  return(dt)
 })
 
 #identify the common signals
@@ -103,117 +121,31 @@ l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
 l3c <- l3c[,grep("RUV3|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
 
 #Remove blank spot data
+#Retain NID1 until the method is proven
 l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
 
 #Make the FBS in each plate unique
 l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
 l3c$MEP<- paste(l3c$ECMp,l3c$Ligand,sep="_")
 
+#manual remove extreme value datapoints
+l3c <- l3c[!grepl("VCAM1_FBS427",l3c$MEP),]
+
 #RUV3 Normalize each signal
-metadataNames <- grep("_CP_|_PA_",colnames(dt), value=TRUE, invert=TRUE)
+metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
 #Save the metadata to merge in later
 mdDT <- l3c[,metadataNames, with = FALSE]
 #Identify parameters to be normalized
 signalsWithMetadata <- grep("^Barcode$|^ECMp$|^Ligand$|^Well$|^Spot$|^ArrayRow$|^ArrayColumn$|_CP_|_PA_",colnames(l3c),value=TRUE)
 l3s <- l3c[,signalsWithMetadata, with=FALSE]
+
 #Normalize each feature, pass with location and content metadata
-if(verbose) {
-  cat("Normalizing\n")
-  #save(slDT, file="slDT.RData")
-}
+if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
+l3n <- normRUV3LoessResidualsCS(l3s, k)
+l3n$NormMethod <- "RUV3LoessResiduals"
+l3n <- merge(l3n,mdDT,by = c("Barcode","Well","Spot"))
 
- calcResidual <- function (x) 
-{
-    mel <- as.numeric(median(x, na.rm = TRUE))
-    return(x - mel)
-}
- 
-#'Apply RUV3 and Loess Normalization to the common signals in a dataset
-#' @export
-normRUV3LoessResidualsCS <- function(dt, k){
-  setkey(dt,Barcode,Well,Ligand,ECMp)
-  signalNames <- grep("_CP_|_PA_",colnames(dt), value=TRUE)
-
-  #Add residuals from subtracting the biological medians from each value
-  residuals <- dt[,lapply(.SD,calcResidual), by="Barcode,Well,Ligand,ECMp", .SDcols=signalNames]
-  #Add within array location metadata
-  residuals$Spot <- as.integer(dt$Spot)
-  residuals$ArrayRow <- dt$ArrayRow
-  residuals$ArrayColumn <- dt$ArrayColumn
-  #Create a signal type
-  dt$SignalType <- "Signal"
-  residuals$SignalType <- "Residual"
-  srDT <- rbind(dt,residuals)
-  
-  #Add to carry metadata into matrices
-  srDT$BWL <- paste(srDT$Barcode, srDT$Well, srDT$Ligand, sep="_") 
-  srDT$SERC <- paste(srDT$Spot,srDT$ECMp, srDT$ArrayRow, srDT$ArrayColumn, sep="_")
-  
-  #Set up the M Matrix to denote replicates
-  nrControlWells <- sum(grepl("FBS",unique(srDT$BWL[srDT$SignalType=="Signal"])))
-  nrLigandWells <- length(unique(srDT$BWL[srDT$SignalType=="Signal"]))-nrControlWells
-  M <-matrix(0, nrow = length(unique(srDT$BWL[srDT$SignalType=="Signal"])), ncol = nrLigandWells+1)
-  rownames(M) <- unique(srDT$BWL[srDT$SignalType=="Signal"])
-  #Indicate the control wells in the last column
-  Mc <- M[grepl("FBS",rownames(M)),]
-  Mc[,ncol(Mc)] <-1L
-  #Subset to the ligand wells and mark as non-replicate
-  Ml <- M[!grepl("FBS",rownames(M)),]
-  for(i in 1:nrLigandWells) {
-    Ml[i,i] <- 1
-  }
-  #Add the replicate wells and restore the row order
-  M <- rbind(Mc,Ml)
-  M <- M[order(rownames(M)),]
-  #TODO verify M matrix and work within MEMA package
-  srmList <- lapply(signalNames, function(signalName, dt){
-    srm <- MEMA:::signalResidualMatrix(dt[,.SD, .SDcols=c("BWL", "SERC", "SignalType", signalName)])
-    return(srm)
-  },dt=srDT)
-  
-  
-  names(srmList) <- signalNames
-  
-  srmRUV3List <- lapply(names(srmList), function(srmName, srmList, M, k){
-    Y <- srmList[[srmName]]
-    #Hardcode in identification of residuals as the controls
-    resStart <- ncol(Y)/2+1
-    cIdx=resStart:ncol(Y)
-    nY <- RUVIIIArrayWithResiduals(k, Y, M, cIdx, srmName) #Normalize the spot level data
-    nY$k <- k
-    nY$SignalName <- paste0(srmName,"RUV3")
-    setnames(nY,srmName,paste0(srmName,"RUV3"))
-    return(nY)
-  }, srmList=srmList, M=M, k=k)
-  
-  #Add Loess normalized values for each signal
-  RUV3LoessList <- lapply(srmRUV3List, function(dt){
-    dtRUV3Loess <- loessNormArray(dt)
-  })
-  
-  #Combine the normalized signal into one data.table
-  #with one set of metadata
-  signalDT <- do.call(cbind,lapply(RUV3LoessList, function(dt){
-    sdt <- dt[,grep("_CP_|_PA_",colnames(dt)), with=FALSE]
-  }))
-  
-  signalMetadataDT <- cbind(RUV3LoessList[[1]][,grep("_CP_|_PA_",colnames(RUV3LoessList[[1]]), invert=TRUE), with=FALSE], signalDT)
-  signalMetadataDT <- signalMetadataDT[,SignalName := NULL]
-  signalMetadataDT <- signalMetadataDT[,mel := NULL]
-  signalMetadataDT <- signalMetadataDT[,Residual := NULL]
-  return(signalMetadataDT)
-}
-
-nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
-nDT$NormMethod <- "RUV3LoessResiduals"
-
-
-l4 <- createl4KeepRaw(l3)
-
-# l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
-# l4 <- l4[,grep("AnnotID",colnames(l4),invert=TRUE, value=TRUE), with=FALSE]
-# l4$Ligand[grepl("FBS",l4$Ligand)] <- paste("FBS",sub("LI8XXX00","",l4$Barcode[grepl("FBS",l4$Ligand)]))
-# l4$MEP<- paste(l4$ECMp,l4$Ligand,sep="_")
+l4 <- createl4KeepRaw(l3n)
 
 barcodes <- sort(unique(l4$Barcode))
 
@@ -238,19 +170,19 @@ HFRepThresh <- 3
 # https://meplincs.ohsu.edu/webclient/
 
 if(!analysisVersion=="v1"){
-  l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
-  l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
-  l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+  l3n$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
+  l3n$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
+  l3n$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
 }
 
 ```
 
 
-#MEP-LINCS `r cellLine` `r ss` Phase 1 PCA Normalization Evaluation
+#MEP-LINCS `r cellLine` Phase 1 PCA Common Signal Normalization and Evaluation
 ####date: `r Sys.Date()`
 
 ##Summary
-The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). After QA filtering, there are `r nrow(l4[!grepl("PBS|Fiducial",l4$ECMp),][!grepl("FBS",l4$Ligand)])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMp[!grepl("PBS|Fiducial",l4$ECMp)]))` printed ECM proteins and `r length(unique(l4$Ligand[!grepl("FBS",l4$Ligand)]))` ligands or growth factors.  
+This analysis is of the DAPI-dervived signals which are common across three MEP-LINCS `r cellLine` staining sets. These signals include DAPI intensity and nuclear morphology. Each of the three staining set has fifty-six ligand wells and eight FBS control wells. The normalization treats the MEPs in the ligand wells as three replicates and the MEPS in the FBS wells as twenty-four replicates. The data is normalized as a matrix of 192 MEMAs in the rows and 694 spots in the columns. The normalization is a round of RUV3 using the spatial residuals as the controls and k=`r k` followed by a round of bivariate loess using spatial residuals after the RUV3 round. 
 
 
 ```{r PCARawData, eval=TRUE}
@@ -266,7 +198,7 @@ The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content i
 
 
 #Get a PCA model from the raw data
-rawFVNames <- grep("ECMp|Ligand|MEP|Barcode|Well|Loess|RUV3",colnames(l4),invert = TRUE, value = TRUE)
+rawFVNames <- grep("ECMp|Ligand|MEP|Barcode|Well|StainingSet|Loess|RUV3",colnames(l4),invert = TRUE, value = TRUE)
 rawPCAModel <- createPCAModel(dt=l4, fvNames = rawFVNames)
 
 #Get a PCA model from the RUV3 data
@@ -279,43 +211,27 @@ RUV3LoessPCAModel <- createPCAModel(dt=l4, fvNames = RUV3LoessNames)
 
 ```
 
-```{r PCAHeatmap, fig.height=8, fig.width=7, eval=FALSE}
-# #Extract the first PCs of each MEP into a matrix
-# l4RawpcvDT <- data.table(l4RawPCAModel$x[,1:nrPCs],Barcode =l4WithRaw$Barcode, MEP = l4WithRaw$MEP)
-# 
-# #Convert to dataframe for use in D3heatmap
-# l4RawpcvDF <- data.frame(l4RawpcvDT)
-# rownames(l4RawpcvDF) <- l4RawpcvDT$MEP
-# l4RawpcvDF <- l4RawpcvDF[,!(names(l4RawpcvDF) %in% c("MEP", "Barcode"))]
-
-#Plot the heat map of the entire dataset
-d3heatmap(l4WithRawpcvDF, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
-
-```
-
 ```{r plotRawPCA, fig.height=3, fig.width=4}
 plotScree(m = rawPCAModel, main=list("PCA Scree Plot of Raw Data",cex = .9))
 
-plotPCs(m = rawPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode")
+plotPCs(m = rawPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of Raw Data", legendTitle = "Barcode", xlim = c(-10,10), ylim=c(-10,10))
 
-#plotPCs(m = rawPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Well", title = "PCA of Raw Data", legendTitle = "Well")
 ```
 
 ```{r plotRUV3PCA, fig.height=3, fig.width=4}
 plotScree(m = RUV3PCAModel, main=list("PCA Scree Plot of RUV3 Normalized Data",cex = .9))
 
-plotPCs(m = RUV3PCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of RUV3 Normalized Data", legendTitle = "Barcode")
+plotPCs(m = RUV3PCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of RUV3 Normalized Data", legendTitle = "Barcode", xlim = c(-10,10), ylim=c(-10,10))
 
-#plotPCs(m = RUV3PCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Well", title = "PCA of RUV3 Normalized Data", legendTitle = "Well")
+
 
 ```
 
 ```{r plotRUV3LoessPCA, fig.height=3, fig.width=4}
 plotScree(m = RUV3LoessPCAModel, main=list("PCA Scree Plot of RUV3Loess Normalized Data",cex = .9))
 
-plotPCs(m = RUV3LoessPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of RUV3Loess Normalized Data", legendTitle = "Barcode")
+plotPCs(m = RUV3LoessPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of RUV3Loess Normalized Data", legendTitle = "Barcode", xlim = c(-10,10), ylim=c(-10,10))
 
-#plotPCs(m = RUV3LoessPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Well", title = "PCA of RUV3Loess Normalized Data", legendTitle = "Well")
 
 ```
 
@@ -358,63 +274,71 @@ p <- ggplot(dt, aes(x = factor(ECMp), y = SpotCellCount))+geom_boxplot()+
 #p <- p+geom_hline(yintercept = median(dt$SpotCellCount), colour="blue", alpha=.5)
 suppressWarnings(print(p))
 
-p <- ggplot(dt, aes(x = factor(ECMp), y = SpotCellCount, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized Spot Cell Count by ECM Protein and Barcode (full dataset)"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-#p <- p+geom_hline(yintercept = median(dt$SpotCellCount), colour="blue", alpha=.5)
-suppressWarnings(print(p))
 
 ```
 
+###Correlation Across Staining Sets
+The raw, RUV3 and RUV3Loess versions of the spot cell count signal for each staining set are plotted against each other to show the correlation of results at the MEP level.
 
-```{r EdU}
 
-dt <- l4[,list(Barcode,Ligand,Nuclei_PA_Gated_EduPositiveLogit, Nuclei_PA_Gated_EduPositiveLogitRUV3, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess )]
-dt <- melt(dt,id.vars=c("Barcode","Ligand"),measure.vars=c("Nuclei_PA_Gated_EduPositiveLogit","Nuclei_PA_Gated_EduPositiveLogitRUV3","Nuclei_PA_Gated_EduPositiveLogitRUV3Loess"), variable.name = "Processed",value.name = "EdU", variable.factor = FALSE)
-dt$Processed[!grepl("RUV3",dt$Processed)] <- "RawLogit"
-dt$Processed[grepl("RUV3$",dt$Processed)] <- "RUV3"
-dt$Processed[grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess"
+```{r compareDatasetsSCC, fig.height=3, fig.width=3}
 
-p <- ggplot(dt, aes(x = factor(Barcode), y = EdU, colour = Ligand))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized EdU Positive Proportion by Barcode (full dataset)"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  guides(colour=guide_legend(ncol=3))+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-#p <- p+geom_hline(yintercept = median(dt$EdU), colour="blue", alpha=.5)
-suppressWarnings(print(p))
+plotSSs <- function(dt, signalName){
+  #Organize the normalized spot cell count by staining sets
+  dtc <- dcast(dt,MEP~StainingSet,value.var=signalName)
+  xlim<-quantile(c(dtc$SS1,dtc$SS2,dtc$SS3),probs = c(.01,.99), na.rm = TRUE)
+  ylim<-xlim
+  
+  p <- ggplot(dtc,aes(x=SS1,y=SS2))+
+    geom_point(size=rel(.5), alpha=.5)+
+    geom_smooth(method = "lm")+
+    coord_cartesian(xlim, ylim)+
+    annotate("text", label=paste0("Spearman rho=",round(cor(dtc$SS1,dtc$SS2,method = "spearman", use="complete.obs"),2)), x = xlim[1]+.75, y = xlim[2], size = rel(3), colour="red")+
+    xlab(paste("SS1",signalName))+ylab(paste("SS2",signalName))+
+    ggtitle(paste(signalName, "of SS2 vs SS1"))+
+    theme(axis.title=element_text(size=rel(.6)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p)) 
+  
+  p <- ggplot(dtc,aes(x=SS2,y=SS3))+
+    geom_point(size=rel(.5), alpha=.5)+
+    geom_smooth(method = "lm")+
+    coord_cartesian(xlim, ylim)+ 
+    annotate("text",label=paste0("Spearman rho=",round(cor(dtc$SS2,dtc$SS3,method = "spearman", use="complete.obs"),2)), x = xlim[1]+.75, y = xlim[2], size = rel(3), colour="red")+
+    xlab(paste("SS2",signalName))+ylab(paste("SS3",signalName))+
+    ggtitle(paste(signalName, "of SS3 vs SS2"))+
+    theme(axis.title=element_text(size=rel(.6)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))  
+  
+  p <- ggplot(dtc,aes(x=SS1,y=SS3))+
+    geom_point(size=rel(.5), alpha=.5)+
+    geom_smooth(method = "lm")+
+    coord_cartesian(xlim, ylim)+
+    annotate("text",label=paste0("Spearman rho=",round(cor(dtc$SS1,dtc$SS3,method = "spearman", use="complete.obs"),2)), x = xlim[1]+.75, y = xlim[2], size = rel(3), colour="red")+
+    xlab(paste("SS1",signalName))+ylab(paste("SS3",signalName))+
+    ggtitle(paste(signalName, "of SS3 vs SS1"))+
+    theme(axis.title=element_text(size=rel(.6)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))
+}
 
-p <- ggplot(dt, aes(x = factor(Ligand), y = EdU, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized EdU Positive Proportion by Ligand (full dataset)"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-#p <- p+geom_hline(yintercept = median(dt$EdU), colour="blue", alpha=.5)
-suppressWarnings(print(p))
+tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2")
+tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3")
+tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3Loess")
 
-dt <- l4[,list(Barcode,ECMp,Nuclei_PA_Gated_EduPositiveLogit, Nuclei_PA_Gated_EduPositiveLogitRUV3, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess )]
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_Dapi")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_DapiRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_DapiRUV3Loess")
 
-dt <- melt(dt,id.vars=c("Barcode","ECMp"),measure.vars=c("Nuclei_PA_Gated_EduPositiveLogit","Nuclei_PA_Gated_EduPositiveLogitRUV3","Nuclei_PA_Gated_EduPositiveLogitRUV3Loess"), variable.name = "Processed",value.name = "EdU", variable.factor = FALSE)
-dt$Processed[!grepl("RUV3",dt$Processed)] <- "RawLogit"
-dt$Processed[grepl("RUV3$",dt$Processed)] <- "RUV3"
-dt$Processed[grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess"
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_Dapi")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3Loess")
 
-p <- ggplot(dt, aes(x = factor(ECMp), y = EdU))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized EdU Positive Proportion by ECM Protein (full dataset)"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-#p <- p+geom_hline(yintercept = median(dt$EdU), colour="blue", alpha=.5)
-suppressWarnings(print(p))
 
-p <- ggplot(dt, aes(x = factor(ECMp), y = EdU, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized EdU Positive Proportion by ECM Protein and Barcode (full dataset)"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-#p <- p+geom_hline(yintercept = median(dt$EdU), colour="blue", alpha=.5)
-suppressWarnings(print(p))
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_Eccentricity")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_EccentricityRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_EccentricityRUV3Loess")
+
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogit")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess")
 
 ```

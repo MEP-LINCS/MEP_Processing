@@ -2,13 +2,13 @@ library("rmarkdown")
 
 PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
                     ss=c("SS1", "SS2","SS3","SS2noH3"),
-                    analysisVersion="av1.4",
+                    analysisVersion=c("av1.4","av1.4","av1.4","av1.5"),
                     rawDataVersion=c("v2","v2.1","v2.1", "v1"),
                     stringsAsFactors=FALSE)
 
 MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion=c("av1.4", "av1.5","av1.4"),
+                     analysisVersion=c("av1.4", "av1.4","av1.4"),
                      rawDataVersion=c("v2","v2","v2"),
                      stringsAsFactors=FALSE)
 
