@@ -152,6 +152,9 @@ processJSON <- function (fileNames) {
     wellMdDT <- rbindlist(wellMdList)
     mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
     mdDT$Spot <- as.integer(nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn)
+    #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
+    mdDT$WellSpot <- mdDT$Spot
+    mdDT$WellSpot[grepl("B", mdDT$Well)] <- (nrArrayRows*nrArrayRows+1)-mdDT$WellSpot[grepl("B", mdDT$Well)]
     return(mdDT)
   }))
 }
