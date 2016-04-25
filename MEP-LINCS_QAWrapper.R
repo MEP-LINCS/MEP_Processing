@@ -8,20 +8,20 @@ PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
 
 MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion=c("av1.4", "av1.5","av1.4"),
+                     analysisVersion=c("av1.5"),
                      rawDataVersion=c("v2","v2","v2"),
                      stringsAsFactors=FALSE)
 
 YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion="av1.4",
+                     analysisVersion="av1.5",
                      rawDataVersion=c("v2","v2","v2"),
                      stringsAsFactors=FALSE)
 
-MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 2),
-                       ss=c("SS1","SS3"),
-                       analysisVersion="av1.4",
-                       rawDataVersion=c("v2","v2"),
+MCF10Adf <- data.frame(cellLine="MCF10A",
+                       ss=c("SS1","SS2","SS3"),
+                       analysisVersion="av1.5",
+                       rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
@@ -40,4 +40,4 @@ renderQAReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(4),], 1, renderQAReports)
+tmp <- apply(ssDatasets[c(12),], 1, renderQAReports)

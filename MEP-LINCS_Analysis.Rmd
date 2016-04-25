@@ -33,7 +33,7 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+#l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
 l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level2.txt"), showProgress = FALSE)
 l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
 l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
@@ -237,8 +237,8 @@ if(any(grepl("SS1",ss))){
 dt <- setorder(l4F,-Spot_PA_SpotCellCountLog2RUV3Loess)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 
-colNamesSpots <- c(colNames[1],"OmeroDetailURL",colNames[2:length(colNames)])
-colNamesDisplaySpots <- c(colNamesDisplay[1],"Image Link",colNamesDisplay[2:length(colNamesDisplay)])
+colNamesSpots <- c(colNames[1],"ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
+colNamesDisplaySpots <- c(colNamesDisplay[1],"ArrayRow","ArrayColumn","Image Link",colNamesDisplay[2:length(colNamesDisplay)])
 setkey(dt,"Ligand")
 
 dt <- setorder(l3F, -Spot_PA_SpotCellCountLog2RUV3Loess)

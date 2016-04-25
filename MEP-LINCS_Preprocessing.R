@@ -60,8 +60,7 @@ getParameters <- function(parameters) {
 
 getSample <- function (samples) {
   sl <- lapply(samples, function(sample){
-    content <- sample$content
-    data.table(CellLine = sample$content, Passage = sample$fraction, CellSeedCount = sample$value)
+    data.table(CellLine = gsub(".*-","",gsub("_.*","",sample$content)), Passage = sample$fraction, CellSeedCount = sample$value)
   })
   sDT <- rbindlist(sl)
 }
@@ -70,18 +69,20 @@ processJSON <- function (fileNames) {
   rbindlist(lapply(fileNames, function(fn){
     #Process each file separately
     plateMetadata <- fromJSON(fn)
-    cat(paste("processing JSON metadata file",fn,"\n"))
+    
     #Store and remove the welltype data
     welltype <- plateMetadata$welltype
-    #Calculate the max row and columns within an array
-    
+
     #Get nr rows and columns and use to calculate spot index
     columnParms <- as.integer(str_split_fixed(str_split_fixed(welltype,"[|]",2)[1,2],"_",3))
     nrArrayColumns <- columnParms[2]*columnParms[3]
     rowParms <- as.integer(str_split_fixed(str_split_fixed(welltype,"[|]",2)[1,1],"_",3))
     nrArrayRows <- rowParms[2]*rowParms[3]
+    nrArraySpots <- nrArrayRows*nrArrayColumns
+    
     #Get the barcode
     barcode <- plateMetadata$assayrun
+    
     #Delete all of the items at the end of the json file
     plateMetadata$annot_id <- NULL
     plateMetadata$assayrun <- NULL
@@ -89,44 +90,68 @@ processJSON <- function (fileNames) {
     plateMetadata$label <- NULL
     plateMetadata$welltype <- NULL
     
-    #Get the factor list for each spot
-    #browser()
-    mdList <- lapply(plateMetadata, function(spotMetadata){
+    #Get the well name and spot metadata
+    spotmMdList <- lapply(plateMetadata, function(spotMetadata){
+      #Get the well alphanumeric
+      wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
+      wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
+      #Read the spot specific metadata
+      spotFactors <- getFactors(spotMetadata$content$factor)
+      #Get the spot information
+      ArrayPositions <- str_split_fixed(spotMetadata["ii|ii"],"[|]",2)
+      #browser()
+      m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"])
+      ECMp <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"], m))
+      mDT <- data.table(Barcode=barcode,
+                        Well = wellName,
+                        ArrayRow = as.integer(str_split_fixed(ArrayPositions[1,1],"_",2)[1,2]),
+                        ArrayColumn = as.integer(str_split_fixed(ArrayPositions[1,2],"_",2)[1,2]),
+                        ECMp = ECMp)
+      return(mDT)
+    })
+    spotMdDT <- rbindlist(spotmMdList)
+    
+    #Read well metadata from the first spot in each well
+    wellMdList <- lapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
+      #Get the well alphanumeric
+      wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
+      wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
       #Get protein info from factors
       spotFactors <- getFactors(spotMetadata$content$factor)
       #Get stain info from parameters
       spotParameters <- getParameters(spotMetadata$content$parameter)
       #Get cell line info from sample
       cellLineParameters <- getSample(spotMetadata$content$sample)
-      #Get the well and spot information
-      ArrayPositions <- str_split_fixed(spotMetadata["ii|ii"],"[|]",2)
-      #cast the metadata into a single row for the spot
-      wellRow <-as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))[1]
-      wellColumn <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))[2]
-      #browser()
+      m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"])
+      ligand <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"], m))
+      EndpointDAPI <- spotParameters$Endpoint[grepl("DAPI",spotParameters$Channel)]
+      Endpoint488 <- spotParameters$Endpoint[grepl("488",spotParameters$Channel)]
+      if(length(Endpoint488)==0) Endpoint488<- "none"
+      
+      Endpoint555 <- spotParameters$Endpoint[grepl("555|Orange",spotParameters$Channel)]
+      if(length(Endpoint555)==0) Endpoint555<- "none"
+      
+      Endpoint647 <- spotParameters$Endpoint[grepl("647|Red",spotParameters$Channel)]
+      if(length(Endpoint647)==0) Endpoint647<- "none"
+      
       mDT <- data.table(Barcode=barcode,
                         CellLine = cellLineParameters$CellLine,
-                        Well = wellAN(2,4)[(wellRow-1)*4+wellColumn],
-                        ArrayRow = as.integer(str_split_fixed(ArrayPositions[1,1],"_",2)[1,2]),
-                        ArrayColumn = as.integer(str_split_fixed(ArrayPositions[1,2],"_",2)[1,2]),
-                        ECMp = sub("_.*","",spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"]),
-                        Ligand = sub("_.*","",spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"]),
-                        EndpointDAPI = spotParameters$Endpoint[grepl("DAPI",spotParameters$Channel)],
-                        Endpoint488 = spotParameters$Endpoint[grepl("488",spotParameters$Channel)],
+                        Well = wellName,
+                        Ligand = ligand,
+                        EndpointDAPI = EndpointDAPI,
+                        Endpoint488 = Endpoint488,
                         #StainType488 = spotParameters$StainType[grepl("488",spotParameters$Channel)],
                         #Animal488 = spotParameters$Animal[grepl("488",spotParameters$Channel)],
-                        Endpoint555 = spotParameters$Endpoint[grepl("555|Orange",spotParameters$Channel)],
+                        Endpoint555 = Endpoint555,
                         #StainType555 = spotParameters$StainType[grepl("555|Orange",spotParameters$Channel)],
                         #Animal555 = spotParameters$Animal[grepl("555|Orange",spotParameters$Channel)],
-                        Endpoint647 = spotParameters$Endpoint[grepl("647|Red",spotParameters$Channel)])
-                        #StainType647 = spotParameters$StainType[grepl("647|Red",spotParameters$Channel)],
-                        #Animal647 = spotParameters$Animal[grepl("647|Red",spotParameters$Channel)]
-                        
-      
+                        Endpoint647 = Endpoint647)
+      #StainType647 = spotParameters$StainType[grepl("647|Red",spotParameters$Channel)],
+      #Animal647 = spotParameters$Animal[grepl("647|Red",spotParameters$Channel)]
     })
-    mdDT <- rbindlist(mdList)
-    #mdDT$ECMpBase <- unique(mdDT$ECMp[grepl("^COL1_Own$",mdDT$ECMp)])
-    mdDT$Spot <- nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn
+    wellMdDT <- rbindlist(wellMdList)
+    mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
+    mdDT$Spot <- as.integer(nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn)
     return(mdDT)
   }))
 }
@@ -145,7 +170,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   useJSONMetadata<-as.logical(ssDataset[["useJSONMetadata"]])
   
   seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Lineage","Fibrillarin")
-
+  
   library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
@@ -233,7 +258,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   barcodes <- unique(splits[,ncol(splits)])[1:limitBarcodes]
   #if(rawDataVersion=="v1.1") barcodes <- gsub("reDAPI","",barcodes)
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
-  expDTList <- mclapply(barcodes, function(barcode){
+  expDTList <- lapply(barcodes, function(barcode){
     plateDataFiles <- grep(barcode,cellDataFiles,value = TRUE)
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
     wellDataList <- lapply(wells,function(well){
@@ -305,6 +330,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     })
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
+    rm(wellDataList)
     
     if(!useJSONMetadata){
       #Read the well metadata from a multi-sheet Excel file
@@ -446,10 +472,11 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     } else stop("Invalid ss parameter")
     return(pcDT)
     
-    }, mc.cores=detectCores())#Use all cores in production
-  #})#Revert to apply when debugging
+  #}, mc.cores=detectCores())#Use all cores in production
+  })#Revert to apply when debugging
   
   cDT <- rbindlist(expDTList, fill = TRUE)
+  rm(expDTList)
   
   #Change to mclapply
   if(calcAdjacency){
@@ -504,6 +531,28 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   if(any(grepl("SS1|SS3",ss))) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
   #### Level3 ####
   slDT <- createl3(cDT, lthresh,seNames = seNames)
+  
+  if(writeFiles){
+    #Write out cDT without normalized values as level 1 dataset
+    level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
+    if(verbose) cat("Writing level 1 file to disk\n")
+    fwrite(cDT[,level1Names, with=FALSE], file.path = paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"),sep="\t", verbose=TRUE)
+    #write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    
+    normParmameterNames <- grep("Norm|RUV3|Loess$",colnames(cDT), value=TRUE)
+    rawParameterNames <- gsub("_?[[:alnum:]]*?Norm$|_?[[:alnum:]]*?RUV3|_?[[:alnum:]]*?Loess$", "", normParmameterNames)
+    metadataNormNames <- colnames(cDT)[!colnames(cDT) %in% rawParameterNames]
+    #Paste back in the QA and selected raw data
+    
+    level2Names <- c(metadataNormNames,
+                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
+    
+    #Write out cDT with normalized values as level 2 dataset
+    #if(verbose) cat("Writing level 2 file to disk\n")
+   # write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    rm(cDT)
+  }  
+  
   #save(slDT,file="slDT.RData")
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
@@ -531,9 +580,9 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   #Label FBS with their plate index to keep separate
   slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], barcodes))
   #Add QAScore and Spot_PA_LoessSCC to cell level data
-  setkey(cDT,Barcode, Well, Spot)
+  #setkey(cDT,Barcode, Well, Spot)
   
-  cDT <- cDT[slDT[,list(Barcode, Well, Spot, QAScore, Spot_PA_LoessSCC)]]
+  #cDT <- cDT[slDT[,list(Barcode, Well, Spot, QAScore, Spot_PA_LoessSCC)]]
   #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
   
   #Level4Data
@@ -545,44 +594,27 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   
   #Write QA flags into appropriate data levels
   #Low cell count spots
-  cDT$QA_LowSpotCellCount <- cDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
+  #cDT$QA_LowSpotCellCount <- cDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
   slDT$QA_LowSpotCellCount <- slDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
   
   #Low quality DAPI
-  cDT$QA_LowDAPIQuality <- FALSE
+  #cDT$QA_LowDAPIQuality <- FALSE
   slDT$QA_LowDAPIQuality <- FALSE
   
   #Flag spots below automatically loess QA threshold
-  cDT$QA_LowRegionCellCount <- cDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
+  #cDT$QA_LowRegionCellCount <- cDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
   slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
   
   #Flag wells below automatically calculated QA threshold
   slDT$QA_LowWellQA <- FALSE
   slDT$QA_LowWellQA[slDT$QAScore < lowWellQAThreshold] <- TRUE
-  cDT$QA_LowWellQA <- FALSE
-  cDT$QA_LowWellQA[cDT$QAScore < lowWellQAThreshold] <- TRUE
+  #cDT$QA_LowWellQA <- FALSE
+  #cDT$QA_LowWellQA[cDT$QAScore < lowWellQAThreshold] <- TRUE
   
   #Level 4
   mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
   #WriteData
   if(writeFiles){
-    #Write out cDT without normalized values as level 1 dataset
-    level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
-    if(verbose) cat("Writing level 1 file to disk\n")
-    write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-    
-    normParmameterNames <- grep("Norm|RUV3|Loess$",colnames(cDT), value=TRUE)
-    rawParameterNames <- gsub("_?[[:alnum:]]*?Norm$|_?[[:alnum:]]*?RUV3|_?[[:alnum:]]*?Loess$", "", normParmameterNames)
-    metadataNormNames <- colnames(cDT)[!colnames(cDT) %in% rawParameterNames]
-    #Paste back in the QA and selected raw data
-    
-    level2Names <- c(metadataNormNames,
-                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_Edu$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
-    
-    #Write out cDT with normalized values as level 2 dataset
-    if(verbose) cat("Writing level 2 file to disk\n")
-    write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-    
     if(verbose) cat("Writing level 3 file to disk\n")
     write.table(format(slDT, digits = 4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
@@ -619,22 +651,22 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
 
 PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
                     ss=c("SS1", "SS2","SS3","SS2noH3"),
-                    analysisVersion="av1.4",
+                    analysisVersion="av1.5",
                     rawDataVersion=c("v2","v2.1","v2.1", "v1"),
                     limitBarcodes=8,
                     k=7,
                     calcAdjacency=TRUE,
                     writeFiles = TRUE,
                     mergeOmeroIDs = TRUE,
-                    useJSONMetadata=FALSE,
+                    useJSONMetadata=TRUE,
                     stringsAsFactors=FALSE)
 
 MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion="av1.4",
+                     analysisVersion="av1.5",
                      rawDataVersion=c("v2","v2","v2"),
-                     limitBarcodes=4,
-                     k=3,
+                     limitBarcodes=8,
+                     k=7,
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
@@ -643,10 +675,10 @@ MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
 
 YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion="av1.4",
+                     analysisVersion="av1.5",
                      rawDataVersion=c("v2","v2","v2"),
-                     limitBarcodes=c(8,6,8),
-                     k=c(7,5,7),
+                     limitBarcodes=8,
+                     k=7,
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
@@ -654,12 +686,12 @@ YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      stringsAsFactors=FALSE)
 
 MCF10Adf <- data.frame(cellLine="MCF10A",
-                       ss=c("SS1","SS3"),
-                       analysisVersion="av1.4",
+                       ss=c("SS1","SS2","SS3"),
+                       analysisVersion="av1.5",
                        rawDataVersion="v2",
-                       limitBarcodes=c(8,5),
-                       k=c(7,4),
-                       calcAdjacency=TRUE,
+                       limitBarcodes=c(8,8,5),
+                       k=c(7,7,4),
+                       calcAdjacency=FALSE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
                        useJSONMetadata=TRUE,
@@ -667,4 +699,4 @@ MCF10Adf <- data.frame(cellLine="MCF10A",
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
 
-tmp <- apply(ssDatasets[4,], 1, preprocessMEPLINCS, verbose=TRUE)
+tmp <- apply(ssDatasets[c(12),], 1, preprocessMEPLINCS, verbose=TRUE)
