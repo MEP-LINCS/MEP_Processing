@@ -39,24 +39,31 @@ plotPCs <- function(m, PCs, colour, title, legendTitle, xlim=NULL, ylim=NULL){
     geom_point(size = rel(.5), alpha = .5) +
     labs(colour = legendTitle)+
     ggtitle(title)+
+    guides(colour=FALSE)+
     coord_cartesian(xlim=xlim, ylim=ylim)+
     theme(legend.text=element_text(size = 6),
-          plot.title=element_text(size = rel(.7)))+
-    guides(colour=FALSE)
+          plot.title=element_text(size = rel(.7)))
+    
+    p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
   
-  p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
+  p <- p + geom_point(data=data.frame(m$x[grepl("NID1",rownames(m$x)),]),colour="white",size = rel(.4), alpha = .8)
+  
   print(p)
   
   p <- ggplot(data.frame(m$x), aes_string(x = PCs[2], y = PCs[3], colour = colour)) +
     geom_point(size = rel(.5), alpha = .5) +
     labs(colour = legendTitle)+
-    ggtitle(title)+guides(colour=FALSE)+
+    ggtitle(title)+
+    guides(colour=FALSE)+
+    #guides(colour = guide_legend(override.aes = list(size=6)))+
     coord_cartesian(xlim=xlim, ylim=ylim)+
     theme(legend.text=element_text(size = 6),
-          plot.title=element_text(size = rel(.7)))+
-    guides(colour=FALSE)
-  #guides(colour = guide_legend(override.aes = list(size=6)))
-  p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
+          plot.title=element_text(size = rel(.7)))
+
+    p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
+  
+  p <- p + geom_point(data=data.frame(m$x[grepl("NID1",rownames(m$x)),]),colour="white",size = rel(.4), alpha = .8)
+  
   print(p)
   
   p <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[3], colour = colour)) +
@@ -64,11 +71,15 @@ plotPCs <- function(m, PCs, colour, title, legendTitle, xlim=NULL, ylim=NULL){
     coord_cartesian(xlim=xlim, ylim=ylim)+
     labs(colour = legendTitle)+
     ggtitle(title)+
-    theme(legend.text=element_text(size = 6),
-          plot.title=element_text(size = rel(.7)))+
-    guides(colour=FALSE)
-  #guides(colour = guide_legend(override.aes = list(size=6)))
-  p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
+    guides(colour=FALSE)+
+    #guides(colour = guide_legend(override.aes = list(size=6)))+
+  theme(legend.text=element_text(size = 6),
+        plot.title=element_text(size = rel(.7)))
+    
+    p <- p + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.3), alpha = .4)
+  
+  p <- p + geom_point(data=data.frame(m$x[grepl("NID1",rownames(m$x)),]),colour="white",size = rel(.4), alpha = .8)
+  
   print(p)
   
 }
@@ -119,6 +130,9 @@ l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
              l3List[[2]][,commonSignals,with=FALSE],
              l3List[[3]][,commonSignals,with=FALSE])
 
+#Remove NID1 spots
+#l3c <- l3c[!grepl("NID",l3c$ECMp),]
+
 #Remove normalized and spot level signals
 l3c <- l3c[,grep("RUV3|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
 
@@ -145,14 +159,14 @@ l3s <- l3c[,signalsWithMetadata, with=FALSE]
 if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
 l3n <- normRUV3LoessResidualsCS(l3s, k)
 #Run a second cycle of RUV3Loess on the common signals
-l3nx2 <- normRUV3LoessResidualsCSx2(l3n,k)
+l3nx2 <- MEMA:::normRUV3LoessResidualsCSx2(l3n,k)
 
 #Merge back in the original raw and normalized data
 l3nn <- merge(l3nx2,l3n, by=intersect(colnames(l3nx2),colnames(l3n)))
 
 l3nn$NormMethod <- "RUV3LoessResidualsx2"
 
-l3nn <- merge(l3nn,mdDT,by = c("Barcode","Well","Spot","PrintSpot"))
+l3nn <- merge(l3nn,mdDT,by = c("Barcode","Well","Spot", "PrintSpot"))
 
 l4 <- createl4KeepRaw(l3nn)
 
@@ -179,9 +193,9 @@ HFRepThresh <- 3
 # https://meplincs.ohsu.edu/webclient/
 
 if(!analysisVersion=="v1"){
-  l3nn$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
-  l3nn$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
-  l3nn$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
+  l3nn$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
+  l3nn$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
+  l3nn$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
 }
 
 ```
@@ -191,7 +205,8 @@ if(!analysisVersion=="v1"){
 ####date: `r Sys.Date()`
 
 ##Summary
-This analysis is of the DAPI-dervived signals which are common across three MEP-LINCS `r cellLine` staining sets. These signals include DAPI intensity and nuclear morphology. Each of the three staining set has fifty-six ligand wells and eight FBS control wells. The normalization treats the MEPs in the ligand wells as three replicates and the MEPS in the FBS wells as twenty-four replicates. The data is normalized as a matrix of 192 MEMAs in the rows and 694 spots in the columns. The normalization is a round of RUV3 using the spatial residuals as the controls and k=`r k` followed by a round of bivariate loess using spatial residuals after the RUV3 round. 
+This analysis is of the DAPI-dervived signals which are common across three MEP-LINCS `r cellLine` staining sets. These signals include DAPI intensity and nuclear morphology. Each of the three staining set has fifty-six ligand wells and eight FBS control wells. The normalization treats the MEPs in the ligand wells as three replicates and the MEPS in the FBS wells as twenty-four replicates. The data is normalized as a matrix of 192 MEMAs in the rows and 694 spots in the columns. The normalization is a round of RUV3 using the spatial residuals as the controls and k=`r k` followed by a round of bivariate loess using spatial residuals after the RUV3 round and then a second round of RUV3 and loess that use the spaptial residuals in the same manner as the first. The Nidogen 1 MEPS have been colored white in the PCA plots.
+
 
 
 ```{r PCARawData, eval=TRUE}
@@ -227,6 +242,13 @@ RUV3LoessRUV3LoessNames <- grep("RUV3LoessRUV3Loess$",colnames(l4), value=TRUE)
 RUV3LoessRUV3LoessPCAModel <- createPCAModel(dt=l4, fvNames = RUV3LoessRUV3LoessNames)
 
 ```
+<br>
+
+###PCA Plots
+
+The following scatter plots show various principal components of the MEPS after PCA of all signals. The state of all signals within a PCA model are the same, that is they are all raw or at the same level of normalization. Each MEP is colored by it's eight well plate. The FBS MEPs are colored black.  
+
+<br>
 
 ```{r plotRawPCA, fig.height=3, fig.width=4}
 plotScree(m = rawPCAModel, main=list("PCA Scree Plot of Raw Data",cex = .9))
@@ -267,6 +289,7 @@ plotScree(m = RUV3LoessRUV3LoessPCAModel, main=list("PCA Scree Plot of RUV3Loess
 
 plotPCs(m = RUV3LoessRUV3LoessPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4$Barcode", title = "PCA of RUV3LoessRUV3Loess Normalized Data", legendTitle = "Barcode", xlim = c(-10,10), ylim=c(-10,10))
 
+# grep("FBS",rownames(RUV3LoessRUV3LoessPCAModel$x[RUV3LoessRUV3LoessPCAModel$x[,"PC1"]>12,]),value=TRUE)
 
 ```
 
@@ -295,11 +318,13 @@ p <- ggplot(dt, aes(x = factor(Ligand), y = SpotCellCount, colour = Barcode))+ge
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
-dt <- l4[,list(Barcode,ECMp,Spot_PA_SpotCellCountLog2, Spot_PA_SpotCellCountLog2RUV3, Spot_PA_SpotCellCountLog2RUV3Loess )]
-dt <- melt(dt,id.vars=c("Barcode","ECMp"),measure.vars=c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3","Spot_PA_SpotCellCountLog2RUV3Loess"), variable.name = "Processed",value.name = "SpotCellCount", variable.factor = FALSE)
+dt <- l4[,list(Barcode,ECMp,Spot_PA_SpotCellCountLog2, Spot_PA_SpotCellCountLog2RUV3, Spot_PA_SpotCellCountLog2RUV3Loess,Spot_PA_SpotCellCountLog2RUV3LoessRUV3, Spot_PA_SpotCellCountLog2RUV3LoessRUV3Loess  )]
+dt <- melt(dt,id.vars=c("Barcode","ECMp"),measure.vars=c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3","Spot_PA_SpotCellCountLog2RUV3Loess","Spot_PA_SpotCellCountLog2RUV3LoessRUV3","Spot_PA_SpotCellCountLog2RUV3LoessRUV3Loess"), variable.name = "Processed",value.name = "SpotCellCount", variable.factor = FALSE)
 dt$Processed[!grepl("RUV3",dt$Processed)] <- "RawLog2"
-dt$Processed[grepl("RUV3$",dt$Processed)] <- "RUV3"
-dt$Processed[grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess"
+dt$Processed[(!grepl("Loess",dt$Processed))&grepl("RUV3$",dt$Processed)] <- "RUV3"
+dt$Processed[(!grepl("LoessRUV3",dt$Processed))&grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess"
+dt$Processed[grepl("RUV3LoessRUV3$",dt$Processed)] <- "RUV3LoessRUV3"
+dt$Processed[grepl("RUV3LoessRUV3Loess",dt$Processed)] <- "RUV3LoessRUV3Loess"
 
 p <- ggplot(dt, aes(x = factor(ECMp), y = SpotCellCount))+geom_boxplot()+
   ggtitle(paste("MEP Normalized Spot Cell Count by ECM Protein (full dataset)"))+
@@ -328,52 +353,63 @@ plotSSs <- function(dt, signalName){
     geom_point(size=rel(.5), alpha=.5)+
     geom_smooth(method = "lm")+
     coord_cartesian(xlim, ylim)+
-    annotate("text", label=paste0("Spearman rho=",round(cor(dtc$SS1,dtc$SS2,method = "spearman", use="complete.obs"),2)), x = xlim[1]+.75, y = xlim[2], size = rel(3), colour="red")+
+    annotate("text", label=paste0("r=",round(cor(dtc$SS1,dtc$SS2,method = "pearson", use="complete.obs"),2)), x = xlim[1]+.1*xlim[2], y = xlim[2], size = rel(3), colour="red")+
     xlab(paste("SS1",signalName))+ylab(paste("SS2",signalName))+
     ggtitle(paste(signalName, "of SS2 vs SS1"))+
-    theme(axis.title=element_text(size=rel(.6)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+    theme(axis.title=element_text(size=rel(.5)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   suppressWarnings(print(p)) 
   
   p <- ggplot(dtc,aes(x=SS2,y=SS3))+
     geom_point(size=rel(.5), alpha=.5)+
     geom_smooth(method = "lm")+
     coord_cartesian(xlim, ylim)+ 
-    annotate("text",label=paste0("Spearman rho=",round(cor(dtc$SS2,dtc$SS3,method = "spearman", use="complete.obs"),2)), x = xlim[1]+.75, y = xlim[2], size = rel(3), colour="red")+
+    annotate("text",label=paste0("r=",round(cor(dtc$SS2,dtc$SS3,method = "pearson", use="complete.obs"),2)), x = xlim[1]+.1*xlim[2], y = xlim[2], size = rel(3), colour="red")+
     xlab(paste("SS2",signalName))+ylab(paste("SS3",signalName))+
     ggtitle(paste(signalName, "of SS3 vs SS2"))+
-    theme(axis.title=element_text(size=rel(.6)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  suppressWarnings(print(p))  
+    theme(axis.title=element_text(size=rel(.5)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p)) 
   
   p <- ggplot(dtc,aes(x=SS1,y=SS3))+
     geom_point(size=rel(.5), alpha=.5)+
     geom_smooth(method = "lm")+
     coord_cartesian(xlim, ylim)+
-    annotate("text",label=paste0("Spearman rho=",round(cor(dtc$SS1,dtc$SS3,method = "spearman", use="complete.obs"),2)), x = xlim[1]+.75, y = xlim[2], size = rel(3), colour="red")+
+    annotate("text",label=paste0("r=",round(cor(dtc$SS1,dtc$SS3,method = "pearson", use="complete.obs"),2)), x = xlim[1]+.1*xlim[2], y = xlim[2], size = rel(3), colour="red")+
     xlab(paste("SS1",signalName))+ylab(paste("SS3",signalName))+
     ggtitle(paste(signalName, "of SS3 vs SS1"))+
-    theme(axis.title=element_text(size=rel(.6)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  suppressWarnings(print(p))
+    theme(axis.title=element_text(size=rel(.5)),axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p)) 
 }
 
 tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2")
 tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3")
 tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3Loess")
+tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3LoessRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3LoessRUV3Loess")
+
 
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_Dapi")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_DapiRUV3")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_DapiRUV3Loess")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_DapiRUV3LoessRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_IntegratedIntensity_DapiRUV3LoessRUV3Loess")
 
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_Dapi")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3Loess")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3LoessRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_Intensity_MedianIntensity_DapiRUV3LoessRUV3Loess")
 
 
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_Eccentricity")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_EccentricityRUV3")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_EccentricityRUV3Loess")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_EccentricityRUV3LoessRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_CP_AreaShape_EccentricityRUV3LoessRUV3Loess")
 
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogit")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3")
 tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3LoessRUV3")
+tmp <- plotSSs(dt=l4,signalName = "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3LoessRUV3Loess")
 
 ```
