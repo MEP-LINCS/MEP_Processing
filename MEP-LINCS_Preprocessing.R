@@ -153,8 +153,8 @@ processJSON <- function (fileNames) {
     mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
     mdDT$Spot <- as.integer(nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn)
     #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-    mdDT$WellSpot <- mdDT$Spot
-    mdDT$WellSpot[grepl("B", mdDT$Well)] <- (nrArrayRows*nrArrayRows+1)-mdDT$WellSpot[grepl("B", mdDT$Well)]
+    mdDT$PrintSpot <- mdDT$Spot
+    mdDT$PrintSpot[grepl("B", mdDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-mdDT$PrintSpot[grepl("B", mdDT$Well)]
     return(mdDT)
   }))
 }
@@ -539,8 +539,8 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     #Write out cDT without normalized values as level 1 dataset
     level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
-    fwrite(cDT[,level1Names, with=FALSE], file.path = paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"),sep="\t", verbose=TRUE)
-    #write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    #fwrite(cDT[,level1Names, with=FALSE], file.path = paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"),sep="\t", verbose=TRUE)
+    write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0("./",cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     
     normParmameterNames <- grep("Norm|RUV3|Loess$",colnames(cDT), value=TRUE)
     rawParameterNames <- gsub("_?[[:alnum:]]*?Norm$|_?[[:alnum:]]*?RUV3|_?[[:alnum:]]*?Loess$", "", normParmameterNames)
@@ -568,7 +568,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   #Normalize each feature, pass with location and content metadata
   if(verbose) {
     cat("Normalizing\n")
-    #save(slDT, file="slDT.RData")
+    save(slDT, file="slDT.RData")
   }
   nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUV3LoessResiduals"
@@ -577,8 +577,8 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
   nmdDT <- merge(nDT,mdDT)
   #merge spot level normalized and raw data
-  setkey(slDT, Barcode, Well, Spot,ArrayRow,ArrayColumn,ECMp,Ligand)
-  slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT)
+  setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
+  slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
   
   #Label FBS with their plate index to keep separate
   slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], barcodes))
@@ -654,7 +654,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
 
 PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
                     ss=c("SS1", "SS2","SS3","SS2noH3"),
-                    analysisVersion="av1.5",
+                    analysisVersion="av1.6",
                     rawDataVersion=c("v2","v2.1","v2.1", "v1"),
                     limitBarcodes=8,
                     k=7,
@@ -666,7 +666,7 @@ PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
 
 MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion="av1.5",
+                     analysisVersion="av1.6",
                      rawDataVersion=c("v2","v2","v2"),
                      limitBarcodes=8,
                      k=7,
@@ -678,7 +678,7 @@ MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
 
 YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      ss=c("SS1", "SS2","SS3"),
-                     analysisVersion="av1.5",
+                     analysisVersion="av1.6",
                      rawDataVersion=c("v2","v2","v2"),
                      limitBarcodes=8,
                      k=7,
@@ -690,10 +690,10 @@ YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
 
 MCF10Adf <- data.frame(cellLine="MCF10A",
                        ss=c("SS1","SS2","SS3"),
-                       analysisVersion="av1.5",
+                       analysisVersion="av1.6F",
                        rawDataVersion="v2",
-                       limitBarcodes=c(8,8,5),
-                       k=c(7,7,4),
+                       limitBarcodes=c(8,8,8),
+                       k=c(7,7,7),
                        calcAdjacency=FALSE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
@@ -702,4 +702,4 @@ MCF10Adf <- data.frame(cellLine="MCF10A",
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
 
-tmp <- apply(ssDatasets[c(12),], 1, preprocessMEPLINCS, verbose=TRUE)
+tmp <- apply(ssDatasets[c(1:3),], 1, preprocessMEPLINCS, verbose=TRUE)
