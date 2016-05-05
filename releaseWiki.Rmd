@@ -28,24 +28,42 @@ manifestTableSchema <- synGet(manifestTableId)
 
 The file manifest for this release is available at `r manifestTableId`.
 
-### Release Notes
+###! Release Notes
 
+This release includes ten datasets, quality assessment, and analysis reports for the PC3, MCF7 and YAPC [Cell Lines](#!Synapse:syn2862345/wiki/232000). 
+
+The v2 version of a CellProfiler-based${reference?inlineWidget=true&text=Kamentsky%2C L%2E%2C T%2E R%2E Jones%2C A%2E Fraser%2C M%2E%2DA%2E Bray%2C D%2E J%2E Logan%2C K%2E L%2E Madden%2C V%2E Ljosa%2C C%2E Rueden%2C K%2E W%2E Eliceiri%2C and A%2E E%2E Carpenter%2E “Improved Structure%2C Function and Compatibility for CellProfiler%3A Modular High%2DThroughput Image Analysis Software%2E” Bioinformatics 27%2C no%2E 8 %28April 15%2C 2011%29%3A 1179–80%2E doi%3A10%2E1093%2Fbioinformatics%2Fbtr095%2E} pipeline was used to segmented the images. For signals measured in the cytoplasm, the segmentation algorithm uses the plasma membrane stain CellMask to define the cytoplasmic area. Descriptions of the signals in the dataset are in the [CellProfiler manual](http://cellprofiler.org/download.html).
+
+Each signal of the dataset was independently normalized between arrays using the RUV3${reference?inlineWidget=true&text=Speed%2C Terence P%2C J%2E A%2E Gagnon%2DBartsch%2C and Laurent Jacob%2E "Removing Unwanted Variation from High Dimensional Data with Negative Controls%2C" December 2%2C 2013%2E http%3A%2F%2Fstatistics%2Eberkeley%2Eedu%2Fsites%2Fdefault%2Ffiles%2Ftech%2Dreports%2Fruv%2Epdf} method with the array as the unit of study and spatial residuals as the negative controls, then normalized within each array using a bivariate loess model of the spatial residuals.The normalization method is detailed in the QA report for each dataset. 
+
+The PC3 SS2noH3 data is from larger spots printed [(protocol)](#!Synapse:syn2874084) with 350um pins while the other nine datasets are from spots formed with 180um pins.
 
 ```{r filesquery}
 manifestTableSchemaQuery <- synTableQuery(paste("select * from ", manifestTableId))
 
 manifestTable <- manifestTableSchemaQuery@values
 ```
-### Annotated Data and Analysis Reports
+###! Annotated Data and Analysis Reports
 ```{r annotateddata}
 manifestTable %>% 
   filter(Level %in% c(1:4, "QualityAssurance", "Analysis")) %>% 
-  mutate(id=paste(id, versionNumber, sep=".")) %>%
+  mutate(id=paste(id, versionNumber, sep="."),
+         Level=paste(Level)) %>%
   dcast(CellLine + StainingSet ~ Level, value.var="id", fill=NA) %>% 
   knitr::kable(format='markdown')
 ```
 
-#### Raw data files
+####! Metadata files
+```{r metadata, results='asis'}
+manifestTable %>%
+  filter(Level == 'Metadata') %>% 
+  mutate(id=paste(id, versionNumber, sep=".")) %>%
+  select(Barcode, CellLine, StainingSet, id) %>% 
+  arrange(CellLine, StainingSet, Barcode) %>% 
+  knitr::kable(format='markdown')
+```
+
+####! Raw data files
 ```{r rawdata, results='asis'}
 manifestTable %>%
   filter(Level == 0) %>% 

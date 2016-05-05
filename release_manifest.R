@@ -13,6 +13,7 @@ synapseLogin()
 annotatedFolder <- "syn5706203"
 rawFolder <- "syn5706233"
 reportFolder <- "syn5007815"
+metadataFolder <- "syn4997970"
 
 query <- paste('select id,name,versionNumber,Level,Barcode,CellLine,StainingSet,Location,Well',
                'from file where parentId=="%s"')
@@ -20,12 +21,12 @@ query <- paste('select id,name,versionNumber,Level,Barcode,CellLine,StainingSet,
 annotFiles <- synQuery(sprintf(query, annotatedFolder), blockSize = 400)$collectAll()
 rawFiles <- synQuery(sprintf(query, rawFolder), blockSize = 400)$collectAll()
 reportFiles <- synQuery(sprintf(query, reportFolder), blockSize = 400)$collectAll()
+metadataFiles <- synQuery(sprintf(query, metadataFolder), blockSize = 400)$collectAll()
 
-allFiles <- rbind(annotFiles, rawFiles, reportFiles) 
+allFiles <- rbind(annotFiles, rawFiles, reportFiles, metadataFiles)
 colnames(allFiles) <- gsub(".*\\.", "", colnames(allFiles))
 
 allFiles <- allFiles %>%
-  # filter(CellLine %in% c("PC3", "MCF7"), StainingSet %in% c("SS2")) %>% 
   mutate(versionNumber=as.numeric(versionNumber)) %>% 
   arrange(Level, CellLine, StainingSet) %>% 
   select(id,versionNumber,name,Level,Barcode,CellLine,StainingSet,Location,Well)
