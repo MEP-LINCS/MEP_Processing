@@ -40,4 +40,4 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(11,13),], 1, renderAnalysisReports)
+tmp <- apply(ssDatasets[c(11:13),], 1, renderAnalysisReports)
