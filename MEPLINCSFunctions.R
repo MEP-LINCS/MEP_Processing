@@ -78,12 +78,12 @@ plotTotalDAPI <- function(l1, barcodes){
     mDT <- l1[l1$Barcode == barcode]
     mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
     mDT <- mDT[,DNAThresh := min(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==2]), by="Well"]
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 2)+
+    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 500000)+
       geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
       facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
       ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
       ylab("Count")+xlab("Total Intensity DAPI")+
-      theme(strip.text = element_text(size = 5))
+      theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
     suppressWarnings(print(p))
   }
 }
@@ -120,7 +120,7 @@ plotSCCHeatmapsQAHistograms <- function(l3, barcodes, lthresh){
       geom_histogram(binwidth=.04)+
       geom_vline(xintercept=lthresh, colour="blue")+
       geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
-      ggtitle(paste("\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Loess Normalized Spot Cell Count")+xlim(0,3)+
+      ggtitle(paste("\n\n","QA on Loess Model of Spot Cell Count\n for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Loess Normalized Spot Cell Count")+xlim(0,3)+
       theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)),
             axis.title.x = element_text( size=rel(.5)),
             axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)),

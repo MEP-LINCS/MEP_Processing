@@ -1,4 +1,3 @@
-
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
 # 11/18/2015
@@ -492,13 +491,18 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
       EdUppImpute <- pcDT$Nuclei_PA_Gated_EduPositiveProportion
       EdUppImpute[EdUppImpute==0] <- .01
       EdUppImpute[EdUppImpute==1] <- .99
-      pcDT$Nuclei_PA_Gated_EduPositiveLogit <- log2(EdUppImpute/(1-EdUppImpute))
+      pcDT$Nuclei_PA_Gated_EduPositiveProportionLogit <- log2(EdUppImpute/(1-EdUppImpute))
       
-    } else if (grepl("SS3|SS6",ss)){
+    } else if (grepl("SS3",ss)){
       #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
       
+    } else if (grepl("SS6",ss)){
+      #Calculate a lineage ratio of luminal/basal or KRT19/KRT14
+      pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT14]
+      pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
+    
     } else stop("Invalid ss parameter")
     return(pcDT)
     
@@ -788,4 +792,35 @@ HCC1954Lapatanibdf <- data.frame(filePath="~/Documents/ME Watson/Lapatinib MEMAs
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HCC1954Lapatanibdf)
 
+datasetBarcodes <- XLCon
+getMEMARawDataFileNames <- function(path){
+  rdTopLevelFolders <- grep("DAPI|incell",dir(path, full.names = TRUE), value=TRUE, invert=TRUE)
+  rdFilesL <- lapply(rdTopLevelFolders, function(rdTopLevelFolder){
+    data.frame(FilePaths=dir(paste0(rdTopLevelFolder,"/Analysis/v1"),pattern=".txt",full.names = TRUE), stringsAsFactors = FALSE)
+  })
+  rdFiles <- rbindlist(rdFilesL)
+  
+  splits <- strsplit2(rdFiles$FilePaths,"_")
+  rdFiles$Barcode <- gsub(".*/","",splits[,1])
+  rdFiles$Wells <- gsub("W","",splits[,4])
+  rdFiles$Location <- gsub(".txt","",splits[,5])
+  rdFiles$CellLine <- splits[,2]
+  rdFiles$Plate <- as.integer(strsplit2(rdFiles$Barcode,"")[,7])
+  return(rdFiles)
+}
+
+readArrayMetadataDoc <- function(){
+  
+}
+
 tmp <- apply(ssDatasets[c(14),], 1, preprocessMEPLINCS, verbose=TRUE)
+
+tmp <- apply(ssDatasets[c(14),], 1, function(ssDataset){
+  platform <- regmatches(version$platform, regexpr("apple|linux", version$platform))
+  
+  if(platform=="linux") {
+    rdf <- getRawDataFileNames("../", ssDataset)
+  } else rdf <- getWellSubsetFileNames("RawData")
+  rdf <- data.frame()
+  preprocessMEPLINCS, verbose=TRUE)
+}

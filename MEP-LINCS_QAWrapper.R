@@ -34,11 +34,11 @@ MCF10Adf <- data.frame(filePath="",
 
 HCC1954Lapatinibdf <- data.frame(filePath="~/Documents/ME Watson/Lapatinib MEMAs/HCC1954/Lapatinib/SS6/",
                                  cellLine="HCC1954",
-                                ss=c("SS6"),
-                                drug=c("Lapatinib"),
-                                analysisVersion="av1.6",
-                                rawDataVersion="v2",
-                                stringsAsFactors=FALSE)
+                                 ss=c("SS6"),
+                                 drug=c("Lapatinib"),
+                                 analysisVersion="av1.6",
+                                 rawDataVersion="v2",
+                                 stringsAsFactors=FALSE)
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HCC1954Lapatinibdf)
 

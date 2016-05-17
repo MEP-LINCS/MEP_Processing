@@ -28,15 +28,16 @@ library(plotly)
 library(corrplot)
 library(Rtsne)
 
+
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-#l1 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+l1 <- fread(paste0(filePath,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
 #l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level2.txt"), showProgress = FALSE)
-l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
+l3 <- fread(paste0(filePath,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
+l4 <- fread(paste0(filePath,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
 
 barcodes <- sort(unique(l3$Barcode))
 
@@ -58,6 +59,10 @@ HFSCCThresh <- 20
 
 #Replicate count threshold for HF Dataset
 HFRepThresh <- 3
+
+#Make k parameter visible
+k <- unique(l3$k)
+
 
 # https://meplincs.ohsu.edu/webclient/
 
@@ -220,7 +225,7 @@ A useful mining method to use the first table to identify a MEP of interest as t
 if(any(grepl("SS1",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
-} else if (any(grepl("SS2",ss))){
+} else if (any(grepl("SS2|SS6",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EduPositiveLogitRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
 } else if (any(grepl("SS3",ss))){
@@ -250,7 +255,7 @@ datatable(format(dt[,colNamesSpots, with=FALSE], digits=2, scientific = FALSE, n
 
 ##DNA Content Analysis
 
-All cells are stained with DAPI and auto0gated as DNA 2N or 4N. The proportion of 2N and 4N cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV3 and loess normalized. Lower normalized values have smaller 2N populations and therefore larger 4N populations.
+All cells are stained with DAPI and autogated as DNA 2N or 4N. The proportion of 2N and 4N cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV3 and loess normalized. Lower normalized values have smaller 2N populations and therefore larger 4N populations.
 
 The first plot below is for the full dataset and the second plot is for the HF dataset.  
 
@@ -394,7 +399,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2",ss), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS6",ss), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -410,7 +415,7 @@ ggplotly(p)
 
 
 
-```{r NormedProliferationByMEPHF,eval=grepl("SS2",ss), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPHF,eval=grepl("SS2|SS6",ss), fig.width=8, fig.height=6}
 
 dt <- l4HF
 
@@ -429,7 +434,7 @@ ggplotly(p)
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2",ss)}
+```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveLogitRUV3Loess")
@@ -443,7 +448,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS2",ss)}
+```{r EdUHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveLogitRUV3Loess")
@@ -454,6 +459,7 @@ df <- df[,!grepl("ECMp",names(df))]
 try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
 
 
+```
 
 ```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3",ss)}
 ```
