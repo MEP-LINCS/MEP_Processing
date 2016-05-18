@@ -10,7 +10,7 @@
 
 library("parallel")#use multiple cores for faster processing
 
-#source("MEPLINCSFunctions.R")
+source("~/Documents/MEP-LINCS/MEPLINCSFunctions.R")
 
 getFactors <- function (factors) {
   sl <- lapply(factors, function(factor){
@@ -159,7 +159,7 @@ processJSON <- function (fileNames) {
 }
 
 
-preprocessMEPLINCS <- function(ssDataset, dataDT, verbose=FALSE){
+preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   ss<-ssDataset[["ss"]]
   drug<-ssDataset[["drug"]]
   cellLine<-ssDataset[["cellLine"]]
@@ -182,6 +182,7 @@ preprocessMEPLINCS <- function(ssDataset, dataDT, verbose=FALSE){
   library(ruv)
   library("jsonlite")#Reading in json files
   library(stringr)
+  
   
   #Rules-based classifier thresholds for perimeter cells
   neighborsThresh <- 0.4 #Gates sparse cells on a spot
@@ -731,7 +732,7 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           limitBarcodes=c(8,2,2,2),
                           k=c(7,1,1,1),
                           calcAdjacency=TRUE,
-                          writeFiles = TRUE,
+                          writeFiles = FALSE,
                           mergeOmeroIDs = TRUE,
                           useJSONMetadata=FALSE,
                           stringsAsFactors=FALSE)
@@ -741,8 +742,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-datasetBarcodes <- readWorksheetFromFile("~/Documents/MEP-LINCS/DatasetManifest.xlsx", sheet=1)
-fileNames <- rbindlist(apply(datasetBarcodes, 1, getMEMADataFileNames))
-
-tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE, dataDT=fileNames)
+tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE)
 

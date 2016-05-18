@@ -519,7 +519,6 @@ boundedLog2 <- function(x){
   return(xLog2)
 }
 
-
 getMEMADataFileNames <- function(dataset){
   #return a dataframe with columns: Barcode, Path, Type
   
@@ -566,7 +565,7 @@ boundedLogit <- function(x){
   if(is.na(xMin)) xMin<-.01
   x[x==0]<- xMin/2
   xMax <- max(x, na.rm=TRUE)
-  if (xMax==1) xMax <- unique(x[order(x)])[length(x)-1]
+  if (xMax==1) xMax <- unique(x[order(x)])[length(unique(x))-1]
   if(length(xMax)==0) xMax<-.99
   x[x==1]<- (xMax+1)/2
   xLogit <- log2(x/(1-x))
