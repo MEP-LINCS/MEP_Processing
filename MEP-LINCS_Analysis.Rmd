@@ -226,7 +226,7 @@ if(any(grepl("SS1",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
 } else if (any(grepl("SS2|SS6",ss))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EduPositiveLogitRUV3Loess", "Spot_PA_ReplicateCount")
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
 } else if (any(grepl("SS3",ss))){
   if (cellLine=="MCF10A"){
@@ -403,8 +403,8 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogitRUV3Loess-Nuclei_PA_Gated_EduPositiveLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EduPositiveLogitRUV3Loess+Nuclei_PA_Gated_EduPositiveLogitRUV3Loess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess), y = Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess-Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess+Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized EdU+ Proportion Ratio")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -419,8 +419,8 @@ ggplotly(p)
 
 dt <- l4HF
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveLogitRUV3Loess), y = Nuclei_PA_Gated_EduPositiveLogitRUV3Loess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveLogitRUV3Loess-Nuclei_PA_Gated_EduPositiveLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EduPositiveLogitRUV3Loess+Nuclei_PA_Gated_EduPositiveLogitRUV3Loess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess), y = Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess-Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess+Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized EdU+ Proportion Ratio")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -437,7 +437,7 @@ ggplotly(p)
 ```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveLogitRUV3Loess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess")
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -451,7 +451,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```{r EdUHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveLogitRUV3Loess")
+df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess")
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]

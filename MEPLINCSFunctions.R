@@ -83,7 +83,7 @@ plotTotalDAPI <- function(l1, barcodes){
       facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
       ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
       ylab("Count")+xlab("Total Intensity DAPI")+
-      theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+      theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
     suppressWarnings(print(p))
   }
 }
@@ -519,3 +519,56 @@ boundedLog2 <- function(x){
   return(xLog2)
 }
 
+
+getMEMADataFileNames <- function(dataset){
+  #return a dataframe with columns: Barcode, Path, Type
+  
+  rdfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, version, path){
+    if(!length(dir(paste0(path,barcode,"/Analysis/",version),pattern = "csv"))==0){
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis/",version),pattern = "csv", full.names = TRUE), Type="Raw")
+    }
+  }, version=dataset[["Version"]], path=dataset[["Path"]])
+  rdfns <- rbindlist(rdfnL)
+  
+  ifnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
+    if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "imageID"))==0){
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "imageID", full.names = TRUE), Type="imageID")
+    }
+  }, path=dataset[["Path"]])
+  ifns <- rbindlist(ifnL)
+  
+  mdfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
+    if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx"))==0){
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx", full.names = TRUE), Type="metadata")
+    }
+  }, path=dataset[["Path"]])
+  mdns <- rbindlist(mdfnL)
+  
+  gfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
+    if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "gal"))==0){
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "gal", full.names = TRUE), Type="gal")
+    }
+  }, path=dataset[["Path"]])
+  gfns <- rbindlist(gfnL)
+  
+  xfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
+    if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "xml"))==0){
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "xml", full.names = TRUE), Type="xml")
+    }
+  }, path=dataset[["Path"]])
+  xfns <- rbindlist(xfnL)
+  return(rbind(rdfns,ifns, mdns, gfns, xfns))
+}
+
+boundedLogit <- function(x){
+  xMin <- min(x, na.rm=TRUE)
+  if (xMin==0) xMin <- unique(x[order(x)])[2]
+  if(is.na(xMin)) xMin<-.01
+  x[x==0]<- xMin/2
+  xMax <- max(x, na.rm=TRUE)
+  if (xMax==1) xMax <- unique(x[order(x)])[length(x)-1]
+  if(length(xMax)==0) xMax<-.99
+  x[x==1]<- (xMax+1)/2
+  xLogit <- log2(x/(1-x))
+  return(xLogit)
+}
