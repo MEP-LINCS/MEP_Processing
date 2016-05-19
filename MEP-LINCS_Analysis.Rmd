@@ -8,7 +8,7 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 ```{r }
 #Author: Mark Dane, copyright 2015
 
-source("./MEPLINCSFunctions.R")
+source("MEPLINCSFunctions.R")
 
 ```
 
@@ -25,7 +25,6 @@ library("RColorBrewer")
 library(DT)
 library(d3heatmap)
 library(plotly)
-library(corrplot)
 library(Rtsne)
 
 
@@ -34,10 +33,10 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-l1 <- fread(paste0(filePath,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
 #l2 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level2.txt"), showProgress = FALSE)
-l3 <- fread(paste0(filePath,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0(filePath,"/AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
+l3 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
+l4 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
 
 barcodes <- sort(unique(l3$Barcode))
 
@@ -96,13 +95,13 @@ l3F <- l3F[!grepl("FBS", l3F$Ligand)]
 #Remove failed QA wells
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
-l4F <- createl4(l3F,  seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Lineage","Fibrillarin"))
+l4F <- createl4(l3F,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUV3Loess)]
 
 if (grepl("SS2",ss)){
-  #Add Robust Z Score of the Edu Signal
-  l4F <- l4F[,Nuclei_PA_Gated_EduPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EduPositiveProportionRUV3Loess)]
+  #Add Robust Z Score of the EdU Signal
+  l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess)]
 }
 
 if (grepl("SS3",ss)){
@@ -115,7 +114,7 @@ if (grepl("SS3",ss)){
 l3HF <- l3F[l3F$Spot_PA_SpotCellCount > HFSCCThresh]
 l3HF <- l3HF[!l3HF$QA_LowDAPIQuality]
 l3HF <- l3HF[!l3HF$QA_LowRegionCellCount]
-l4HF <- createl4(l3HF,  seNames=c("DNA2N","SpotCellCount","Edu","MitoTracker","KRT","Lineage","Fibrillarin"))
+l4HF <- createl4(l3HF,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
 l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
 ```
@@ -226,7 +225,7 @@ if(any(grepl("SS1",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
 } else if (any(grepl("SS2|SS6",ss))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess", "Spot_PA_ReplicateCount")
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
 } else if (any(grepl("SS3",ss))){
   if (cellLine=="MCF10A"){
@@ -403,8 +402,8 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess), y = Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess-Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess+Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess-Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess+Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized EdU+ Proportion Ratio")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -419,8 +418,8 @@ ggplotly(p)
 
 dt <- l4HF
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess), y = Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess-Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess+Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess-Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess+Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized EdU+ Proportion Ratio")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -437,7 +436,7 @@ ggplotly(p)
 ```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess")
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -451,7 +450,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```{r EdUHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3Loess")
+df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess")
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
