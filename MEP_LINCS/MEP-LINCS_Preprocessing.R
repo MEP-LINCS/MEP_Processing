@@ -159,7 +159,7 @@ processJSON <- function (fileNames) {
 }
 
 
-preprocessMEPLINCS <- function(ssDataset, dataDT, verbose=FALSE){
+preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   ss<-ssDataset[["ss"]]
   drug<-ssDataset[["drug"]]
   cellLine<-ssDataset[["cellLine"]]
@@ -741,5 +741,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE, dataDT=fileNames)
+tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE)
 
