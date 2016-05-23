@@ -159,7 +159,8 @@ processJSON <- function (fileNames) {
 }
 
 
-preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
+preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
+  startTime<- Sys.time()
   ss<-ssDataset[["ss"]]
   drug<-ssDataset[["drug"]]
   cellLine<-ssDataset[["cellLine"]]
@@ -270,7 +271,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
-    wellDataList <- mclapply(wells,function(well){
+    wellDataList <- lapply(wells,function(well){
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
@@ -340,7 +341,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
                      B = merge(DT,spotMetadata180,all=TRUE))
       }
       return(DT)
-    },mc.cores=max(4,detectCores()/2))
+    })
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #rm(wellDataList)
@@ -482,165 +483,69 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
       
     } else stop("Invalid ss parameter")
-    return(pcDT)
     
-    }, mc.cores=max(4,detectCores()/2))#Revert to apply when debugging
+    #Move adjacency processing to within parallel code
+    if(calcAdjacency){
+      #cDTList <- mclapply(barcodes, function(barcode, dt){
+      if(verbose){
+        cat("Calculating adjacency data\n")
+        #save(cDT, file="cDT.RData")
+        #load(file = "~/Documents/MEP-LINCS/cDT.RData")
+      } 
+      
+      densityRadius <- sqrt(median(pcDT$Nuclei_CP_AreaShape_Area, na.rm = TRUE)/pi)
+      
+      #Count the number of neighboring cells
+      pcDT <- pcDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
+      
+      #Rules for classifying perimeter cells
+      pcDT <- pcDT[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
+      
+      #Add a local wedge ID to each cell based on conversations with Michel Nederlof
+      pcDT <- pcDT[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
+      
+      #Define the perimeter cell if it exists in each wedge
+      #Classify cells as outer if they have a radial position greater than a thresh
+      pcDT <- pcDT[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
+      
+      #Require a perimeter cell not be in a sparse region
+      denseOuterDT <- pcDT[!pcDT$Spot_PA_Sparse  & pcDT$Spot_PA_OuterCell]
+      denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
+      setkey(pcDT,Barcode,Well,Spot,ObjectNumber)
+      setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
+      pcDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][pcDT]
+      pcDT$Spot_PA_Perimeter[is.na(pcDT$Spot_PA_Perimeter)] <- FALSE
+      
+    }
+    ##Remove nuclear objects that dont'have cell and cytoplasm data
+    if(any(grepl("SS1|SS3|SS6",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
+    return(pcDT)
+  }, mc.cores=max(4, detectCores()*.75))#Revert to apply when debugging
   #})
   cDT <- rbindlist(expDTList, fill = TRUE)
+  
   rm(expDTList)
   gc()
   
-  #Change to mclapply
-  if(calcAdjacency){
-    #cDTList <- mclapply(barcodes, function(barcode, dt){
-    if(verbose){
-      cat("Calculating adjacency data\n")
-      #save(cDT, file="cDT.RData")
-      #load(file = "~/Documents/MEP-LINCS/cDT.RData")
-    } 
-    
-    densityRadius <- sqrt(median(cDT$Nuclei_CP_AreaShape_Area, na.rm = TRUE)/pi)
-    
-    #Count the number of neighboring cells
-    cDT <- cDT[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
-    
-    #Rules for classifying perimeter cells
-    cDT <- cDT[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
-    
-    #Add a local wedge ID to each cell based on conversations with Michel Nederlof
-    cDT <- cDT[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
-    
-    #Define the perimeter cell if it exists in each wedge
-    #Classify cells as outer if they have a radial position greater than a thresh
-    cDT <- cDT[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
-    
-    #Require a perimeter cell not be in a sparse region
-    denseOuterDT <- cDT[!cDT$Spot_PA_Sparse  & cDT$Spot_PA_OuterCell]
-    denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
-    setkey(cDT,Barcode,Well,Spot,ObjectNumber)
-    setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
-    cDT <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][cDT]
-    cDT$Spot_PA_Perimeter[is.na(cDT$Spot_PA_Perimeter)] <- FALSE
-    
-  }
   
-  # After merging the metadata with the cell-level data, several types of derived parameters are added. These include:
-  #   
-  #   The origin of coordinate system is placed at the median X and Y of each spot and the local cartesian and polar coordinates are added to the dataset.
-  # 
-  # The number of nuclei within three nuclear radii of `r densityRadius ` around each nuclei is counted and stored as a neighbor count parameter. The neighbor count value is thresholded to classify each cell as Sparse or not.The distance from the local origin is used to classify each cell as an OuterCell or not. The Sparse, OutCell and Wedge classifications are used to classify each cell as a Perimeter cell or not. 
-  # 
-  # For staining set 2, each cell is classified as EdU+ or EdU-. The threshold for EdU+ is based on kmeans threshold of the mean EdU intensity from the control well of each plate.
-  # 
-  # The intensity values are normalized at each spot so that spot-level variations can be analyzed.
-  # 
-  # The cell level raw data and metadata is saved as Level 1 data. naiveReplicateRUV does not create a level 2 dataset.
-  
-  
-  #The cell-level data is median summarized to the spot level and then normalized. The spot level data and metadata are saved as Level 3 data.
-  ##Remove nuclear objects that dont'have cell and cytoplasm data
-  if(verbose) cat("Creating level 3 data\n")
-  
-  if(any(grepl("SS1|SS3|SS6",ss))) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
-  #### Level3 ####
-  slDT <- createl3(cDT, lthresh,seNames = seNames)
+ 
+  # The cell level raw data and metadata is saved as Level 1 data. 
   
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
     level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
-    #fwrite(cDT[,level1Names, with=FALSE], file.path = paste0(filePath,cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"),sep="\t", verbose=TRUE)
-    startTime<-Sys.time()
-    write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-    cat("Write time:", Sys.time()-startTime)
+    writeTime<-Sys.time()
+    fwrite(cDT[,level1Names, with=FALSE], paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    cat("Write time:", Sys.time()-writeTime,"\n")
     
-    # startTime<-Sys.time()
-    # fwrite(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-    # cat("Write time:", Sys.time()-startTime)
-    
-    normParmameterNames <- grep("Norm|RUV3|Loess$",colnames(cDT), value=TRUE)
-    rawParameterNames <- gsub("_?[[:alnum:]]*?Norm$|_?[[:alnum:]]*?RUV3|_?[[:alnum:]]*?Loess$", "", normParmameterNames)
-    metadataNormNames <- colnames(cDT)[!colnames(cDT) %in% rawParameterNames]
-    #Paste back in the QA and selected raw data
-    
-    level2Names <- c(metadataNormNames,
-                     grep("Nuclei_CP_Intensity_MedianIntensity_Dapi$|Cytoplasm_CP_Intensity_MedianIntensity_Actin$|Cytoplasm_CP_Intensity_MedianIntensity_CellMask$|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker$|Nuclei_CP_Intensity_MedianIntensity_H3$|Nuclei_CP_Intensity_MedianIntensity_Fibrillarin$|Nuclei_CP_Intensity_MedianIntensity_EdU$|Cytoplasm_CP_Intensity_MedianIntensity_KRT5$|Cytoplasm_CP_Intensity_MedianIntensity_KRT19$|Spot_PA_SpotCellCount$", colnames(cDT), value = TRUE))
-    
-    #Write out cDT with normalized values as level 2 dataset
-    #if(verbose) cat("Writing level 2 file to disk\n")
-    # write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0(filePath,cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    #### SpotLevel ####
+    #The cell-level data is median summarized to the spot level and saved to disk
+    if(verbose) cat("Creating spot level data\n")
+    slDT <- createl3(cDT, lthresh, seNames = seNames)
     rm(cDT)
-  }  
-  
-  #save(slDT,file="slDT.RData")
-  slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
-  
-  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|LigandAnnotID|ECMpPK|LigandPK|MEP|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore"
-  
-  rawSignalNames <- paste(grep("_SE",gsub("Log2|Logit","",grep("Log",colnames(slDT),value=TRUE)), value=TRUE,invert=TRUE),collapse="$|^")
-  #Save the un-normalized parameters to merge in later
-  mdDT <- slDT[,grep(paste0(rawSignalNames,metadataNames,"|Barcode|Well|^Spot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$", collapse="|"),colnames(slDT),value=TRUE), with = FALSE]
-  #Identify parameters to be normalized
-  signalsWithMetadata <- grep(metadataNames,grep("Log|Barcode|Well|^Spot$|^PrintSpot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$",colnames(slDT), value=TRUE),value=TRUE,invert=TRUE)
-  #Normalize each feature, pass with location and content metadata
-  if(verbose) {
-    cat("Normalizing\n")
-    #save(slDT, file="slDT.RData")
-  }
-  nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
-  nDT$NormMethod <- "RUV3LoessResiduals"
-  #Merge the normalized data with its metadata
-  setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  nmdDT <- merge(nDT,mdDT)
-  #merge spot level normalized and raw data
-  setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
-  slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
-  
-  #Label FBS with their plate index to keep separate
-  slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], barcodes))
-  #Add QAScore and Spot_PA_LoessSCC to cell level data
-  #setkey(cDT,Barcode, Well, Spot)
-  
-  #cDT <- cDT[slDT[,list(Barcode, Well, Spot, QAScore, Spot_PA_LoessSCC)]]
-  #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
-  
-  #Level4Data
-  if(verbose) {
-    cat("Creating level 4 data\n")
-    #save(slDT,file="slDT.RData")
-  }
-  mepDT <- createl4(slDT,seNames = seNames)
-  
-  #Write QA flags into appropriate data levels
-  #Low cell count spots
-  #cDT$QA_LowSpotCellCount <- cDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
-  slDT$QA_LowSpotCellCount <- slDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
-  
-  #Low quality DAPI
-  #cDT$QA_LowDAPIQuality <- FALSE
-  slDT$QA_LowDAPIQuality <- FALSE
-  
-  #Flag spots below automatically loess QA threshold
-  #cDT$QA_LowRegionCellCount <- cDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
-  slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
-  
-  #Flag wells below automatically calculated QA threshold
-  slDT$QA_LowWellQA <- FALSE
-  slDT$QA_LowWellQA[slDT$QAScore < lowWellQAThreshold] <- TRUE
-  #cDT$QA_LowWellQA <- FALSE
-  #cDT$QA_LowWellQA[cDT$QAScore < lowWellQAThreshold] <- TRUE
-  
-  #Level 4
-  mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
-  #WriteData
-  if(writeFiles){
-    if(verbose) cat("Writing level 3 file to disk\n")
-    
-    write.table(format(slDT, digits = 4, trim=TRUE), paste0( "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
-    
-    if(verbose) cat("Writing level 4 file to disk\n")
-    write.table(format(mepDT, digits = 4, trim=TRUE), paste0( "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    gc()
+    fwrite(slDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -666,10 +571,9 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
       lowReplicateCount =lowReplicateCount,
       lthresh = lthresh
     ),
-    paste0("/AnnotatedData/", cellLine,"_",ss,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
-    
-    
+    paste0("./AnnotatedData/", cellLine,"_",ss,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
+  cat("Elapsed time:", Sys.time()-startTime)
 }
 
 PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
@@ -742,5 +646,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE)
+tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

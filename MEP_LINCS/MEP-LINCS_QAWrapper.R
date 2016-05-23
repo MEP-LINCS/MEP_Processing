@@ -38,14 +38,14 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 
-renderQAReports <- function(x){
+renderQASpotMEPReports <- function(x){
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
   drug<-x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("./MEP_LINCS/MEP-LINCS_QA.Rmd",
-         output_file = paste0("../QAReports/MEP-LINCS_QA_",
+  render("./MEP_LINCS/MEP-LINCS_QASpotMEPLevel.Rmd",
+         output_file = paste0("../QAReports/MEP-LINCS_QA_SpotMEP_",
                               x[["cellLine"]],"_",
                               x[["ss"]],"_",
                               x[["drug"]],"_",
@@ -54,4 +54,22 @@ renderQAReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(16),], 1, renderQAReports)
+renderQACellReports <- function(x){
+  cellLine <- x[["cellLine"]]
+  ss <- x[["ss"]]
+  drug<-x[["drug"]]
+  rawDataVersion <- x[["rawDataVersion"]]
+  analysisVersion <- x[["analysisVersion"]]
+  render("./MEP_LINCS/MEP-LINCS_QACellLevel.Rmd",
+         output_file = paste0("../QAReports/MEP-LINCS_QA_Cell_",
+                              x[["cellLine"]],"_",
+                              x[["ss"]],"_",
+                              x[["drug"]],"_",
+                              x[["rawDataVersion"]],"_",
+                              x[["analysisVersion"]],".html"),
+         output_format = "html_document")
+}
+
+tmp <- apply(ssDatasets[c(16),], 1, renderQACellReports)
+tmp <- apply(ssDatasets[c(16),], 1, renderQASpotMEPReports)
+

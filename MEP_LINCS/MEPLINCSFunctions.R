@@ -521,40 +521,46 @@ boundedLog2 <- function(x){
 
 getMEMADataFileNames <- function(dataset){
   #return a dataframe with columns: Barcode, Path, Type
+  platform <- regmatches(version$platform, regexpr("apple|linux", version$platform))
+  if(platform=="linux") {
+    path<- dataset[["Path"]]
+  } else if(platform=="apple"){
+    path<- dataset[["LocalPath"]]
+  } else stop("Code is running on unknown platform",platform)
   
   rdfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, version, path){
     if(!length(dir(paste0(path,barcode,"/Analysis/",version),pattern = "csv"))==0){
       rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis/",version),pattern = "csv", full.names = TRUE), Type="Raw")
     }
-  }, version=dataset[["Version"]], path=dataset[["Path"]])
+  }, version=dataset[["Version"]], path=path)
   rdfns <- rbindlist(rdfnL)
   
   ifnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "imageID"))==0){
       rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "imageID", full.names = TRUE), Type="imageID")
     }
-  }, path=dataset[["Path"]])
+  }, path)
   ifns <- rbindlist(ifnL)
   
   mdfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx"))==0){
       rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx", full.names = TRUE), Type="metadata")
     }
-  }, path=dataset[["Path"]])
+  }, path=path)
   mdns <- rbindlist(mdfnL)
   
   gfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "gal"))==0){
       rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "gal", full.names = TRUE), Type="gal")
     }
-  }, path=dataset[["Path"]])
+  }, path=path)
   gfns <- rbindlist(gfnL)
   
   xfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "xml"))==0){
       rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "xml", full.names = TRUE), Type="xml")
     }
-  }, path=dataset[["Path"]])
+  }, path=path)
   xfns <- rbindlist(xfnL)
   return(rbind(rdfns,ifns, mdns, gfns, xfns))
 }
