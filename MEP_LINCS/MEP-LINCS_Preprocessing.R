@@ -234,7 +234,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   if(useJSONMetadata){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"]
-    metadata <- rbindlist(mclapply(fns, processJSON, mc.cores = detectCores()))
+    metadata <- rbindlist(lapply(fns, processJSON))
   } else {
     # Read and clean spotmetadata
     
@@ -266,11 +266,11 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   
   barcodes <- unique(fileNames$Barcode)[1:limitBarcodes]
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
-  expDTList <- mclapply(barcodes, function(barcode){
+  expDTList <- lapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
     wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
-    wellDataList <- mclapply(wells,function(well){
+    wellDataList <- lapply(wells,function(well){
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
@@ -340,10 +340,11 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
                      B = merge(DT,spotMetadata180,all=TRUE))
       }
       return(DT)
-    },mc.cores=max(4,detectCores()/2))
+    })
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
-    #rm(wellDataList)
+    rm(wellDataList)
+    gc()
     
     if(!useJSONMetadata){
       #Read the well metadata from a multi-sheet Excel file
@@ -484,15 +485,15 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     } else stop("Invalid ss parameter")
     return(pcDT)
     
-    }, mc.cores=max(4,detectCores()/2))#Revert to apply when debugging
+    })#Revert to apply when debugging
   #})
   cDT <- rbindlist(expDTList, fill = TRUE)
   rm(expDTList)
   gc()
   
-  #Change to mclapply
+  #Change to lapply
   if(calcAdjacency){
-    #cDTList <- mclapply(barcodes, function(barcode, dt){
+    #cDTList <- lapply(barcodes, function(barcode, dt){
     if(verbose){
       cat("Calculating adjacency data\n")
       #save(cDT, file="cDT.RData")
@@ -551,7 +552,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     if(verbose) cat("Writing level 1 file to disk\n")
     #fwrite(cDT[,level1Names, with=FALSE], file.path = paste0(filePath,cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"),sep="\t", verbose=TRUE)
     startTime<-Sys.time()
-    write.table(format(cDT[,level1Names, with=FALSE], digits=4, trim=TRUE), paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    fwrite(cDT[,level1Names, with=FALSE], paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-startTime)
     
     # startTime<-Sys.time()
@@ -570,6 +571,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
     #if(verbose) cat("Writing level 2 file to disk\n")
     # write.table(format(cDT[,level2Names, with = FALSE], digits=4, trim=TRUE), paste0(filePath,cellLine,"/", ss, "/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level2.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
     rm(cDT)
+    gc()
   }  
   
   #save(slDT,file="slDT.RData")
@@ -637,10 +639,10 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
     
-    write.table(format(slDT, digits = 4, trim=TRUE), paste0( "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    fwrite(slDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
     
     if(verbose) cat("Writing level 4 file to disk\n")
-    write.table(format(mepDT, digits = 4, trim=TRUE), paste0( "/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+    fwrite(mepDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t", quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -666,7 +668,7 @@ preprocessMEPLINCS <- function(ssDataset, verbose=FALSE){
       lowReplicateCount =lowReplicateCount,
       lthresh = lthresh
     ),
-    paste0("/AnnotatedData/", cellLine,"_",ss,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
+    paste0("./AnnotatedData/", cellLine,"_",ss,"_",drug,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
     
     
   }
@@ -729,8 +731,8 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           drug=c("DMSO","Lapatinib"),
                           analysisVersion="av1.6",
                           rawDataVersion="v2",
-                          limitBarcodes=c(8,2,2,2),
-                          k=c(7,1,1,1),
+                          limitBarcodes=c(8,8,8,8),
+                          k=c(7,7,7,7),
                           calcAdjacency=TRUE,
                           writeFiles = TRUE,
                           mergeOmeroIDs = TRUE,
@@ -742,5 +744,9 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
+<<<<<<< HEAD:MEP_LINCS/MEP-LINCS_Preprocessing.R
 tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE)
 
+=======
+tmp <- apply(ssDatasets[c(14:17),], 1, preprocessMEPLINCS, verbose=TRUE)
+>>>>>>> a762236b5293715b4c290cd7f2199a708f099ce5:MEP-LINCS_Preprocessing.R

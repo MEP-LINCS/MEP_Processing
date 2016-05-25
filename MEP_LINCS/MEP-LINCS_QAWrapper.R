@@ -44,8 +44,13 @@ renderQASpotMEPReports <- function(x){
   drug<-x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
+<<<<<<< HEAD:MEP_LINCS/MEP-LINCS_QAWrapper.R
   render("./MEP_LINCS/MEP-LINCS_QASpotMEPLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_SpotMEP_",
+=======
+  render("MEP_LINCS/MEP-LINCS_QA.Rmd",
+         output_file = paste0("../QAReports/MEP-LINCS_QA_",
+>>>>>>> a762236b5293715b4c290cd7f2199a708f099ce5:MEP-LINCS_QAWrapper.R
                               x[["cellLine"]],"_",
                               x[["ss"]],"_",
                               x[["drug"]],"_",
@@ -54,6 +59,7 @@ renderQASpotMEPReports <- function(x){
          output_format = "html_document")
 }
 
+<<<<<<< HEAD:MEP_LINCS/MEP-LINCS_QAWrapper.R
 renderQACellReports <- function(x){
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
@@ -73,3 +79,6 @@ renderQACellReports <- function(x){
 tmp <- apply(ssDatasets[c(16),], 1, renderQACellReports)
 tmp <- apply(ssDatasets[c(16),], 1, renderQASpotMEPReports)
 
+=======
+tmp <- apply(ssDatasets[c(14:17),], 1, renderQAReports)
+>>>>>>> a762236b5293715b4c290cd7f2199a708f099ce5:MEP-LINCS_QAWrapper.R
