@@ -44,7 +44,7 @@ renderQAReports <- function(x){
   drug<-x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("./MEP_LINCS/MEP-LINCS_QA.Rmd",
+  render("MEP_LINCS/MEP-LINCS_QA.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_",
                               x[["cellLine"]],"_",
                               x[["ss"]],"_",
@@ -54,4 +54,4 @@ renderQAReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(16),], 1, renderQAReports)
+tmp <- apply(ssDatasets[c(14:17),], 1, renderQAReports)
