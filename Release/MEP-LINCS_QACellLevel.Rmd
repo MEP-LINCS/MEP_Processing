@@ -1,0 +1,349 @@
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE)
+
+```
+
+
+```{r }
+#Author: Mark Dane, copyright 2015
+
+source("MEPLINCSFunctions.R")
+
+```
+
+
+
+```{r setup,cache=FALSE}
+library("ggplot2")
+library("data.table")
+library("MEMA")
+library("grid")
+library("knitr")
+library("gplots")
+library("RColorBrewer")
+library(DT)
+library(d3heatmap)
+library(plotly)
+
+#Setup colors for Barcode and text in all heatmaps
+selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
+plateCol = selDark2(8)
+hmcols<-colorRampPalette(c("blue","white","red"))(16)
+
+l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+
+barcodes <- sort(unique(l1$Barcode))
+
+#Set a threshold for filtering wells on their QA score
+wellQAThresh <- 0.7
+
+#TODO: Read this from Level 3 data
+lthresh <- 0.6
+
+#Number of PCS components to use
+nrPCs <- 9
+
+#Z score threshold for extreme spot cell count
+SCCZscoreThresh <- 3
+
+#Spot cell count threshold for HF dataset
+HFSCCThresh <- 20
+
+#Replicate count threshold for HF Dataset
+HFRepThresh <- 3
+
+```
+
+
+#MEP-LINCS `r cellLine` `r ss` Phase 1 QA Report
+####date: `r Sys.Date()`
+
+##Summary
+The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). 
+
+##Introduction
+The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l1$Endpoint488)`, `r unique(l1$Endpoint555)` and `r unique(l1$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r rawDataVersion` performed the segmentation and the analysis pipeline is `r analysisVersion`.
+
+Intensity, position and a limited set of morphology data are gathered for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
+
+Level 1 - Raw data  
+Level 2 - Normalized data  
+Level 3 - Normalized data aggregated to the spot level  
+Level 4 - Normalized data aggregated to the replicate (MEP) level  
+
+The data merging and analysis is done in R using open source software. 
+
+<br>
+
+
+<br>
+
+###DAPI QA
+DAPI intensity plots include univariate plots of the total DAPI signal. The blue vertical line shows the auto-gate for classifying 2N and 4N populations.
+
+<br>
+
+```{r rawDAPIPlots, fig.width=3.7,fig.height=4, eval=exists("l1")}
+
+l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="_")
+plotTotalDAPI(l1, barcodes)
+
+```
+
+<br>
+
+
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",ss)}
+```
+
+<br>
+
+```{r rawMitoHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS1",ss)}
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  mDT <- mDT[log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) > quantile(log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), probs=.01, na.rm=TRUE) & log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) < quantile(log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker),probs=.98, na.rm=TRUE)]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker))+
+    geom_histogram(binwidth = .001)+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median MitoTracker Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity MitoTracker")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS6",ss)}
+```
+
+<br>
+
+```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS6",ss)}
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  mDT <- mDT[log2(mDT$Nuclei_CP_Intensity_MedianIntensity_EdU) > quantile(log2(mDT$Nuclei_CP_Intensity_MedianIntensity_EdU), probs=.01, na.rm=TRUE) & log2(mDT$Nuclei_CP_Intensity_MedianIntensity_EdU) < quantile(log2(mDT$Nuclei_CP_Intensity_MedianIntensity_EdU),probs=.98, na.rm=TRUE)]
+  p <- ggplot(mDT, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_EdU)))+
+    geom_histogram(binwidth = .02)+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median EdU Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity EdU")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+
+```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3",ss)}
+```
+
+<br>
+
+```{r rawKrt5Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3",ss)}
+
+xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2))+
+    geom_histogram(binwidth = 10)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median KRT5 Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT5")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd', eval=grepl("SS6",ss)}
+```
+
+<br>
+
+
+```{r rawKrt14Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS6",ss)}
+xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT14Log2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT14Log2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT14Log2))+
+    geom_histogram(binwidth = .01)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median KRT14 Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT14")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+<br>
+
+```{r rawKrt19Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3|SS6",ss)}
+xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2))+
+    geom_histogram(binwidth = .01)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median KRT19 Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT19")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+<br>
+
+```{r rawlineageRatioHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3",ss)}
+xMin <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.99, na.rm=TRUE)
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2))+
+    geom_histogram(binwidth = 10)+
+    coord_cartesian(xlim=c(xMin,xMax))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("\n\n","Median Lineage Ratio Signal,",barcode))+
+    ylab("Count")+xlab("Median Intensity Lineage Ratio")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+##Spot Cell Count QA
+
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS6",ss)}
+```
+
+
+<br>
+
+#Supplemental Material
+
+
+##MEMA Layout
+All MEMAs in the experiment are in separate wells and have the same design of 48 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
+
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=7, eval=exists("l1")}
+
+#Select the A row wells and delete the blanks
+setkey(l1,Well)
+DT <- unique(l1[grep("A",unique(l1$Well),value=TRUE),list(ArrayRow,ArrayColumn,ECMp)])
+setkey(DT,ECMp)
+DT <- DT[!grepl("blank|PBS",DT$ECMp),]
+
+p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
+  geom_point(shape=21, size = 2.2)+
+  guides(fill=guide_legend(ncol = 2))+
+  theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
+  scale_y_reverse()+
+  xlab("")+ylab("")+
+  ggtitle(" \n\nLINCS MEMA A Row Layout")
+print(p)
+
+DT <- DT[!grepl("Fiducial|fiducial",DT$ECMp),]
+
+```
+
+
+
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=exists("l1")}
+#Todo Fix this text whihc relies on l1
+##Replicate Count
+#The average replicate count is `r  sprintf("%3.1f",mean(table(DT$ECMp)))` and #the range of the replicate counts is `r range(table(DT$ECMp))`.  
+
+p <- ggplot(DT, aes(x=ECMp))+
+  geom_bar(width=.8)+geom_hline(yintercept = mean(table(DT$ECMp)), colour="blue")+
+  ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
+  xlab("Printed ECM Protein")+ylab("Number of spots")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
+
+print(p)
+
+```
+
+```{r, , fig.height=10, eval=exists("l1")&grepl("SS2|SS6",ss)}
+
+p <- ggplot(l1, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_EdU)))+
+  geom_histogram(binwidth=.05)+
+  xlab("Mean Intensity EdU (logged)")+
+  #coord_cartesian(xlim = c(-10,-5), ylim=c(0,2000))+
+  ggtitle("EdU Distribution (logged)")+
+  facet_grid(Barcode~Well,labeller = labeller(Barcode = label_value, Well = label_value))+
+  theme(strip.text = element_text(size = rel(.5)), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+print(p)
+
+```
+
+```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS6",ss)}
+
+for (barcode in barcodes){
+  mDT <- l1[l1$Barcode == barcode] 
+  mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
+  
+  p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour = Nuclei_PA_Gated_EdUPositive))+geom_point(size = rel(.2), alpha = .6)+
+    geom_rug(col=rgb(.5,0,0,alpha=.01))+
+    #coord_cartesian(xlim=c(0,160),ylim=c(-9,-4))+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","EdU vs. Total DAPI Signal,",barcode))+ylab("EdU (log2)")+xlab("Total Intensity DAPI")+
+    guides(colour=FALSE)+
+    theme(strip.text = element_text(size = 5),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+  
+  suppressWarnings(print(p))
+}
+
+
+```
+
+
+
+```{r spectral, eval=exists("l1")&FALSE}
+
+DT <- l1[grepl("COL1_EGF",l1$MEP)]
+DT <- DT[DT$Spot==391,]
+
+p <- ggplot(DT, aes(x=log2(MeanIntensityDAPI+1), y=log2(MeanIntensityAlexa488Cyto+1)))+
+  geom_point(size=.1)+
+  geom_rug(col=rgb(.5,0,0,alpha=.01))+
+  ggtitle("KRT5 vs. Mean DAPI in NegCtrl")+
+  facet_wrap(~Well,scales = "free_y",labeller = labeller(Plate = label_both, CellLine = label_value))
+print(p)
+
+p <- ggplot(DT, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT19+1), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5+1)))+
+  geom_point(size=.1)+
+  geom_rug(col=rgb(.5,0,0,alpha=.01))+
+  ggtitle("KRT19 vs. KRT5")+
+  coord_cartesian(xlim=c(0,.25),ylim=c(0,0.05))+
+  facet_wrap(~Well,scales = "free_y",labeller = labeller(Plate = label_both, CellLine = label_value))
+print(p)
+
+p <- ggplot(DT, aes(x=log2(MeanIntensityAlexa555Cyto+1), y=log2(MeanIntensityAlexa647+1)))+
+  geom_point(size=.1)+
+  geom_rug(col=rgb(.5,0,0,alpha=.01))+
+  ggtitle("EdU vs. KRT19 in NegCtrl")+
+  facet_wrap(~Well,scales = "free_y",labeller = labeller(Plate = label_both, CellLine = label_value))
+print(p)
+
+```
+
