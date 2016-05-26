@@ -10,7 +10,7 @@
 
 library("parallel")#use multiple cores for faster processing
 
-source("./MEP_LINCS/MEP_LINCS/MEPLINCSFunctions.R")
+source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 
 preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
@@ -78,7 +78,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   fileNames <- rbindlist(apply(datasetBarcodes[datasetBarcodes$CellLine==cellLine&datasetBarcodes$StainingSet==ss&datasetBarcodes$Drug==drug&datasetBarcodes$Version==rawDataVersion,], 1, getMEMADataFileNames))
   
   
-  slDT <- fread(paste0( "MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
+  slDT <- fread(paste0( "AnnotatedData/", cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
