@@ -37,7 +37,6 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 
-
 renderAnalysisReports <- function(x){
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]

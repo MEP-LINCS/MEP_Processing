@@ -9,9 +9,7 @@
 # Part of this preprocessing of the dataset will be deprecated when the merging of the data and metadata happens within the CellProfiler part of the pipeline. For now, the metadata about the ECM proteins is read from the GAL file and the metadata about the wells (cell line, stains and ligands) is read from Excel spreadsheets.
 
 library("parallel")#use multiple cores for faster processing
-
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-
 
 preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   startTime <- Sys.time()
@@ -226,4 +224,3 @@ library(XLConnect)
 library(data.table)
 
 tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
-
