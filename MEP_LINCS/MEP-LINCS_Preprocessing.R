@@ -744,9 +744,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-<<<<<<< HEAD:MEP_LINCS/MEP-LINCS_Preprocessing.R
-tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCS, verbose=TRUE)
 
-=======
 tmp <- apply(ssDatasets[c(14:17),], 1, preprocessMEPLINCS, verbose=TRUE)
->>>>>>> a762236b5293715b4c290cd7f2199a708f099ce5:MEP-LINCS_Preprocessing.R
