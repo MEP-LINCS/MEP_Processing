@@ -1,3 +1,0 @@
-##Normalization
-
-Each signal of the dataset was independently normalized between arrays using the RUV3 method with the array as the unit of study and spatial residuals as the negative controls.
