@@ -105,7 +105,6 @@ if (grepl("SS2",ss)){
 if (grepl("SS3",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioRUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)]
-  
 }
 
 #Filter for high spot occupancy and good quality DAPI####

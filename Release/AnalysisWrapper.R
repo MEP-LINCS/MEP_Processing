@@ -43,7 +43,7 @@ renderAnalysisReports <- function(x){
   drug <- x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("./MEP_LINCS/MEP-LINCS_Analysis.Rmd",
+  render("MEP_LINCS/Release/MEP-LINCS_Analysis.Rmd",
          output_file = paste0("../AnalysisReports/MEP-LINCS_Analysis_",
                               x[["cellLine"]],"_",
                               x[["drug"]],"_",
