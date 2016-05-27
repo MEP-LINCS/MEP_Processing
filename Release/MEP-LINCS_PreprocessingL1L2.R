@@ -269,7 +269,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
-    wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
+    splits <- strsplit2(split = "_",plateDataFiles)
+    wells <- unique(splits[,dim(splits)[2]-1])
     wellDataList <- lapply(wells,function(well){
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
@@ -645,5 +646,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(12),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(11:13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
