@@ -9,7 +9,7 @@
 # Part of this preprocessing of the dataset will be deprecated when the merging of the data and metadata happens within the CellProfiler part of the pipeline. For now, the metadata about the ECM proteins is read from the GAL file and the metadata about the wells (cell line, stains and ligands) is read from Excel spreadsheets.
 
 library("parallel")#use multiple cores for faster processing
-source("MEP_LINCS/MEP_LINCS/MEPLINCSFunctions.R")
+source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 getFactors <- function (factors) {
   sl <- lapply(factors, function(factor){
@@ -269,7 +269,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
-    wells <- unique(strsplit2(split = "_",plateDataFiles)[,2])
+    splits <- strsplit2(split = "_",plateDataFiles)
+    wells <- unique(splits[,dim(splits)[2]-1])
     wellDataList <- lapply(wells,function(well){
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
@@ -645,5 +646,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(11:13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
