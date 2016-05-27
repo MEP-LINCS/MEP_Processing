@@ -431,6 +431,73 @@ addRLEs <- function(dt){
 }
 
 
+preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
+  cellLine <- unique(x[["cellLine"]])
+  analysisVersion <- unique(x[["analysisVersion"]])
+  
+  library("data.table")
+  library("MEMA")
+  library(RUVnormalize)
+  library(ruv)
+  
+  #Read in the 3 level 3 datasets
+  l3List <- apply(x, 1, function(fn){
+    dt <- fread(paste0("MEP_LINCS/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["drug"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
+    dt$StainingSet <- fn[["ss"]]
+    return(dt)
+  })
+  
+  #identify the common signals
+  commonSignals <- intersect(intersect(colnames(l3List[[1]]),colnames(l3List[[2]])),colnames(l3List[[3]]))
+  
+  #Combine the common signals into a datatable
+  l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
+               l3List[[2]][,commonSignals,with=FALSE],
+               l3List[[3]][,commonSignals,with=FALSE])
+  
+  #Remove normalized and spot level signals
+  l3c <- l3c[,grep("RUV3|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
+  
+  #Remove blank spot data
+  l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
+  
+  #Remove NID1 spots
+  #Retain NID1 until the method is proven
+  #l3c <- l3c[!grepl("NID",l3c$ECMp),]
+  #Make the FBS in each plate unique
+  l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
+  l3c$MEP<- paste(l3c$ECMp,l3c$Ligand,sep="_")
+  
+  #manual remove extreme value datapoints
+  #l3c <- l3c[!grepl("VCAM1_FBS427",l3c$MEP),]
+  
+  #RUV3 Normalize each signal
+  metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
+  #Save the metadata to merge in later
+  mdDT <- l3c[,metadataNames, with = FALSE]
+  #Identify parameters to be normalized
+  signalsWithMetadata <- grep("^Barcode$|^ECMp$|^Ligand$|^Well$|^Spot$|^PrintSpot$|^ArrayRow$|^ArrayColumn$|Log2|Logit",colnames(l3c),value=TRUE)
+  l3s <- l3c[,signalsWithMetadata, with=FALSE]
+  
+  #Normalize each feature, pass with location and content metadata
+  if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
+  l3n <- normRUV3LoessResidualsCS(l3s, k)
+  
+  l3n$NormMethod <- "RUV3LoessResidualsx2"
+  
+  l3n <- merge(l3n,mdDT,by = c("Barcode","Well","Spot", "PrintSpot"))
+  
+  # https://meplincs.ohsu.edu/webclient/
+  
+  if(!analysisVersion=="v1"){
+    l3n$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
+    l3n$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
+    l3n$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3n$ImageID,'/"',' target="_blank">Omero</a>')
+  }
+  
+  return(l3n)
+}
+
 preprocessCommonSignals <- function(x, k=128L, verbose=FALSE){
   cellLine <- unique(x[["cellLine"]])
   analysisVersion <- unique(x[["analysisVersion"]])
