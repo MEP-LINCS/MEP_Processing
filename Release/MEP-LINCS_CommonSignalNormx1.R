@@ -35,7 +35,7 @@ x <- ssDatasets[c(10:12),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 
-l3n <- preprocessCommonSignals1x(x=x, k=128L, verbose=TRUE)
+l3n <- preprocessCommonSignals1x(x=x, k=135L, verbose=TRUE)
 
 l4n <- level4CommonSignals(l3n)
 
