@@ -219,13 +219,13 @@ numericMean <- function(x){
 #that can be used to index to the images
 l3SS123 <- rbindlist(list(l3SS1[!grepl("FBS",l3SS1$MEP),],l3SS2[!grepl("FBS",l3SS2$MEP),],l3SS3[!grepl("FBS",l3SS3$MEP),]),use.names=TRUE,fill=TRUE)
 
-#Merge the spot level data
-l3nMean <- meanSummarizel3(l3n[!grepl("FBS",l3n$MEP),])
-l3SS1SS2 <- merge(l3SS1[!grepl("FBS",l3SS1$MEP),grep("MEP|PrintSpot|MitoTracker",colnames(l3SS1), value=TRUE), with=FALSE],
-                  l3SS2[!grepl("FBS",l3SS2$MEP),grep("MEP|PrintSpot|EdU|Fibrillarin",colnames(l3SS2), value=TRUE), with=FALSE],by = c("MEP","PrintSpot"))
-l3Merge <- merge(l3SS1SS2,
-                 l3SS3[!grepl("FBS",l3SS3$MEP),grep("MEP|PrintSpot|KRT",colnames(l3SS3), value=TRUE), with=FALSE],by = c("MEP","PrintSpot"))
-l3Merge <- merge(l3Merge,l3nMean,by = c("MEP","PrintSpot"))
+# #Merge the spot level data
+# l3nMean <- meanSummarizel3(l3n[!grepl("FBS",l3n$MEP),])
+# l3SS1SS2 <- merge(l3SS1[!grepl("FBS",l3SS1$MEP),grep("MEP|PrintSpot|MitoTracker",colnames(l3SS1), value=TRUE), with=FALSE],
+#                   l3SS2[!grepl("FBS",l3SS2$MEP),grep("MEP|PrintSpot|EdU|Fibrillarin",colnames(l3SS2), value=TRUE), with=FALSE],by = c("MEP","PrintSpot"))
+# l3Merge <- merge(l3SS1SS2,
+#                  l3SS3[!grepl("FBS",l3SS3$MEP),grep("MEP|PrintSpot|KRT",colnames(l3SS3), value=TRUE), with=FALSE],by = c("MEP","PrintSpot"))
+# l3Merge <- merge(l3Merge,l3nMean,by = c("MEP","PrintSpot"))
 
 l4nMean <- meanSummarizel4(l4)
 l4SS1SS2 <- merge(l4SS1[!grepl("FBS",l4SS1$MEP),grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
@@ -242,9 +242,14 @@ l4Merge <- merge(l4Merge, l4nMean[!grepl("FBS",l4nMean$MEP),], by="MEP")
 ####date: `r Sys.Date()`
 
 ##Introduction
+This analysis is of the MEP-LINCS MCF10A MEMA experiments performed in eight well plates. The data is collected at the cell level from images captured on an automated Nikon microscope. The cell level data is summarized for each MEMA spot, RUV3 and loess normalized, then replicate spots are summarized to the MEP level.  
+
+The MEP-level dataset is stored and manipulated as a matrix where each of the `r dim(l4Merge)[1]` rows are a unique MEP and each of the `r dim(l4Merge)[2]` columns are signals or metadata. Some signals are based on the DAPI staining that is present in all wells. This creates three replicate ligand wells which each have ~fifteen replicates of spotted ECM proteins. The rest of the signals are based on unique stains and the ~fifteen replicate spots are all in the same well. It's important to note that the MEP level data comes from three different experiments run over three week period.
+
+The Spot-level dataset is a matrix where each of the `r dim(l3SS123)[1]` rows is a spot and each of the `r dim(l3SS123)[2]` columns are signals or metadata. The spot level data is a sparse matrix where the each row has values from one staining set and NA values for the other two.
 
 ###Cell Cycle 
-The cell cycle boxplots are based on gating the cells on their total DAPI signals into 2N or 4N classes. This data is RUV3 and loess normalized and then summarized across all  staining sets where each ligand has three replicates and there are 24 control wells.  
+The cell cycle boxplots are based on gating the cells on their total DAPI signals into 2N or 4N classes. This data is RUV3 and loess normalized and then summarized across all staining sets where each ligand has three replicates and there are 24 control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
 
 ```{r CellCycleBoxplots, fig.width=8, fig.height=5}
 
@@ -273,7 +278,7 @@ print(p)
 
 
 ###Proliferation Boxplots
-The boxplots show the RUV3 and loess normalized MEP level data for the gated EdU+ proliferation signal stratifed by the ligands. 
+The boxplots show the RUV3 and loess normalized MEP level data for the gated EdU+ proliferation signal stratifed by the ligands. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
 
 
 ```{r EdUBoxplotsFull, fig.width=8, fig.height=5}
@@ -303,6 +308,9 @@ print(p)
 ```
 
 
+###Spot Cell Count
+The spot cell count boxplots are based on the DAPI signals in all wells. This data is RUV3 and loess normalized and then summarized across all staining sets where each ligand has three replicates and there are 24 control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
+
 ```{r SCCBoxplots, fig.width=8, fig.height=5}
 
 dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
@@ -328,6 +336,10 @@ p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
 print(p)
 ```
 
+###MEP Level Data
+The interactive datatable of the MEP level data displays MEPs filtered on keywords and sorted by values.
+
+
 ```{r datatable}
 
 colNames <- c("MEP","Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess", "Spot_PA_SpotCellCountLog2RUV3Loess", "Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess")
@@ -335,7 +347,12 @@ colNamesDisplay <- c("MEP","Normed EdU+ Prop.","Normed SCC (log2)","Normed DNA 4
 
 dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
+```
 
+###Spot Level Data
+The interactive datatable of the spot level data displays spots filtered on keywords and sorted by values. There is one image of each spot which is displayed by clicking on the Omero link (OHSU Gray Lab Omero account needed).  
+
+```{r}
 #Setup for spots to display images
 dt <- l3SS123[!grepl("NID1|ELN",l3SS123$ECMp),]
 colNamesSpots <- c(colNames[1],"Barcode","Well","ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
@@ -374,7 +391,7 @@ print(p)
 ```
 
 ###Lineage and Proliferation
-The scatter plot below shows the normalized KRT5 median intensity vs the normalized EdU+ measured proliferation. The spot size represents the relative number of cells. The colors represent the ligands.
+The scatter plot below shows the normalized KRT5 median intensity vs the normalized EdU+ measured proliferation. The spot size represents the relative number of cells. The colors represent the ligands. The ECM protein is dispalyed in the tool tip box that appears while hovering over a spot.  
 
 ```{r, fig.width=10, fig.height=7}
 
