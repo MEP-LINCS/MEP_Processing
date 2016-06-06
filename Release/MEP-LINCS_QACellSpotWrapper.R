@@ -44,7 +44,7 @@ renderQASpotMEPReports <- function(x){
   drug<-x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("MEP_LINCS/MEP-LINCS_QASpotMEPLevel.Rmd",
+  render("MEP_LINCS/Release/MEP-LINCS_QASpotMEPLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_SpotMEP_",
                               x[["cellLine"]],"_",
                               x[["ss"]],"_",
@@ -60,7 +60,7 @@ renderQACellReports <- function(x){
   drug<-x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("MEP_LINCS/MEP-LINCS_QACellLevel.Rmd",
+  render("MEP_LINCS/Release/MEP-LINCS_QACellLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_Cell_",
                               x[["cellLine"]],"_",
                               x[["ss"]],"_",
@@ -70,6 +70,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(16),], 1, renderQACellReports)
-tmp <- apply(ssDatasets[c(16),], 1, renderQASpotMEPReports)
+tmp <- apply(ssDatasets[c(12),], 1, renderQACellReports)
+tmp <- apply(ssDatasets[c(12),], 1, renderQASpotMEPReports)
 

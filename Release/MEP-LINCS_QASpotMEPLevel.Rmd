@@ -32,8 +32,8 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-l3 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
+l3 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
+l4 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
 
 
 
@@ -284,7 +284,7 @@ if (grepl("SS2",ss)){
 
 if (grepl("SS3",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
-  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioRUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)]
+  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)]
   
 }
 
@@ -378,7 +378,7 @@ suppressWarnings(print(p))
 setkey(l4,"Ligand")
 dt <- l4[!"FBS"]
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+geom_histogram(binwidth = .0002)+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess))+geom_histogram(binwidth = .01)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, MitoTracker Intensity Distribution"))+
   ylab("Count")+xlab("Normalized, MitoTracker Intensity")+
@@ -388,7 +388,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByLigand, eval=grepl("SS1",ss)}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -398,7 +398,7 @@ suppressWarnings(print(p))
 
 ```{r MitoTrackerByECMp, eval=grepl("SS1",ss)}
 
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -609,7 +609,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Well)) +
 print(p)
 
 if(grepl("SS1",ss)){
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTrackerRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTrackerLog2RUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Total MitoTracker")+
     theme(legend.text=element_text(size = 6))+
@@ -617,7 +617,7 @@ if(grepl("SS1",ss)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_PerimeterRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_PerimeterLog2RUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Perimeter ProportionStatus")+
     theme(legend.text=element_text(size = 6))+
@@ -634,7 +634,7 @@ if(grepl("SS1",ss)){
 } else if (ss=="SS3"){
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -642,21 +642,21 @@ if(grepl("SS1",ss)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatioRUV3Loess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+

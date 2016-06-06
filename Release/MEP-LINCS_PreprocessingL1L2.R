@@ -235,6 +235,10 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"]
     metadata <- rbindlist(mclapply(fns, processJSON, mc.cores = detectCores()))
+    for (barcode in unique(metadata$Barcode)){
+      metadata$Barcode[grepl(barcode, metadata$Barcode)] <- grep(barcode,unique(fileNames$Barcode),value=TRUE)
+    }
+    
   } else {
     # Read and clean spotmetadata
     
@@ -536,7 +540,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    fwrite(cDT[,level1Names, with=FALSE], paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    fwrite(cDT[,level1Names, with=FALSE], paste0( "MEP_LINCS/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -545,7 +549,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     slDT <- createl3(cDT, lthresh, seNames = seNames)
     rm(cDT)
     gc()
-    fwrite(slDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+    fwrite(slDT, paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -571,9 +575,9 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       lowReplicateCount =lowReplicateCount,
       lthresh = lthresh
     ),
-    paste0("./AnnotatedData/", cellLine,"_",ss,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
+    paste0("MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_",drug,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
-  cat("Elapsed time:", Sys.time()-startTime)
+  cat("Elapsed time:", Sys.time()-startTime, "\n")
 }
 
 PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
@@ -646,5 +650,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(11:13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

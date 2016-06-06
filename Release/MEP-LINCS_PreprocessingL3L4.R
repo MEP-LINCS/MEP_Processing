@@ -76,7 +76,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   fileNames <- rbindlist(apply(datasetBarcodes[datasetBarcodes$CellLine==cellLine&datasetBarcodes$StainingSet==ss&datasetBarcodes$Drug==drug&datasetBarcodes$Version==rawDataVersion,], 1, getMEMADataFileNames))
   
   
-  slDT <- fread(paste0( "AnnotatedData/", cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
+  slDT <- fread(paste0( "MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
@@ -144,10 +144,10 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
     
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
     
     if(verbose) cat("Writing level 4 file to disk\n")
-    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t", quote=FALSE)
     
   }
   cat("Elapsed time:", Sys.time()-startTime)
@@ -223,4 +223,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(16),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
+tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)

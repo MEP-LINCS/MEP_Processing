@@ -32,7 +32,7 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
 
 barcodes <- sort(unique(l1$Barcode))
 
@@ -106,7 +106,7 @@ for (barcode in barcodes){
   mDT <- l1[l1$Barcode == barcode]
   mDT <- mDT[log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) > quantile(log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), probs=.01, na.rm=TRUE) & log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) < quantile(log2(mDT$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker),probs=.98, na.rm=TRUE)]
   p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker))+
-    geom_histogram(binwidth = .001)+
+    geom_histogram(binwidth = 10)+
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("\n\n","Median MitoTracker Signal,",barcode))+
     ylab("Count")+xlab("Median Intensity MitoTracker")+
