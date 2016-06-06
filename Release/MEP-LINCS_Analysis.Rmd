@@ -40,7 +40,7 @@ barcodes <- sort(unique(l3$Barcode))
 
 
 #Set a threshold for filtering wells on their QA score
-wellQAThresh <- 0.8
+wellQAThresh <- 0.7
 
 #TODO: Read this from Level 3 data
 lthresh <- 0.6
@@ -99,13 +99,13 @@ l4F <- l4F[,Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ := RZScore(Spot_PA_SpotCe
 
 if (grepl("SS2",ss)){
   #Add Robust Z Score of the EdU Signal
-  l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess)]
+  l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)]
 }
 
 if (grepl("SS3",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
+
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)]
-  
 }
 
 #Filter for high spot occupancy and good quality DAPI####
@@ -441,6 +441,21 @@ df <- df[,!grepl("ECMp",names(df))]
 
 
 try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+
+```
+
+
+```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
+
+p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
+  geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
+  guides(colour=FALSE)+
+  xlab("Ligand")+ylab("Normalized EdU+\n(Logit)")+
+  ggtitle("MEP EdU+ Response by Ligand")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+  
+print(p)
+ggplotly(p, tooltip="colour")
 
 ```
 
