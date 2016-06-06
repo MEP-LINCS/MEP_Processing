@@ -172,11 +172,15 @@ l3SS2 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellL
 
 l3SS3 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS3_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
 
+l3SS3 <- l3SS3[!grepl("CSF2",l3SS3$Ligand),]
+
 l4SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
 
 l4SS2 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS2_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
 
 l4SS3 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS3_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
+l4SS3 <- l4SS3[!grepl("CSF2",l4SS3$Ligand),]
+
 
 medianSummarizel4 <- function(dt){
   #median summarize the MEP replicates in a datatable
@@ -229,10 +233,20 @@ l3SS123 <- rbindlist(list(l3SS1[!grepl("FBS",l3SS1$MEP),],l3SS2[!grepl("FBS",l3S
 
 l4nMean <- meanSummarizel4(l4)
 l4SS1SS2 <- merge(l4SS1[!grepl("FBS",l4SS1$MEP),grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
-                  l4SS2[!grepl("FBS",l4SS2$MEP),grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
+               l4SS2[!grepl("FBS",l4SS2$MEP),grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
+
+#l4SS1SS2FBS <- merge(l4SS1[,grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
+#               l4SS2[,grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
+
 l4Merge <- merge(l4SS1SS2,
                  l4SS3[!grepl("FBS",l4SS3$MEP),grep("MEP|KRT",colnames(l4SS3), value=TRUE), with=FALSE],by = "MEP")
+
+#l4MergeFBS <- merge(l4SS1SS2FBS,
+#                 l4SS3[,grep("MEP|KRT",colnames(l4SS3), value=TRUE), with=FALSE],by = "MEP")
+
 l4Merge <- merge(l4Merge, l4nMean[!grepl("FBS",l4nMean$MEP),], by="MEP")
+
+#l4MergeFBS <- merge(l4MergeFBS, l4nMean[,], by="MEP")
 
 ```
 
@@ -346,7 +360,7 @@ colNames <- c("MEP","Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess", "Spot
 colNamesDisplay <- c("MEP","Normed EdU+ Prop.","Normed SCC (log2)","Normed DNA 4N Prop.", "Normed KRT5", "Normed MitoTracker")
 
 dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)
-datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
+datatable(format(dt[, colNames, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 ```
 
 ###Spot Level Data
@@ -358,7 +372,7 @@ dt <- l3SS123[!grepl("NID1|ELN",l3SS123$ECMp),]
 colNamesSpots <- c(colNames[1],"Barcode","Well","ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
 colNamesDisplaySpots <- c(colNamesDisplay[1],"Barcode","Well","ArrayRow","ArrayColumn","Image Link",colNamesDisplay[2:length(colNamesDisplay)])
 dt <- setorder(dt, -Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)
-datatable(format(dt[,colNamesSpots, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
+datatable(format(dt[,colNamesSpots, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
 
 ```
 
@@ -429,6 +443,8 @@ RUV3LoessPCAModel <- createPCAModel(dt=l4nMean, fvNames = RUV3LoessNames)
 #Get a PCA model from the RUV3Loess of all signals
 RUV3LoessMEPNames <- grep("LoessRUV3",grep("Log2RUV3Loess$|LogitRUV3Loess$",colnames(l4Merge), value=TRUE), value=TRUE, invert=TRUE)
 RUV3LoessMEPPCAModel <- createPCAModel(dt=l4Merge, fvNames = RUV3LoessMEPNames)
+
+#RUV3LoessMEPFBSPCAModel <- createPCAModel(dt=l4MergeFBS, fvNames = RUV3LoessMEPNames)
 
 
 ```
@@ -506,6 +522,89 @@ colNamesDisplay <- c("MEP","PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9"
 
 dt <- setorder(dt,PC1)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
+
+```
+
+##Nomination Details
+
+###MEPs chosen by EdU Response
+Based on review of the EdU and PCA responses, ligands BMP6, BMP7 and BMP4 are included in the nomination set. Four MEPS are chosen from each ligand. The two MEPS with the highest and the two with the lowest normalized EdU response. These are named in the boxplots below.  
+
+```{r, fig.width=4.5, fig.height=3.5}
+dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- dt[grepl("BMP4|BMP6|BMP7",dt$Ligand),]
+
+dt <- dt[,ECMpRank := rank(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), by=Ligand]
+
+p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
+  geom_boxplot(outlier.colour = NA, alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  #coord_cartesian(ylim = c(-6,-1.5))+
+  xlab("Ligand")+ylab("Normalized EdU+\n(Logit)")+
+  ggtitle("Nominated MEP EdU+ Response by Ligand")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
+
+p <- p+geom_text(data=dt[grepl("^1$|^45$",ECMpRank)|grepl("COL1",ECMp),],aes(label=ECMp),nudge_x = 0.2)
+
+p <- p+geom_text(data=dt[grepl("^2$|^46$",ECMpRank),],aes(label=ECMp),nudge_x = -0.2)
+print(p)
+
+```
+
+###MEPs chosen on KRT5 Response
+Four MEPs are chosen based on high and low KRT5 response.  
+
+```{r, fig.width=4, fig.height=3.5}
+dt <- l4Merge[!grepl("ELN",l4Merge$ECMp),]
+dt <- dt[grepl("HGF|FGF2",dt$Ligand),]
+
+dt <- dt[,ECMpRank := rank(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess), by=Ligand]
+
+p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, FUN=median), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess))+
+  geom_boxplot(outlier.colour = NA, alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  #coord_cartesian(ylim = c(-6,-1.5))+
+  xlab("Ligand")+ylab("Normalized KRT5\n(Log2)")+
+  ggtitle("Nominated MEP KRT5 Response by Ligand")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
+
+p <- p+geom_text(data=dt[(grepl("^1$|^2$",ECMpRank)|grepl("COL1|NID1",ECMp))&grepl("HGF",Ligand),],aes(label=ECMp),nudge_x = 0.15)
+
+p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)|grepl("COL1",ECMp))&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = 0.2)
+
+p <- p+geom_text(data=dt[grepl("^46$",ECMpRank)&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = -0.2)
+print(p)
+
+```
+
+
+###MEPs chosen on DAPI DNA Response
+Two new MEPs are chosen based on high DNA4N values. These can be compared to the BMP7 MEPs which have low DNA4N values.  
+
+```{r, fig.width=3, fig.height=3.5}
+dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- dt[grepl("Wnt5a",dt$Ligand),]
+
+dt <- dt[,ECMpRank := rank(Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess), by=Ligand]
+
+p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess))+
+  geom_boxplot(outlier.colour = NA, alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  #coord_cartesian(ylim = c(-6,-1.5))+
+  xlab("Ligand")+ylab("Normalized DNA4N\n(Log2)")+
+  ggtitle("Nominated MEP DNA4N Response by Ligand")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
+
+p <- p+geom_text(data=dt[(grepl("^45$|^46$",ECMpRank)|grepl("COL1",ECMp)),],aes(label=ECMp),nudge_x = 0.15)
+
+
+print(p)
 
 ```
 
