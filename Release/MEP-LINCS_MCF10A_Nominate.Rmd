@@ -526,6 +526,7 @@ datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmal
 ```
 
 ##Nomination Details
+Twenty-five MEPs are nominated for validation based on EdU(12), KRT5(4) and cell cycle responses as measured by total DAPI(2). To evaluate normalization results, each selected ligand's COL1 MEPs(6) are chosen along with one NID1 MEP(1).
 
 ###MEPs chosen by EdU Response
 Based on review of the EdU and PCA responses, ligands BMP6, BMP7 and BMP4 are included in the nomination set. Four MEPS are chosen from each ligand. The two MEPS with the highest and the two with the lowest normalized EdU response. These are named in the boxplots below.  
@@ -581,13 +582,12 @@ print(p)
 
 ```
 
-
 ###MEPs chosen on DAPI DNA Response
 Two new MEPs are chosen based on high DNA4N values. These can be compared to the BMP7 MEPs which have low DNA4N values.  
 
-```{r, fig.width=3, fig.height=3.5}
+```{r, fig.width=4, fig.height=3.5}
 dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
-dt <- dt[grepl("Wnt5a",dt$Ligand),]
+dt <- dt[grepl("Wnt5a|BMP7",dt$Ligand),]
 
 dt <- dt[,ECMpRank := rank(Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess), by=Ligand]
 
@@ -601,8 +601,68 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Lo
 
 p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
 
-p <- p+geom_text(data=dt[(grepl("^45$|^46$",ECMpRank)|grepl("COL1",ECMp)),],aes(label=ECMp),nudge_x = 0.15)
+p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)&grepl("Wnt5a",Ligand)),],aes(label=ECMp),nudge_x = -0.15)
 
+p <- p+geom_text(data=dt[((grepl("^46$",ECMpRank)|grepl("COL1",ECMp))&grepl("Wnt5a",Ligand)),],aes(label=ECMp),nudge_x = 0.15)
+
+print(p)
+
+```
+
+###Spot Level Responses
+
+
+```{r, fig.width=10, fig.height=10}
+dt <- l3SS2[grepl("BMP|HGF|^EGF$|Wnt5a",Ligand),]
+
+p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
+  geom_boxplot(outlier.colour = NA, alpha=.5)+
+  guides(colour=FALSE)+
+  coord_cartesian(ylim = c(-8,0))+
+  xlab("ECMp")+ylab("Normalized EdU+\n(Logit)")+
+  ggtitle("Spot level EdU+ Response by ECMp")+
+  facet_wrap(~Ligand, ncol=1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_jitter(aes(colour=factor(Spot)),size=rel(.5),alpha=.5)
+
+print(p)
+
+```
+
+
+```{r, fig.width=10, fig.height=10}
+dt <- l3SS3[grepl("BMP|HGF|^EGF$|Wnt5a",Ligand),]
+
+p <- ggplot(dt, aes(x=reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, FUN=median), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess))+
+  geom_boxplot(outlier.colour = NA, alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  #coord_cartesian(ylim = c(-8,0))+
+  xlab("ECMp")+ylab("Normalized KRT5\n(Log2)")+
+  ggtitle("Spot level KRT5 Response by ECMp")+
+  facet_wrap(~Ligand, ncol=1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_jitter( aes(colour=factor(Spot)),size=rel(.5),alpha=.5)
+
+print(p)
+
+```
+
+
+```{r, fig.width=10, fig.height=10}
+dt <- l3SS123[grepl("BMP|HGF|^EGF$|Wnt5a",Ligand),]
+
+p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess))+
+  geom_boxplot(outlier.colour = NA, alpha=.5)+
+  guides(colour=FALSE)+
+  #coord_cartesian(ylim = c(-8,0))+
+  xlab("ECMp")+ylab("Normalized DNA4N\n(Logit)")+
+  ggtitle("Spot level DNA4N Response by ECMp")+
+  facet_wrap(~Ligand, ncol=1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_jitter( aes(colour=factor(Spot)),size=rel(.5),alpha=.5)
 
 print(p)
 
