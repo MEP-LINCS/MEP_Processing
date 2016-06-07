@@ -547,11 +547,13 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogit
 
 p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
 
-p <- p+geom_text(data=dt[grepl("^1$|^45$",ECMpRank)|grepl("COL1",ECMp),],aes(label=ECMp),nudge_x = 0.2)
+p <- p+geom_text(data=dt[grepl("^1$|^45$",ECMpRank)|grepl("COL1",ECMp),],aes(label=ECMp),nudge_x = 0.2, colour="blue")
 
-p <- p+geom_text(data=dt[grepl("^2$|^46$",ECMpRank),],aes(label=ECMp),nudge_x = -0.2)
+p <- p+geom_text(data=dt[grepl("^2$|^46$",ECMpRank),],aes(label=ECMp),nudge_x = -0.2, colour="blue")
 print(p)
 
+#Save BMP7 MEPs for comparison in DNA4N
+BMP7MEPs <- dt[(grepl("^1$|^45$|^2$|^46$",ECMpRank)|grepl("COL1",ECMp))&grepl("BMP7",dt$Ligand),][["MEP"]]
 ```
 
 ###MEPs chosen on KRT5 Response
@@ -573,11 +575,11 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT
 
 p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
 
-p <- p+geom_text(data=dt[(grepl("^1$|^2$",ECMpRank)|grepl("COL1|NID1",ECMp))&grepl("HGF",Ligand),],aes(label=ECMp),nudge_x = 0.15)
+p <- p+geom_text(data=dt[(grepl("^1$|^2$",ECMpRank)|grepl("COL1|NID1",ECMp))&grepl("HGF",Ligand),],aes(label=ECMp),nudge_x = 0.15, colour="blue")
 
-p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)|grepl("COL1",ECMp))&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = 0.2)
+p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)|grepl("COL1",ECMp))&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = 0.2, colour="blue")
 
-p <- p+geom_text(data=dt[grepl("^46$",ECMpRank)&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = -0.2)
+p <- p+geom_text(data=dt[grepl("^46$",ECMpRank)&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = -0.2, colour="blue")
 print(p)
 
 ```
@@ -601,9 +603,14 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Lo
 
 p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
 
-p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)&grepl("Wnt5a",Ligand)),],aes(label=ECMp),nudge_x = -0.15)
+p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)&grepl("Wnt5a",Ligand)),],aes(label=ECMp),nudge_x = -0.2, colour="blue")
 
-p <- p+geom_text(data=dt[((grepl("^46$",ECMpRank)|grepl("COL1",ECMp))&grepl("Wnt5a",Ligand)),],aes(label=ECMp),nudge_x = 0.15)
+p <- p+geom_text(data=dt[((grepl("^46$",ECMpRank)|grepl("COL1",ECMp))&grepl("Wnt5a",Ligand)),],aes(label=ECMp),nudge_x = 0.2, colour="blue")
+
+#use BMP7MEPs selected from EdU response
+p <- p+geom_text(data=dt[(MEP %in% BMP7MEPs[c(1)]),],aes(label=ECMp),nudge_x = 0, colour="blue")
+p <- p+geom_text(data=dt[(MEP %in% BMP7MEPs[c(3,5)]),],aes(label=ECMp),nudge_x = -0.4, colour="blue")
+p <- p+geom_text(data=dt[(MEP %in% BMP7MEPs[c(2,4)]),],aes(label=ECMp),nudge_x = 0.4, colour="blue")
 
 print(p)
 
@@ -612,7 +619,7 @@ print(p)
 ###Spot Level Responses
 
 
-```{r, fig.width=10, fig.height=10}
+```{r, fig.width=10, fig.height=18}
 dt <- l3SS2[grepl("BMP|HGF|^EGF$|Wnt5a",Ligand),]
 
 p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
@@ -631,7 +638,7 @@ print(p)
 ```
 
 
-```{r, fig.width=10, fig.height=10}
+```{r, fig.width=10, fig.height=18}
 dt <- l3SS3[grepl("BMP|HGF|^EGF$|Wnt5a",Ligand),]
 
 p <- ggplot(dt, aes(x=reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, FUN=median), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess))+
@@ -650,7 +657,7 @@ print(p)
 ```
 
 
-```{r, fig.width=10, fig.height=10}
+```{r, fig.width=10, fig.height=18}
 dt <- l3SS123[grepl("BMP|HGF|^EGF$|Wnt5a",Ligand),]
 
 p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess))+
@@ -667,6 +674,70 @@ p <- p + geom_jitter( aes(colour=factor(Spot)),size=rel(.5),alpha=.5)
 print(p)
 
 ```
+
+
+###Multi-signal plots
+
+```{r }
+dt <- l4Merge
+dt <- dt[grepl("BMP4|BMP6|BMP7|Wnt5a|HGF|FGF2",dt$Ligand),]
+
+dt <- dt[,ECMpRank := rank(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), by=Ligand]
+
+p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, size=Spot_PA_SpotCellCountLog2RUV3Loess))+
+  geom_point(alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  #coord_cartesian(xlim = c(6.5,8))+
+  xlab("Ligand")+ylab("Normalized EdU+\n(Logit)")+
+  ggtitle("Nominated MEP EdU+ Response by Ligand")+
+  facet_wrap(~Ligand, ncol=1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+print(p)
+
+p <- ggplot(dt, aes(x=Spot_PA_SpotCellCountLog2RUV3Loess, y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour=ECMp))+
+  geom_point(alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  coord_cartesian(xlim = c(6.5,8))+
+  xlab("Normalized Spot Cell Count")+ylab("Normalized EdU+\n(Logit)")+
+  ggtitle("MEP EdU+ vs Spot Cell Count")+
+  facet_wrap(~Ligand)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+print(p)
+
+p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess, y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour=ECMp))+
+  geom_point(alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  #coord_cartesian(ylim = c(-6,-1.5))+
+  xlab("Normalized DNA 4N")+ylab("Normalized EdU+\n(Logit)")+
+  ggtitle("MEP EdU+ vs DNA 4N")+
+  facet_wrap(~Ligand)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+print(p)
+
+
+p <- ggplot(dt, aes(x=Spot_PA_SpotCellCountLog2RUV3Loess, y=Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess, colour=ECMp))+
+  geom_point(alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  coord_cartesian(xlim = c(6.5,8))+
+  xlab("Normalized Spot Cell Count")+ylab("Normalized DNA 4N\n(Logit)")+
+  ggtitle("MEP DNA 4N vs Spot Cell Count")+
+  facet_wrap(~Ligand)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+print(p)
+
+p <- ggplot(dt, aes(x=Spot_PA_SpotCellCountLog2RUV3Loess, y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, colour=ECMp))+
+  geom_point(alpha=.5)+
+  guides(fill=FALSE, colour=FALSE)+
+  coord_cartesian(xlim = c(6.5,8))+
+  xlab("Normalized Spot Cell Count")+ylab("Normalized KRT5\n(Logit)")+
+  ggtitle("MEP KRT5 vs Spot Cell Count")+
+  facet_wrap(~Ligand)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+print(p)
+
+
+```
+
 
 ###Heatmaps
 
