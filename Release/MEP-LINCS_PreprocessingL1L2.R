@@ -646,9 +646,24 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           stringsAsFactors=FALSE)
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, ctrlPlates)
+=======
+qualPlates <- data.frame(cellLine=c("MCF10A"),
+                          ss=c("SS0"),
+                          drug=c("none"),
+                          analysisVersion="av1.6",
+                          rawDataVersion="v2",
+                          limitBarcodes=c(4),
+                          k=c(0),
+                          calcAdjacency=FALSE,
+                          writeFiles = TRUE,
+                          mergeOmeroIDs = TRUE,
+                          useJSONMetadata=FALSE,
+                          stringsAsFactors=FALSE)
+
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(18),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
