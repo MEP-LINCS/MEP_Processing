@@ -645,7 +645,7 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           useJSONMetadata=FALSE,
                           stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, ctrlPlates)
 
 library(XLConnect)
 library(data.table)
