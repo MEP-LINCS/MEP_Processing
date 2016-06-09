@@ -94,15 +94,18 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   }
   
   #Parallelize on signals?
+  #slDT now has raw and log2+logit transformed values
   nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUV3LoessResiduals"
+  #nDT has transformed, loess, RUV3 and RUV3Loess 
   #Merge the normalized data with its metadata
   setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
   setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  nmdDT <- merge(nDT,mdDT)
-  #merge spot level normalized and raw data
-  setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
-  slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
+  #merge in the raw data to the transformed, loess, RUV3 and RUV3Loess 
+  slDT <- merge(nDT,mdDT)
+  # #merge spot level normalized and raw data
+   setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
+  # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
   
   #Label FBS with their plate index to keep separate
   slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], unique(slDT$Barcode)))
@@ -223,4 +226,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
+tmp <- apply(ssDatasets[c(11:13),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
