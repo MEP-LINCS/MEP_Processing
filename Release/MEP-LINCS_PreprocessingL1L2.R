@@ -645,6 +645,8 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           useJSONMetadata=FALSE,
                           stringsAsFactors=FALSE)
 
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, ctrlPlates)
+=======
 qualPlates <- data.frame(cellLine=c("MCF10A"),
                           ss=c("SS0"),
                           drug=c("none"),
