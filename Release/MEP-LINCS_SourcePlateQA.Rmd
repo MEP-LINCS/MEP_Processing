@@ -1,17 +1,16 @@
 ---
 output: html_document
 ---
----
-title: "MEP-LINCS `r x[["CellLine"]]` `r x[["StainingSet"]]` `r x[["Signal"]]`  SVD Analysis"
-date: "`r Sys.Date()`"
----
 
 ```{r global_options_Setup, include=FALSE}
-#Author: Mark Dane, copyright 2015
+#Author: Mark Dane, copyright 2016
+
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
                       echo=FALSE, warning=FALSE, message=FALSE)
 
-#source("MEPLINCSFunctions.R")
+```
+
+```{r}
 
 library("ggplot2")
 library("reshape2")
@@ -22,28 +21,31 @@ library("grid")
 library("knitr")
 library("gplots")
 library("RColorBrewer")
-library("RUVnormalize")
 library(plotly)
-
 
 x <- data.table(CellLine=rep(c("MCF10A"),each=1),
                         StainingSet = rep(c("SS20")),
                         Signal=rep(c("SCC"), each=1),
                         Method=c("RUV3Loess"),
-                        inputFileName=rep(c("../MEP-LINCS/PC3/SS2noH3/AnnotatedData/PC3_SS2noH3_v1.3_Level1.txt"), each=1))
+                       inputFileName=rep(c("../AnnotatedData/MCF10A_SS0_none_v2_av1.6_SpotLevel.txt"), each=1))
+```
 
-callQASVD <- function(x){
-  render(paste0("Mep-LINCS_QASVD.Rmd"),
-         output_file = paste0("Mep-LINCS_SourcePlateQA_",x[["CellLine"]],"_",x[["Signal"]],".html"),
-         output_format = "html_document") 
-}
 
-x <- unique(x[,list(CellLine, StainingSet, Signal, inputFileName)])
+---
+title: "MEP-LINCS `r x[["CellLine"]]` `r x[["StainingSet"]]` `r x[["Signal"]]`  SVD Analysis"
+date: "`r Sys.Date()`"
+---
 
-apply(x, 1, callQASVD)
+```{r , include=FALSE}
+
+#source("MEPLINCSFunctions.R")
 
 #Read in file based on name in dataframe
-l1 <- fread(x[["inputFileName"]], showProgress = FALSE)
+l3 <- fread(x[["inputFileName"]], showProgress = FALSE)
+#Cleanup ECMp names in gal file 
+l3$ECMp <- sub("_{1}[[:alpha:]]*","",l3$ECMp)
+l3$ECMp <- sub("_{1}[[:alnum:]]*","",l3$ECMp)
+
 ```
 
 
@@ -61,37 +63,14 @@ l1$Spot_PA_SpotCellCount[l1$Block==5 & l1$Row==1 & l1$Column==1] <-as.integer( l
 
 ```{r}
 #Keep the control wells separate
-l1$Ligand[grepl("FBS",l1$Ligand)] <- paste(l1$Ligand[grepl("FBS",l1$Ligand)],"C",as.numeric(factor(l1$Barcode[grepl("FBS",l1$Ligand)])),sep="")
-l1$MEP <- paste(l1$ECMp,l1$Ligand,sep="_")
+l3$Ligand[grepl("FBS",l3$Ligand)] <- paste(l3$Ligand[grepl("FBS",l3$Ligand)],"P",as.numeric(factor(l3$Barcode[grepl("FBS",l3$Ligand)])),sep="")
+l3$MEP <- paste(l3$ECMp,l3$Ligand,sep="_")
 
 #Delete the fiducial and blank spots
-setkey(l1, "ECMp")
-l1 <- l1[!grepl("fiducial|Fiducial|blank|PBS",l1$ECMp)]
-
-
-#Create spot level dataset and 
-#add Rel, the residual from subtracting the mel from each value
-
-l3 <- l1[,list(Ligand=unique(Ligand), LigandAnnotID=unique(LigandAnnotID),
-               ECMp=unique(ECMp), ECMpAnnotID=unique(ECMpAnnotID),
-               MEP=unique(MEP),
-               Row=unique(Row), Column = unique(Column), Block=unique(Block), ID=unique(ID),
-               ArrayRow=unique(ArrayRow), ArrayColumn=unique(ArrayColumn),
-               SCCmel = as.numeric(median(Spot_PA_SpotCellCount, na.rm=TRUE))
-),
-by="Barcode,Well,Spot"]
-
-if(grepl("SS2",x[["StainingSet"]])){
-  l3$EdUmel <- l1[,list(EdUmel = median(Nuclei_PA_Gated_EduPositiveLogit, na.rm=TRUE)),by=.(Barcode,Well,Spot)][,EdUmel]
-  l3 <- l3[, EdURel := calcResidual(EdUmel), by="MEP"]
-} else if (grepl("SS3",x[["StainingSet"]])){
-  l3$LineageRatioLog2mel <- l1[,list(LineageRatioLog2mel = median(Cytoplasm_PA_Intensity_LineageRatioLog2, na.rm=TRUE)),by=.(Barcode,Well,Spot)][,LineageRatioLog2mel]
-  l3 <- l3[, LineageRatioLog2Rel := calcResidual(LineageRatioLog2mel), by="MEP"]
-}
-
-l3 <- l3[, DNA2NRel := calcResidual(DNA2Nmel), by="MEP"]
-l3 <- l3[, SCCRel := calcResidual(SCCmel), by="MEP"]
-l3 <- l3[, EccRel := calcResidual(Eccmel), by="MEP"]
+setkey(l3, "ECMp")
+l3 <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp)]
+#Add spatial residuals
+l3 <- l3[, SCCRel := calcResidual(Spot_PA_SpotCellCount), by="MEP"]
 
 ```
 
@@ -128,11 +107,41 @@ l3Relm <- l3RelcA[,grep("BWL",colnames(l3RelcA), value=TRUE, invert=TRUE), with=
 YRelArray <- matrix(unlist(l3Relm), nrow=nrow(l3Relm), dimnames=list(l3RelcA$BWL, colnames(l3Relm)))
 ```
 
+```{r}
+
+p <- ggplot(l3, aes(x=ArrayColumn, y=ArrayRow, fill= Spot_PA_SpotCellCount))+
+  geom_tile()+
+  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
+  ggtitle("Spot Cell Count for Qual Wells")+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  xlim(.5,20.5)+ylim(35.5,.5)+
+  facet_wrap(~Barcode, nrow = 1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.6)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.7)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "lightgrey"))
+suppressWarnings(print(p))
+
+```
+
+
+```{r}
+
+p <- ggplot(l3, aes(x=ArrayColumn, y=ArrayRow, fill= SCCRel))+
+  geom_tile()+
+  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
+  ggtitle("Spot Cell Count Residuals for Qual Wells")+
+  xlab("")+ylab("")+
+  guides(fill=FALSE)+
+  xlim(.5,20.5)+ylim(35.5,.5)+
+  facet_wrap(~Barcode, nrow = 1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.6)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.7)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "lightgrey"))
+suppressWarnings(print(p))
+
+```
+
 ###SVD Applied to Array Level
 
 Singular Value Decomposition is applied to the residuals at the array level as follows.  
    * Median summarize the cell level data to the spot level.  
-   * Take the logit of EdU$^{+}$, DNA2N, Eccentricity (Ecc) and the log2 of the LineageRatio signals.  
    * Create residuals by subtracting the median value of the replicates from each replicate value
    * Create an M matrix of residuals that is `r nrow(YRelArray)` rows by `r ncol(YRelArray)` columns. Each row holds residuals for each spot in a MEMA.  
    * Apply SVD to the M matrix to get u, d and v matrices.  
@@ -153,7 +162,7 @@ p <- ggplot(vDT, aes(x=ArrayColumn, y=ArrayRow, fill= Value))+
   ggtitle(bquote(.(x[["Signal"]])~Residual~Maximum~Singular~Value~Eigenvector))+
   xlab("")+ylab("")+
   guides(fill=FALSE)+
-  xlim(.5,20.5)+ylim(35.5,.5)+
+  xlim(20.5,.5)+ylim(.5,35.5)+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.6)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.7)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "lightgrey"))
 suppressWarnings(print(p))
 
@@ -178,42 +187,10 @@ vDT$ArrayColumn <- as.integer((vDT$Spot-1) %% 20 +1)
 ```
 
 
-###SVD Applied to Plate Level
-
-Singular Value Decomposition is applied to the residuals at the plate level as follows.  
-   * Median summarize the cell level data to the spot level.  
-   * Take the logit of EdU$^{+}$, DNA2N, Eccentricity (Ecc) and the log2 of the LineageRatio signals.  
-   * Create residuals by subtracting the median value of the replicates from each replicate value.  
-   * Create an M matrix of residuals that is `r nrow(YRelPlate)` rows by `r ncol(YRelPlate)` columns. Each row holds residuals for each spot in a two row and four column well plate of MEMAs.  
-   * Apply SVD to the M matrix to get u, d and v matrices.  
-   * Plot the eignvector in the column of the v matrix which corresponds to the largest singular value in the d matrix. Plot as heat maps in two rows and four columns of arrays with 35 rows and 20 columns.  Missing tiles in the heat maps correspond to fiducials and blank spots. The B row of heatmaps are displayed in the same orientation as the A row even though they are physically printed rotated 180 degrees.
-
-SVD analysis of the SCC residuals across multiple plates show areas of consistently high or low cell counts at the plate level.
-
-<br>
-
-```{r, fig.width=8, fig.height=8}
-
-p <- ggplot(vDT, aes(x=ArrayColumn, y=ArrayRow, fill= Value))+
-  geom_tile()+
-  scale_fill_gradient(low="white",high="red",oob = scales::squish)+
-  ggtitle(bquote(.(x[["Signal"]])~Residual~Maximum~Singular~Value~Eigenvector))+
-  xlab("")+ylab("")+
-  guides(fill=FALSE)+
-  xlim(.5,20.5)+ylim(35.5,.5)+
-  facet_wrap(~Well, ncol=4)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.6)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.7)),panel.grid.major = element_line(linetype = 'blank'),panel.background = element_rect(fill = "lightgrey"))
-suppressWarnings(print(p))
-
-
-```
-
-
 ###Analysis of Spot Level Signals over Time
 
 Analysis of Spot Level Signals over Time uses the residuals at the spot level as follows.  
    * Median summarize the cell level data to the spot level.  
-   * Take the logit of EdU$^{+}$, DNA2N, Eccentricity (Ecc) and the log2 of the LineageRatio signals.  
    * Create residuals by subtracting the median value of the replicates from each spot value  
    * Create an M matrix of residuals that is `r nrow(YRelArray)` rows by `r ncol(YRelArray)` columns. Each column holds residuals for one spot in all MEMAs.  
    * Plot a time course for each spot  
@@ -237,14 +214,15 @@ l3Relmelt <- melt(l3RelcTC, id.vars=c("BWL","PrintOrder"), measure=patterns("_")
 splits <- strsplit2(l3Relmelt$ESB,split="_")
 l3Relmelt$Block <- strsplit2(l3Relmelt$ESB,split="_")[,3]
 
-p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel1, colour=ESB))+
+p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel, colour=ESB))+
   geom_smooth(size=.1, se = FALSE)+
   guides(colour=FALSE)+
   ggtitle("SCC Time Course by Spot")
 print(p)
+ggplotly(p)
 
 
-p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel1, colour=Block))+
+p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel, colour=Block))+
   geom_smooth(size=.1, se = FALSE)+
   guides(colour=FALSE)+
   ggtitle("SCC Time Course by Pin")

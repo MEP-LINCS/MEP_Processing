@@ -116,6 +116,7 @@ shortenHA <- function(x){
   x$ECMp <- gsub("hyaluronicacid","HA",x$ECMp)
   x$ECMp <- gsub("lessthan","<",x$ECMp)
   x$ECMp <- gsub("greaterthan",">",x$ECMp)
+  x$MEP <- paste(x$ECMp,x$Ligand,sep = "_")
   return(x)
 }
 
@@ -148,6 +149,7 @@ library(plotly)
 library(corrplot)
 library(RUVnormalize)
 library(ruv)
+library(Rtsne)
 
 #Use x structure for future fleixbility
 x <- data.frame(cellLine="MCF10A",
@@ -165,6 +167,15 @@ cellLine <- x[["cellLine"]]
 l3n <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_CS_",x[["drug"]], "_",x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
 
 l4 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_CS_",x[["drug"]], "_",x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
+
+#Match the FBA wells up as replicates and change to common names
+tmp <- l4[grepl("FBS",l4$Ligand),]
+suffixes <- sort(sub("FBS","",unique(tmp$Ligand)))
+replacements <- rep(paste0("_P",1:8), times=3)
+for(i in 1:24){
+  l4$MEP[grepl(suffixes[i],l4$MEP)] <- sub(suffixes[i],replacements[i],l4$MEP[grepl(suffixes[i],l4$MEP)])
+  l4$Ligand[grepl(suffixes[i],l4$Ligand)] <- sub(suffixes[i],replacements[i],l4$Ligand[grepl(suffixes[i],l4$Ligand)])
+  }
 
 l3SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
 
@@ -233,20 +244,20 @@ l3SS123 <- rbindlist(list(l3SS1[!grepl("FBS",l3SS1$MEP),],l3SS2[!grepl("FBS",l3S
 
 l4nMean <- meanSummarizel4(l4)
 l4SS1SS2 <- merge(l4SS1[!grepl("FBS",l4SS1$MEP),grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
-               l4SS2[!grepl("FBS",l4SS2$MEP),grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
+                  l4SS2[!grepl("FBS",l4SS2$MEP),grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
 
-#l4SS1SS2FBS <- merge(l4SS1[,grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
-#               l4SS2[,grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
+l4SS1SS2FBS <- merge(l4SS1[,grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
+                     l4SS2[,grep("MEP|EdU|Fibrillarin",colnames(l4SS2), value=TRUE), with=FALSE],by = "MEP")
 
 l4Merge <- merge(l4SS1SS2,
                  l4SS3[!grepl("FBS",l4SS3$MEP),grep("MEP|KRT",colnames(l4SS3), value=TRUE), with=FALSE],by = "MEP")
 
-#l4MergeFBS <- merge(l4SS1SS2FBS,
-#                 l4SS3[,grep("MEP|KRT",colnames(l4SS3), value=TRUE), with=FALSE],by = "MEP")
+l4MergeFBS <- merge(l4SS1SS2FBS,
+                    l4SS3[,grep("MEP|KRT",colnames(l4SS3), value=TRUE), with=FALSE],by = "MEP")
 
 l4Merge <- merge(l4Merge, l4nMean[!grepl("FBS",l4nMean$MEP),], by="MEP")
 
-#l4MergeFBS <- merge(l4MergeFBS, l4nMean[,], by="MEP")
+l4MergeFBS <- merge(l4MergeFBS, l4nMean, by="MEP")
 
 ```
 
@@ -423,7 +434,7 @@ ggplotly(p)
 ```
 
 
-```{r PCARawData, eval=TRUE}
+```{r PCAData, eval=TRUE}
 
 
 ###PCA Unbiased Analysis  
@@ -444,7 +455,7 @@ RUV3LoessPCAModel <- createPCAModel(dt=l4nMean, fvNames = RUV3LoessNames)
 RUV3LoessMEPNames <- grep("LoessRUV3",grep("Log2RUV3Loess$|LogitRUV3Loess$",colnames(l4Merge), value=TRUE), value=TRUE, invert=TRUE)
 RUV3LoessMEPPCAModel <- createPCAModel(dt=l4Merge, fvNames = RUV3LoessMEPNames)
 
-#RUV3LoessMEPFBSPCAModel <- createPCAModel(dt=l4MergeFBS, fvNames = RUV3LoessMEPNames)
+RUV3LoessMEPFBSPCAModel <- createPCAModel(dt=l4MergeFBS, fvNames = RUV3LoessMEPNames)
 
 
 ```
@@ -466,55 +477,55 @@ Below are the signals used in the MEP PCA model.
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP2")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP2")
 
 ```
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP3")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP3")
 
 ```
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP4")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP4")
 
 ```
 
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP5")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP5")
 
 ```
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP6")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP6")
 
 ```
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP7")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "BMP7")
 
 ```
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "HGF")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "HGF")
 
 ```
 
 ```{r, fig.height=2, fig.width=3}
 
-plotPCs(m = RUV3LoessMEPPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "Wnt5a")
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean$Ligand", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10), highlightName = "Wnt5a")
 
 ```
 
 ```{r MEPPCADatatable}
-dt <- data.frame(RUV3LoessMEPPCAModel$x)
+dt <- data.frame(RUV3LoessMEPFBSPCAModel$x)
 dt$MEP <- rownames(dt)
 dt<- data.table(dt)
 colNames <- c("MEP","PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9")
@@ -524,6 +535,56 @@ dt <- setorder(dt,PC1)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 
 ```
+
+
+### tSNE of all MEP Signals
+
+```{r tSNE_Data}
+
+data_matrix <- scale(as.matrix(l4Merge[,RUV3LoessMEPNames, with=FALSE]))
+
+set.seed(1234)
+data_tsne <- Rtsne(data_matrix, perplexity = 15)
+l4Merge <- cbind(l4Merge,data_tsne$Y)
+
+```
+
+
+```{r plottSNELigand,fig.width=8, fig.height=5, eval=TRUE}
+
+p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=Ligand, text=paste("ECMp:",ECMp)))+
+  geom_point(size=rel(.2), alpha=.5)+
+  ggtitle(paste("tSNE plot of MCF10A MEPs Coloured by Ligand"))+
+  guides(colour = FALSE)
+ggplotly(p)
+
+```
+
+
+```{r plottSNEECMp,fig.width=8, fig.height=5, eval=TRUE}
+
+p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=ECMp, text=paste("Ligand:",Ligand)))+
+  geom_point(size=rel(.2), alpha=.5)+
+  ggtitle(paste("tSNE plot of MCF10A MEPs Coloured by ECM Protein"))+
+  guides(colour =FALSE)
+ggplotly(p)
+
+```
+
+```{r plottSNEFeatures,fig.width=3, fig.height=3, eval=TRUE}
+
+tmp <- lapply(c(RUV3LoessMEPNames),function(sigName){
+  p <- ggplot(l4Merge, aes_string(x="V1", y="V2", colour = paste(sigName)))+
+    geom_point(size=rel(.2), alpha=.5)+
+    ggtitle(paste("tSNE plot of",sigName))+
+    scale_colour_gradient(low="black",high="red",oob = scales::squish)+
+    guides(colour = FALSE)+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+  print(p)
+})
+
+```
+
 
 ##Nomination Details
 Twenty-five MEPs are nominated for validation based on EdU(12), KRT5(4) and cell cycle responses as measured by total DAPI(2). To evaluate normalization results, each selected ligand's COL1 MEPs(6) are chosen along with one NID1 MEP(1).
@@ -765,8 +826,8 @@ plotLEHmap(l4nMean, fill="Spot_PA_SpotCellCountLog2RUV3Loess", titleExpression=t
 
 ```
 
-###Static Heatmaps
-The static heatmaps display the same data as above but with unsupervised clustering in the rows and columns using the complete linkage method which finds similar clusters. These maps use three colors to highlight the data sturcture however the white color is merely the center of the data, it does not have specific biological meaning.  
+###Clustered Heatmaps
+The clustered heatmaps display the same data as above but with unsupervised clustering in the rows and columns using the complete linkage method which finds similar clusters. These maps use three colors to highlight the data sturcture however the white color is merely the center of the data, it does not have specific biological meaning.  
 
 <br>
 
