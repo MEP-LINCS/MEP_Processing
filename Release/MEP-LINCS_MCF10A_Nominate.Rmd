@@ -852,16 +852,18 @@ The relative log expression (RLE) values are the residuals where each item has h
 
 <br>
 
-```{r SCC}
+```{r SCC, fig.height=10}
 
 dt <- l4[,list(Barcode,Ligand,Spot_PA_SpotCellCountLog2LigandRLE,
+               Spot_PA_SpotCellCountLog2LoessLigandRLE,
                Spot_PA_SpotCellCountLog2RUV3LigandRLE,
                Spot_PA_SpotCellCountLog2RUV3LoessLigandRLE)]
 
-dt <- melt(dt,id.vars=c("Barcode","Ligand"),measure.vars=c("Spot_PA_SpotCellCountLog2LigandRLE","Spot_PA_SpotCellCountLog2RUV3LigandRLE","Spot_PA_SpotCellCountLog2RUV3LoessLigandRLE"), variable.name = "Processed",value.name = "SpotCellCountLog2LigandRLE", variable.factor = FALSE)
-dt$Processed[!grepl("RUV3",dt$Processed)] <- "RawLog2 RLE"
+dt <- melt(dt,id.vars=c("Barcode","Ligand"),measure.vars=c("Spot_PA_SpotCellCountLog2LigandRLE","Spot_PA_SpotCellCountLog2LoessLigandRLE","Spot_PA_SpotCellCountLog2RUV3LigandRLE","Spot_PA_SpotCellCountLog2RUV3LoessLigandRLE"), variable.name = "Processed",value.name = "SpotCellCountLog2LigandRLE", variable.factor = FALSE)
+dt$Processed[!grepl("RUV3|Loess",dt$Processed)] <- " RawLog2 RLE"
 dt$Processed[(!grepl("Loess",dt$Processed))&grepl("RUV3LigandRLE$",dt$Processed)] <- "RUV3 RLE"
 dt$Processed[(!grepl("LoessRUV3",dt$Processed))&grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess RLE"
+dt$Processed[grepl("LoessLigandRLE",dt$Processed)] <- "Loess RLE"
 
 p <- ggplot(dt, aes(x = factor(Ligand), y = SpotCellCountLog2LigandRLE, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("MEP Spot Cell Count RLE by Ligand at Each Normalization Stage (full dataset)"))+
@@ -882,11 +884,12 @@ p <- ggplot(dt[!grepl("FBS", dt$Ligand),], aes(x = factor(Ligand), y = SpotCellC
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
-dt <- l4[,list(Barcode,ECMp,Spot_PA_SpotCellCountLog2ECMpRLE, Spot_PA_SpotCellCountLog2RUV3ECMpRLE, Spot_PA_SpotCellCountLog2RUV3LoessECMpRLE)]
-dt <- melt(dt,id.vars=c("Barcode","ECMp"),measure.vars=c("Spot_PA_SpotCellCountLog2ECMpRLE","Spot_PA_SpotCellCountLog2RUV3ECMpRLE","Spot_PA_SpotCellCountLog2RUV3LoessECMpRLE"), variable.name = "Processed",value.name = "SpotCellCountLog2ECMpRLE", variable.factor = FALSE)
-dt$Processed[!grepl("RUV3",dt$Processed)] <- "RawLog2 RLE"
+dt <- l4[,list(Barcode,ECMp,Spot_PA_SpotCellCountLog2ECMpRLE, Spot_PA_SpotCellCountLog2LoessECMpRLE,Spot_PA_SpotCellCountLog2RUV3ECMpRLE, Spot_PA_SpotCellCountLog2RUV3LoessECMpRLE)]
+dt <- melt(dt,id.vars=c("Barcode","ECMp"),measure.vars=c("Spot_PA_SpotCellCountLog2ECMpRLE","Spot_PA_SpotCellCountLog2LoessECMpRLE","Spot_PA_SpotCellCountLog2RUV3ECMpRLE","Spot_PA_SpotCellCountLog2RUV3LoessECMpRLE"), variable.name = "Processed",value.name = "SpotCellCountLog2ECMpRLE", variable.factor = FALSE)
+dt$Processed[!grepl("RUV3|Loess",dt$Processed)] <- " RawLog2 RLE"
 dt$Processed[(!grepl("Loess",dt$Processed))&grepl("RUV3ECMpRLE$",dt$Processed)] <- "RUV3 RLE"
 dt$Processed[(!grepl("LoessRUV3",dt$Processed))&grepl("RUV3Loess",dt$Processed)] <- "RUV3Loess RLE"
+dt$Processed[grepl("LoessECMpRLE",dt$Processed)] <- "Loess RLE"
 
 
 p <- ggplot(dt, aes(x = factor(ECMp), y = SpotCellCountLog2ECMpRLE))+geom_boxplot()+
@@ -1053,13 +1056,13 @@ tmp <- plotSSs(dt=l4,signalName = "Spot_PA_SpotCellCountLog2RUV3Loess")
 ```
 
 ###Pseudo Images of SpotCellCount
-The following plots show the raw and normalized Spot Cell Count values at the plate level for three replicate plates.  
+The following plots show the raw and normalized Spot Cell Count values at the plate level for three replicate plates. The colors in the first set of pseudoimages are scaled within each plate to emphasize the spatial vairations. The images are repeated with common scaling to enable comparing across the plates.    
 
 ```{r pseudoImages,  fig.width=3, fig.height=3.2}
-create8WellPseudoImage <- function(DT, pr, prDisplay,highThresh = .99, lowThresh = .01){
-  #find high ad low values
-  highThreshValue<-quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)
-  lowThreshValue<-quantile(DT[[pr]],probs = lowThresh,na.rm=TRUE)
+create8WellPseudoImage <- function(DT, pr, prDisplay,highThresh = .99, lowThresh = .01, highThreshValue=NULL, lowThreshValue=NULL){
+  #find high and low values
+  if(is.null(highThreshValue)) highThreshValue<-quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)
+   if(is.null(lowThreshValue)) lowThreshValue<-quantile(DT[[pr]],probs = lowThresh,na.rm=TRUE)
   p <- ggplot(DT, aes_string(x="ArrayColumn", y="ArrayRow",colour=pr))+
     geom_point(size=rel(.25))+
     scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
@@ -1076,7 +1079,7 @@ create8WellPseudoImage <- function(DT, pr, prDisplay,highThresh = .99, lowThresh
 }
 l3n$Well_Ligand <- paste(l3n$Well,l3n$Ligand,sep="_")
 
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[1],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[9],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1084,7 +1087,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[17],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[2],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[10],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1092,7 +1095,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[18],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[3],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[11],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1100,7 +1103,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[19],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[4],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[12],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1108,7 +1111,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[20],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[5],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[13],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1116,7 +1119,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[21],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[6],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[14],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1124,7 +1127,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[22],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[7],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[15],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1132,7 +1135,7 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[23],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
-for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Loess")){
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[8],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[16],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
@@ -1140,5 +1143,78 @@ for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2RUV3Lo
   p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[24],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThresh = .05, highThresh = .95)
   print(p)
 }
+```
 
+
+These pseudoimages all have the same scaling for the colors so they can be comapred across plates.  
+
+```{r,  fig.width=3, fig.height=3.2}
+
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[1],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[9],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[17],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[2],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[10],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[18],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[3],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[11],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[19],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[4],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[12],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[20],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[5],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[13],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[20],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[6],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[14],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[22],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[7],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[15],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[24],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
+for(signalName in c("Spot_PA_SpotCellCountLog2","Spot_PA_SpotCellCountLog2Loess","Spot_PA_SpotCellCountLog2RUV3Loess")){
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[8],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[16],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+  p <- create8WellPseudoImage(l3n[l3n$Barcode==unique(l3n$Barcode)[24],],pr=signalName, prDisplay=gsub("Spot_PA_SpotCellCount","SCC",signalName), lowThreshValue = 5, highThreshValue = 10)
+  print(p)
+}
 ```
