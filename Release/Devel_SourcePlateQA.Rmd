@@ -211,6 +211,38 @@ vDT$ArrayColumn <- as.integer((vDT$Spot-1) %% 20 +1)
 
 ```{r SpotTimeCourse}
 
+l3cTC <- data.table(dcast(l3, BWL~ESB, value.var="Spot_PA_SpotCellCount", fill = fill))
+#Remove the BWL column and use it as rownames in the matrix
+l3m <- l3cTC[,grep("BWL",colnames(l3cTC), value=TRUE, invert=TRUE), with=FALSE]
+#Y is a numeric matrix of the raw transformed responses 
+#of each spot extracted from the l3 dataset
+YArray <- matrix(unlist(l3m), nrow=nrow(l3m), dimnames=list(l3cTC$BWL, colnames(l3m)))
+
+setkey(l3cTC, BWL)
+l3cTC$PrintOrder <- 1:nrow(l3cTC)
+l3melt <- melt(l3cTC, id.vars=c("BWL","PrintOrder"), measure=patterns("_"),variable.name = "ESB", value.name = "Spot_PA_SpotCellCount")
+splits <- strsplit2(l3melt$ESB,split="_")
+l3melt$Block <- strsplit2(l3melt$ESB,split="_")[,3]
+
+p <- ggplot(l3melt, aes(x=PrintOrder, y=Spot_PA_SpotCellCount, colour=ESB))+
+  geom_smooth(size=.1, se = FALSE)+
+  guides(colour=FALSE)+
+  ggtitle("Spot Level Signals over Time")
+#print(p)
+ggplotly(p)
+
+```
+
+***
+
+This plot indicates when a well in a source plate is running low of reagent. While the well has reagents, the Spot Cell Count value should be fairly horizontal. When a well runs dry, fewer cells will grow on the spots made from that well and the track for that well will drop down and remain low.
+
+
+### Analysis of Spot Level Residuals over Time includes details when hovering over a line.
+
+
+```{r SpotResidualTimeCourse}
+
 l3RelcTC <- data.table(dcast(l3, BWL~ESB, value.var=paste0(x[["Signal"]],"Rel"), fill = fill))
 #Remove the BWL column and use it as rownames in the matrix
 l3Relm <- l3RelcTC[,grep("BWL",colnames(l3RelcTC), value=TRUE, invert=TRUE), with=FALSE]
@@ -227,7 +259,7 @@ l3Relmelt$Block <- strsplit2(l3Relmelt$ESB,split="_")[,3]
 p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel, colour=ESB))+
   geom_smooth(size=.1, se = FALSE)+
   guides(colour=FALSE)+
-  ggtitle("Spot Level Signals over Time")
+  ggtitle("Spot Level Residuals over Time")
 #print(p)
 ggplotly(p)
 
@@ -235,7 +267,7 @@ ggplotly(p)
 
 ***
 
-This plot indicates when a well in a source plate is running low of reagent. While the well has reagents, the residual of the SPot Cell Count value should be near 0. When a well runs dry, fewer cells will grow on the spots made from that well and the track for that well will drop down from 0 and remain low.
+This plot indicates when a well in a source plate is running low of reagent. While the well has reagents, the residual of the Spot Cell Count value should be near 0. When a well runs dry, fewer cells will grow on the spots made from that well and the track for that well will drop down from 0 and remain low.
 
 The Spot Level Signals over Time uses the residuals at the spot level as follows.  
 * Create residuals by subtracting the median value of the replicates from each spot value.  
@@ -247,10 +279,31 @@ The Spot Level Signals over Time uses the residuals at the spot level as follows
 
 ```{r}
 
-p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel, colour=Block))+
+p <- ggplot(l3melt, aes(x=PrintOrder, y=Spot_PA_SpotCellCount, colour=Block))+
   geom_smooth(size=.1, se = FALSE)+
   guides(colour=FALSE)+
   ggtitle("Pin Summarized Spot Level Signals over Time")
+#print(p)
+ggplotly(p)
+
+```
+
+***
+
+The arrays are printed by twenty-eight pins arranged in a four by seven print head. Each pin creates a print block with five rows and five columns. This plot shows the spot cell count for each pin. Pins with lower spot cell counts indicate either issues with the pin or uneven cell seeding/growth in regions of the array.  
+
+The Pin Summarized Spot Level Signals over Time is calculated as follows:  
+* Median summarize all spot residuals for each pin  
+* Plot a time course of the spot cell count residuals for each pin  
+
+### Pin Spot Cell Count Residuals Over Time includes details when hovering over a line.
+
+```{r}
+
+p <- ggplot(l3Relmelt, aes(x=PrintOrder, y=SCCRel, colour=Block))+
+  geom_smooth(size=.1, se = FALSE)+
+  guides(colour=FALSE)+
+  ggtitle("Pin Summarized Spot Level Residuals over Time")
 #print(p)
 ggplotly(p)
 
