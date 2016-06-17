@@ -220,7 +220,7 @@ A useful mining method to use the first table to identify a MEP of interest as t
 
 ```{r SCCTable}
 if(any(grepl("SS1",ss))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess", "Spot_PA_ReplicateCount")
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
 } else if (any(grepl("SS2|SS6",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess", "Spot_PA_ReplicateCount")
@@ -334,10 +334,10 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```{r MitoTrackerByMEPFull, eval=grepl("SS1",ss), fig.width=8, fig.height=6}
 dt <- l4F
 
-yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE), probs=c(.002, .998))
+yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE), probs=c(.002, .998))
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+
-  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess-Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess+Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess))+
+  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess-Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess+Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE), width=.01, colour="black") +
   coord_cartesian(ylim=yLimits)+
   xlab("MEP")+ylab("Normalized MitoTracker Intensity Ratio")+
   geom_point(colour = "green", alpha = .5)+
@@ -351,10 +351,10 @@ ggplotly(p)
 ```{r MitoTrackerByMEPHF, eval=grepl("SS1",ss), fig.width=8, fig.height=6}
 dt <- l4HF
 
-yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE), probs=c(.002, .998))
+yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE), probs=c(.002, .998))
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess))+
-  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess-Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess+Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess))+
+  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess-Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess+Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess_SE), width=.01, colour="black") +
   coord_cartesian(ylim=yLimits)+
   xlab("MEP")+ylab("Normalized, MitoTracker Intensity Ratio")+
   geom_point(colour = "green", alpha = .5)+
@@ -368,7 +368,7 @@ ggplotly(p)
 ```{r MitotrackerHeatmapFull, eval=grepl("SS1",ss), fig.width=8, fig.height=5}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess")
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -381,7 +381,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```{r MitotrackerHeatmapHF, eval=grepl("SS1",ss), fig.width=8, fig.height=5}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess")
+df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess")
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
