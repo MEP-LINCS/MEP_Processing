@@ -279,7 +279,7 @@ l4F <- createl4(l3F,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT",
 
 if (grepl("SS2",ss)){
   #Add Robust Z Score of the EdU Signal
-  l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess)]
+  l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)]
 }
 
 if (grepl("SS3",ss)){
