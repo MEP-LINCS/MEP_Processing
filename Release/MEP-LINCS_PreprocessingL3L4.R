@@ -87,26 +87,30 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   mdDT <- slDT[,grep(paste0(rawSignalNames,metadataNames,"|Barcode|Well|^Spot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$", collapse="|"),colnames(slDT),value=TRUE), with = FALSE]
   #Identify parameters to be normalized
   signalsWithMetadata <- grep(metadataNames,grep("Log|Barcode|Well|^Spot$|^PrintSpot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$",colnames(slDT), value=TRUE),value=TRUE,invert=TRUE)
-  #Normalize each feature, pass with location and content metadata
-  if(verbose) {
-    cat("Normalizing\n")
-    #save(slDT, file="slDT.RData")
-  }
+
   
   #Parallelize on signals?
   #slDT now has raw and log2+logit transformed values
-  nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
-  nDT$NormMethod <- "RUV3LoessResiduals"
-  #nDT has transformed, loess, RUV3 and RUV3Loess 
-  #Merge the normalized data with its metadata
-  setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  #merge in the raw data to the transformed, loess, RUV3 and RUV3Loess 
-  slDT <- merge(nDT,mdDT)
-  # #merge spot level normalized and raw data
-   setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
-  # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
-  
+  if(!k==0){
+    #Normalize each feature, pass with location and content metadata
+    if(verbose) {
+      cat("Normalizing\n")
+      #save(slDT, file="slDT.RData")
+    }
+    nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
+    nDT$NormMethod <- "RUV3LoessResiduals"
+    #nDT has transformed, loess, RUV3 and RUV3Loess 
+    #Merge the normalized data with its metadata
+    setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
+    setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
+    #merge in the raw data to the transformed, loess, RUV3 and RUV3Loess 
+    slDT <- merge(nDT,mdDT)
+    # #merge spot level normalized and raw data
+    # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
+  } else {
+    slDT$NormMethod <- "none"
+    slDT$k <- k
+  }
   #Label FBS with their plate index to keep separate
   slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], unique(slDT$Barcode)))
   #Add QAScore and Spot_PA_LoessSCC to cell level data
@@ -240,13 +244,13 @@ qualPlates <- data.frame(datasetName="MCF10A_Qual",
                          useJSONMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
-ctrlPlates <- data.frame(datasetName="MCF10A_Ctrl",
-                         cellLine=c("MCF10A"),
+ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
+                         cellLine=c("HMEC122L"),
                          ss=c("SS0"),
                          drug=c("none"),
                          analysisVersion="av1.6",
                          rawDataVersion="v2",
-                         limitBarcodes=c(2),
+                         limitBarcodes=c(1),
                          k=c(0),
                          calcAdjacency=FALSE,
                          writeFiles = TRUE,
