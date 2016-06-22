@@ -271,12 +271,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   
   barcodes <- unique(fileNames$Barcode)[1:limitBarcodes]
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
-  expDTList <- mclapply(barcodes, function(barcode){
+  expDTList <- lapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
     splits <- strsplit2(split = "_",plateDataFiles)
     wells <- unique(splits[,dim(splits)[2]-1])
-    wellDataList <- mclapply(wells,function(well){
+    wellDataList <- lapply(wells,function(well){
+      if(verbose) cat(paste("Reading and annotating well data for",well)," \n")
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
@@ -342,11 +343,12 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
         m <- regexpr("[[:alpha:]]",well)
         row <- regmatches(well,m)
         setkey(DT,Spot)
-        DT <- switch(row, A = merge(DT,spotMetadata,all=TRUE),
-                     B = merge(DT,spotMetadata180,all=TRUE))
+        DT <- switch(row, A = merge(DT,spotMetadata,all.x=TRUE),
+                     B = merge(DT,spotMetadata180,all.x=TRUE))
       }
       return(DT)
-    }, mc.cores=detectCores())
+    #}, mc.cores=detectCores())
+    })
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #rm(wellDataList)
@@ -370,7 +372,9 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       imageURLFile <- fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="imageID"]
       #Read in and merge the Omero URLs
       omeroIndex <- fread(fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="imageID"])[,list(WellName,Row,Column,ImageID)]
-      omeroIndex$Well <- sapply(gsub("Well","",strsplit2(omeroIndex$WellName,"_")[,2],""),FUN=switch,
+      m <- regexpr("Well[[:digit:]]",omeroIndex$WellName)
+      wellNames <- regmatches(omeroIndex$WellName,m)
+      omeroIndex$Well <- sapply(gsub("Well","",wellNames,""),FUN=switch,
                                 "1"="A01",
                                 "2"="A02",
                                 "3"="A03",
@@ -525,8 +529,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     ##Remove nuclear objects that dont'have cell and cytoplasm data
     if(any(grepl("SS1|SS3|SS6",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
     return(pcDT)
-  }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
-  #})
+  #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+  })
   cDT <- rbindlist(expDTList, fill = TRUE)
   
   rm(expDTList)
@@ -665,8 +669,8 @@ qualPlates <- data.frame(datasetName="MCF10A_Qual",
                           useJSONMetadata=FALSE,
                           stringsAsFactors=FALSE)
 
-ctrlPlates <- data.frame(datasetName="MCF10A_Ctrl",
-                         cellLine=c("MCF10A"),
+ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
+                         cellLine=c("HMEC122L"),
                          ss=c("SS0"),
                          drug=c("none"),
                          analysisVersion="av1.6",
