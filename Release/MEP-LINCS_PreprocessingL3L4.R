@@ -75,7 +75,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   datasetBarcodes <- readWorksheetFromFile("DatasetManifest.xlsx", sheet=1)
   
   fileNames <- rbindlist(apply(datasetBarcodes[datasetBarcodes$DatasetName==datasetName,], 1, getMEMADataFileNames))
-  q
+  
   slDT <- fread(paste0( "MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
@@ -93,18 +93,27 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
     #save(slDT, file="slDT.RData")
   }
   
-  #Parallelize on signals?
-  #slDT now has raw and log2+logit transformed values
-  nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
-  nDT$NormMethod <- "RUV3LoessResiduals"
-  #nDT has transformed, loess, RUV3 and RUV3Loess 
-  #Merge the normalized data with its metadata
-  setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-  #merge in the raw data to the transformed, loess, RUV3 and RUV3Loess 
-  slDT <- merge(nDT,mdDT)
-  # #merge spot level normalized and raw data
-   setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
+  if(!k==0){
+    #Normalize each feature, pass with location and content metadata
+    if(verbose) {
+      cat("Normalizing\n")
+      #save(slDT, file="slDT.RData")
+    }
+    nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
+    nDT$NormMethod <- "RUV3LoessResiduals"
+    #nDT has transformed, loess, RUV3 and RUV3Loess 
+    #Merge the normalized data with its metadata
+    setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
+    setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
+    #merge in the raw data to the transformed, loess, RUV3 and RUV3Loess 
+    slDT <- merge(nDT,mdDT)
+    # #merge spot level normalized and raw data
+    # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
+  } else {
+    slDT$NormMethod <- "none"
+    slDT$k <- k
+  }
+  setkey(slDT, Barcode, Well, Spot, PrintSpot, ArrayRow,ArrayColumn,ECMp,Ligand)
   # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
   
   #Label FBS with their plate index to keep separate
@@ -240,13 +249,13 @@ qualPlates <- data.frame(datasetName="MCF10A_Qual",
                          useJSONMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
-ctrlPlates <- data.frame(datasetName="MCF10A_Ctrl",
-                         cellLine=c("MCF10A"),
+ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
+                         cellLine=c("HMEC122L"),
                          ss=c("SS0"),
                          drug=c("none"),
                          analysisVersion="av1.6",
                          rawDataVersion="v2",
-                         limitBarcodes=c(2),
+                         limitBarcodes=c(1),
                          k=c(0),
                          calcAdjacency=FALSE,
                          writeFiles = TRUE,
@@ -259,4 +268,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
+tmp <- apply(ssDatasets[c(19),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
