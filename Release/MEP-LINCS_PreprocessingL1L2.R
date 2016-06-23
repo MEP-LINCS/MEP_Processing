@@ -12,7 +12,7 @@ library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 getFactors <- function (factors) {
-  sl <- lapply(factors, function(factor){
+  sl <- mclapply(factors, function(factor){
     the_set <- factor$the_set
     if(is.null((the_set))) the_set <-"NoSet"
     content <- factor$content
@@ -25,7 +25,7 @@ getFactors <- function (factors) {
 }
 
 getParameters <- function(parameters) {
-  sl <- lapply(parameters, function(parameter){
+  sl <- mclapply(parameters, function(parameter){
     ss <- parameter$the_set
     pContent <- parameter$content
     data.table(ParameterContent = pContent, StainingSet = ss)
@@ -57,14 +57,14 @@ getParameters <- function(parameters) {
 }
 
 getSample <- function (samples) {
-  sl <- lapply(samples, function(sample){
+  sl <- mclapply(samples, function(sample){
     data.table(CellLine = gsub(".*-","",gsub("_.*","",sample$content)), Passage = sample$fraction, CellSeedCount = sample$value)
   })
   sDT <- rbindlist(sl)
 }
 
 processJSON <- function (fileNames) {
-  rbindlist(lapply(fileNames, function(fn){
+  rbindlist(mclapply(fileNames, function(fn){
     #Process each file separately
     plateMetadata <- fromJSON(fn)
     
@@ -89,7 +89,7 @@ processJSON <- function (fileNames) {
     plateMetadata$welltype <- NULL
     
     #Get the well name and spot metadata
-    spotmMdList <- lapply(plateMetadata, function(spotMetadata){
+    spotmMdList <- mclapply(plateMetadata, function(spotMetadata){
       #Get the well alphanumeric
       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
       wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
@@ -106,11 +106,12 @@ processJSON <- function (fileNames) {
                         ArrayColumn = as.integer(str_split_fixed(ArrayPositions[1,2],"_",2)[1,2]),
                         ECMp = ECMp)
       return(mDT)
-    })
+    }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    
     spotMdDT <- rbindlist(spotmMdList)
     
     #Read well metadata from the first spot in each well
-    wellMdList <- lapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
+    wellMdList <- mclapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
       #Get the well alphanumeric
       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
       wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
@@ -146,7 +147,8 @@ processJSON <- function (fileNames) {
                         Endpoint647 = Endpoint647)
       #StainType647 = spotParameters$StainType[grepl("647|Red",spotParameters$Channel)],
       #Animal647 = spotParameters$Animal[grepl("647|Red",spotParameters$Channel)]
-    })
+    }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    
     wellMdDT <- rbindlist(wellMdList)
     mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
     mdDT$Spot <- as.integer(nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn)
@@ -154,7 +156,7 @@ processJSON <- function (fileNames) {
     mdDT$PrintSpot <- mdDT$Spot
     mdDT$PrintSpot[grepl("B", mdDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-mdDT$PrintSpot[grepl("B", mdDT$Well)]
     return(mdDT)
-  }))
+  }, mc.cores=max(4, detectCores())))
 }
 
 
@@ -235,7 +237,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   if(useJSONMetadata){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"]
-    metadata <- rbindlist(mclapply(fns, processJSON, mc.cores = detectCores()))
+    metadata <- rbindlist(lapply(fns, processJSON))
     for (barcode in unique(metadata$Barcode)){
       metadata$Barcode[grepl(barcode, metadata$Barcode)] <- grep(barcode,unique(fileNames$Barcode),value=TRUE)
     }
@@ -271,7 +273,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   
   barcodes <- unique(fileNames$Barcode)[1:limitBarcodes]
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
-  expDTList <- lapply(barcodes, function(barcode){
+  expDTList <- mclapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
     splits <- strsplit2(split = "_",plateDataFiles)
@@ -347,8 +349,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
                      B = merge(DT,spotMetadata180,all.x=TRUE))
       }
       return(DT)
-    #}, mc.cores=detectCores())
-    })
+    })#Revert to apply when debugging
+  #})
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     #rm(wellDataList)
@@ -495,7 +497,6 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     #Move adjacency processing to within parallel code
     if(calcAdjacency){
-      #cDTList <- mclapply(barcodes, function(barcode, dt){
       if(verbose){
         cat("Calculating adjacency data\n")
         #save(cDT, file="cDT.RData")
@@ -529,8 +530,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     ##Remove nuclear objects that dont'have cell and cytoplasm data
     if(any(grepl("SS1|SS3|SS6",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
     return(pcDT)
-  #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
-  })
+  }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+  #})
   cDT <- rbindlist(expDTList, fill = TRUE)
   
   rm(expDTList)

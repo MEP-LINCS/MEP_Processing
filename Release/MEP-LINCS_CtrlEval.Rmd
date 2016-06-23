@@ -46,6 +46,12 @@ l3$MEP <- paste0(l3$ECMp,"_",l3$Ligand)
 ```
 
 
+#MEP-LINCS HMEC 122L Control Plate Analysis
+####date: `r Sys.Date()`
+
+The settling time during cell plating was 35 minutes and the cell densities from wells B01 to B04 were 100K/well, 150K/well, 200K/well and 250K/well.  
+
+<br>
 ```{r SCCHist, fig.height=4}
 
 p <- ggplot(l3, aes(x=Spot_PA_SpotCellCount))+
