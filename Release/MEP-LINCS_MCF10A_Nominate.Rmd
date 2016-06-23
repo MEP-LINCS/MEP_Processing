@@ -807,6 +807,9 @@ print(p)
 
 #Save BMP7 MEPs for comparison in DNA4N
 BMP7MEPs <- dt[(grepl("^1$|^45$|^2$|^46$",ECMpRank)|grepl("COL1",ECMp))&grepl("BMP7",dt$Ligand),][["MEP"]]
+
+nomMEPS <- rbind(dt[grepl("^1$|^45$",ECMpRank)|grepl("COL1",ECMp),],dt[grepl("^2$|^46$",ECMpRank),])
+
 ```
 
 ###MEPs chosen on KRT5 Response
@@ -828,12 +831,17 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT
 
 p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
 
-p <- p+geom_text(data=dt[(grepl("^1$|^2$",ECMpRank)|grepl("COL1|NID1",ECMp))&grepl("HGF",Ligand),],aes(label=ECMp),nudge_x = 0.15, colour="blue")
+p <- p+geom_text(data=dt[(grepl("^1$|^2$",ECMpRank)|grepl("COL1",ECMp))&grepl("HGF",Ligand),],aes(label=ECMp),nudge_x = 0.15, colour="blue")
 
-p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)|grepl("COL1",ECMp))&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = 0.2, colour="blue")
+p <- p+geom_text(data=dt[(grepl("^45$",ECMpRank)|grepl("COL1|NID1",ECMp))&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = 0.2, colour="blue")
 
 p <- p+geom_text(data=dt[grepl("^46$",ECMpRank)&grepl("FGF2",Ligand),],aes(label=ECMp),nudge_x = -0.2, colour="blue")
 print(p)
+
+nomMEPS <- rbind(nomMEPS,
+                 dt[(grepl("^1$|^2$",ECMpRank)|grepl("COL1",ECMp))&grepl("HGF",Ligand),],
+                 dt[(grepl("^45$",ECMpRank)|grepl("COL1|NID1",ECMp))&grepl("FGF2",Ligand),],
+                 dt[grepl("^46$",ECMpRank)&grepl("FGF2",Ligand),])
 
 ```
 
@@ -866,6 +874,20 @@ p <- p+geom_text(data=dt[(MEP %in% BMP7MEPs[c(3,5)]),],aes(label=ECMp),nudge_x =
 p <- p+geom_text(data=dt[(MEP %in% BMP7MEPs[c(2,4)]),],aes(label=ECMp),nudge_x = 0.4, colour="blue")
 
 print(p)
+
+nomMEPS <- rbind(nomMEPS,
+                 dt[(grepl("^45$",ECMpRank)&grepl("Wnt5a",Ligand)),],
+                 dt[((grepl("^46$",ECMpRank)|grepl("COL1",ECMp))&grepl("Wnt5a",Ligand)),])
+
+```
+
+```{r}
+
+nomMEPSCurated <- (nomMEPS[,grep("Barcode|^Well$|^Spot$|Array|MEP|ECMp|^Ligand$|Cells_CP_AreaShape_AreaLog2|Nuclei_CP_AreaShape_AreaLog2|Cytoplasm_CP_Intensity_IntegratedIntensity_KRT5Log2|Cytoplasm_CP_Intensity_IntegratedIntensity_KRT19Log2|Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2|Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2|Nuclei_CP_Intensity_IntegratedIntensity_DapiLog2|Nuclei_CP_Intensity_IntegratedIntensity_EdULog2|Nuclei_CP_Intensity_MedianIntensity_DapiLog2|Nuclei_CP_Intensity_MedianIntensity_EdULog2|Nuclei_PA_Cycle_DNA2NProportionLogit|Nuclei_PA_Cycle_DNA4NProportionLogit|Nuclei_PA_Gated_EdUPositiveProportionLogit",colnames(nomMEPS), value=TRUE), with=FALSE])
+    nomMEPSCurated <- nomMEPSCurated[,grep("RUV3$|_SE|RLE$|ECMpRank",colnames(nomMEPSCurated), value=TRUE, invert=TRUE), with=FALSE]
+
+    setkey(nomMEPSCurated,Ligand,MEP)
+write.csv(nomMEPSCurated,file = "MCF10AMEPSforValidation.csv",row.names = FALSE)
 
 ```
 
