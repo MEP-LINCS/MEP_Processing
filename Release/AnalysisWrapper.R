@@ -35,7 +35,15 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           rawDataVersion="v2",
                           stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs)
+
+HMEC204L <- data.frame(cellLine=c("240L"),
+                       ss=c("SS1"),
+                       drug="none",
+                       analysisVersion="av1.6",
+                       rawDataVersion="v2",
+                       stringsAsFactors=FALSE)
+
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,HMEC204L)
 
 renderAnalysisReports <- function(x){
   cellLine <- x[["cellLine"]]
@@ -53,6 +61,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(11:13),], 1, renderAnalysisReports)
+tmp <- apply(ssDatasets[c(18),], 1, renderAnalysisReports)
 
 

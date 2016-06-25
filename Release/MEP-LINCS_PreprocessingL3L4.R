@@ -263,9 +263,23 @@ ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          useJSONMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates)
+HMEC204L <- data.frame(datasetName="HMEC240L_SS1",
+                       cellLine=c("240L"),
+                       ss=c("SS1"),
+                       drug=c("none"),
+                       analysisVersion="av1.6",
+                       rawDataVersion="v2",
+                       limitBarcodes=c(8),
+                       k=c(7),
+                       calcAdjacency=TRUE,
+                       writeFiles = TRUE,
+                       mergeOmeroIDs = TRUE,
+                       useJSONMetadata=TRUE,
+                       stringsAsFactors=FALSE)
+
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates,HMEC204L)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(19),], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
+tmp <- apply(ssDatasets[c(20),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)

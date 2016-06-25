@@ -58,7 +58,11 @@ getParameters <- function(parameters) {
 
 getSample <- function (samples) {
   sl <- mclapply(samples, function(sample){
-    data.table(CellLine = gsub(".*-","",gsub("_.*","",sample$content)), Passage = sample$fraction, CellSeedCount = sample$value)
+    passage <- sample$fraction
+    if(is.null(passage)) passage<-NA
+    CellSeedCount <- sample$value
+    if(is.null(CellSeedCount)) CellSeedCount<-NA
+    data.table(CellLine = gsub(".*-","",gsub("_.*","",sample$content)), Passage = passage, CellSeedCount = CellSeedCount)
   })
   sDT <- rbindlist(sl)
 }
@@ -89,6 +93,7 @@ processJSON <- function (fileNames) {
     plateMetadata$welltype <- NULL
     
     #Get the well name and spot metadata
+    startTime <- Sys.time()
     spotmMdList <- mclapply(plateMetadata, function(spotMetadata){
       #Get the well alphanumeric
       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
@@ -107,11 +112,13 @@ processJSON <- function (fileNames) {
                         ECMp = ECMp)
       return(mDT)
     }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    #})
+    elapsedTime <- Sys.time()-startTime
     
     spotMdDT <- rbindlist(spotmMdList)
     
     #Read well metadata from the first spot in each well
-    wellMdList <- mclapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
+    wellMdList <- lapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
       #Get the well alphanumeric
       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
       wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
@@ -147,7 +154,7 @@ processJSON <- function (fileNames) {
                         Endpoint647 = Endpoint647)
       #StainType647 = spotParameters$StainType[grepl("647|Red",spotParameters$Channel)],
       #Animal647 = spotParameters$Animal[grepl("647|Red",spotParameters$Channel)]
-    }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    })#Revert to apply when debugging
     
     wellMdDT <- rbindlist(wellMdList)
     mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
@@ -273,7 +280,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   
   barcodes <- unique(fileNames$Barcode)[1:limitBarcodes]
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
-  expDTList <- mclapply(barcodes, function(barcode){
+  expDTList <- lapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
                                        grepl("Raw",fileNames$Type)]
     splits <- strsplit2(split = "_",plateDataFiles)
@@ -530,8 +537,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     ##Remove nuclear objects that dont'have cell and cytoplasm data
     if(any(grepl("SS1|SS3|SS6",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
     return(pcDT)
-  }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
-  #})
+  #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+  })
   cDT <- rbindlist(expDTList, fill = TRUE)
   
   rm(expDTList)
@@ -684,10 +691,24 @@ ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          useJSONMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates)
+HMEC204L <- data.frame(datasetName="HMEC240L_SS1",
+                         cellLine=c("240L"),
+                         ss=c("SS1"),
+                         drug=c("none"),
+                         analysisVersion="av1.6",
+                         rawDataVersion="v2",
+                         limitBarcodes=c(8),
+                         k=c(7),
+                         calcAdjacency=TRUE,
+                         writeFiles = TRUE,
+                         mergeOmeroIDs = TRUE,
+                         useJSONMetadata=TRUE,
+                         stringsAsFactors=FALSE)
+
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC204L)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(19),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(20),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
