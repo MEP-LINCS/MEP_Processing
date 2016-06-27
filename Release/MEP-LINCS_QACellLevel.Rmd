@@ -1,7 +1,7 @@
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE)
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
 
 ```
 
@@ -57,37 +57,25 @@ HFRepThresh <- 3
 ```
 
 
-#MEP-LINCS `r cellLine` `r ss` Phase 1 QA Report
+#MEP-LINCS `r cellLine` `r ss` Cell-Level QA Report
 ####date: `r Sys.Date()`
 
 ##Summary
-The MEP-LINCS `r cellLine` `r ss` datasets include four levels of high content imaging data from on Microenvironment Microarrays (MEMAs). 
+This report covers the cell-level data for the `r cellLine` `r ss` dataset. There are additional reports for the spot, MEP and cell line QA and analysis. 
 
 ##Introduction
 The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l1$Endpoint488)`, `r unique(l1$Endpoint555)` and `r unique(l1$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r rawDataVersion` performed the segmentation and the analysis pipeline is `r analysisVersion`.
 
-Intensity, position and a limited set of morphology data are gathered for each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
-
-Level 1 - Raw data  
-Level 2 - Normalized data  
-Level 3 - Normalized data aggregated to the spot level  
-Level 4 - Normalized data aggregated to the replicate (MEP) level  
-
-The data merging and analysis is done in R using open source software. 
-
-<br>
-
-
 <br>
 
 ###DAPI QA
-DAPI intensity plots include univariate plots of the total DAPI signal. The blue vertical line shows the auto-gate for classifying 2N and 4N populations.
+Histograms of the total DAPI signal are typicaly bimodal with peaks at the 2N and $N DNA positions. The blue vertical line shows the auto-gate value for classifying 2N and 4N populations.
 
 <br>
 
 ```{r rawDAPIPlots, fig.width=3.7,fig.height=4, eval=exists("l1")}
 
-l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="_")
+l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="\n")
 plotTotalDAPI(l1, barcodes)
 
 ```
@@ -113,7 +101,28 @@ for (barcode in barcodes){
     theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
   suppressWarnings(print(p))
 }
+```
 
+```{r rawCOL1Histograms, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS1",ss)}
+#Display histograms for one COl1 spot of each ligand
+p <- ggplot(l1[l1$PrintSpot==193,], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
+  geom_density(fill="blue", alpha=.5)+
+  facet_wrap(~Ligand, scales = "free")+
+    ggtitle(paste("Median MitoTracker Signal in Sampled COL1 Spots"))+
+    ylab("Count")+xlab("Median Intensity MitoTracker")+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+  
+#Display histograms for one COl1 spot of each ligand
+p <- ggplot(l1[grepl("VEGF",l1$Ligand)&grepl("COL1",l1$ECMp),], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
+  geom_density(fill="blue", alpha=.5)+
+  facet_wrap(~Spot, scales = "free")+
+    ggtitle(paste("Median MitoTracker Signal in VEGF COL1 Spots"))+
+    ylab("Count")+xlab("Median Intensity MitoTracker")+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
+  suppressWarnings(print(p))
+  
+  
 ```
 
 
@@ -232,57 +241,10 @@ theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)),
 ```
 
 
-##Spot Cell Count QA
-
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS6",ss)}
-```
-
-
 <br>
 
 #Supplemental Material
 
-
-##MEMA Layout
-All MEMAs in the experiment are in separate wells and have the same design of 48 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
-
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=7, eval=exists("l1")}
-
-#Select the A row wells and delete the blanks
-setkey(l1,Well)
-DT <- unique(l1[grep("A",unique(l1$Well),value=TRUE),list(ArrayRow,ArrayColumn,ECMp)])
-setkey(DT,ECMp)
-DT <- DT[!grepl("blank|PBS",DT$ECMp),]
-
-p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
-  geom_point(shape=21, size = 2.2)+
-  guides(fill=guide_legend(ncol = 2))+
-  theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
-  scale_y_reverse()+
-  xlab("")+ylab("")+
-  ggtitle(" \n\nLINCS MEMA A Row Layout")
-print(p)
-
-DT <- DT[!grepl("Fiducial|fiducial",DT$ECMp),]
-
-```
-
-
-
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=exists("l1")}
-#Todo Fix this text whihc relies on l1
-##Replicate Count
-#The average replicate count is `r  sprintf("%3.1f",mean(table(DT$ECMp)))` and #the range of the replicate counts is `r range(table(DT$ECMp))`.  
-
-p <- ggplot(DT, aes(x=ECMp))+
-  geom_bar(width=.8)+geom_hline(yintercept = mean(table(DT$ECMp)), colour="blue")+
-  ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
-  xlab("Printed ECM Protein")+ylab("Number of spots")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
-
-print(p)
-
-```
 
 ```{r, , fig.height=10, eval=exists("l1")&grepl("SS2|SS6",ss)}
 

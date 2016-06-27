@@ -1,7 +1,7 @@
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE)
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE)
 
 ```
 
@@ -32,13 +32,10 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-l3 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE)
-
-
+l3 <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE))
+l4 <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE))
 
 barcodes <- sort(unique(l3$Barcode))
-
 
 #Set a threshold for filtering wells on their QA score
 wellQAThresh <- 0.7
@@ -97,7 +94,9 @@ The following plots are pseudoimages of each MEMA's spot cell count and a histog
 
 ```{r Heatmaps_QAScores, fig.width=3.7,fig.height=4, eval=TRUE}
 
-plotSCCHeatmapsQAHistograms(l3, barcodes, lthresh=lthresh)
+dt <- copy(l3)
+dt$Well_Ligand <- sub("_","\n",dt$Well_Ligand)
+plotSCCHeatmapsQAHistograms(dt, barcodes, lthresh=lthresh)
 
 ```
 
@@ -109,6 +108,7 @@ yLimits <- c(0,75)
 for (barcode in barcodes){
   setkey(l3,"Barcode")
   dt <- l3[barcode]
+  dt$Well_Ligand <- sub("_","\n",dt$Well_Ligand)
   
   p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount))+
     geom_histogram(binwidth = 1)+
@@ -702,9 +702,9 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 
 
 ##MEMA Layout
-All MEMAs in the experiment are in separate wells and have the same design of 48 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.   
+All MEMAs in the experiment are in separate wells and have the same design of 48 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. There is a higher number of COL1 spots (shown as black triangles) throughout the array that are control spots used to evaluate spatial variations. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.  
 
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=7, eval=exists("l1")}
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=7, eval=exists("l3")}
 
 #Select the A row wells and delete the blanks
 setkey(l3,Well)
@@ -712,28 +712,26 @@ DT <- unique(l3[grep("A",unique(l3$Well),value=TRUE),list(ArrayRow,ArrayColumn,E
 setkey(DT,ECMp)
 DT <- DT[!grepl("blank|PBS",DT$ECMp),]
 
-p <- ggplot(DT,aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
+p <- ggplot(data=DT[!grepl("COL1",DT$ECMp),],aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
   geom_point(shape=21, size = 2.2)+
   guides(fill=guide_legend(ncol = 2))+
   theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
   scale_y_reverse()+
   xlab("")+ylab("")+
   ggtitle(" \n\nLINCS MEMA A Row Layout")
+p <- p+geom_point(data = DT[grepl("COL1",DT$ECMp),], shape=24, fill="black")
 print(p)
-
-DT <- DT[!grepl("Fiducial|fiducial",DT$ECMp),]
 
 ```
 
-
-
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=exists("l1")}
-#Todo Fix this text which relies on l1
 ##Replicate Count
-#The average replicate count is `r  sprintf("%3.1f",mean(table(DT$ECMp)))` and #the range of the replicate counts is `r range(table(DT$ECMp))`.  
+The median replicate count is `r  sprintf("%3.2f",median(table(DT$ECMp)))` and the range of the replicate counts is `r range(table(DT$ECMp))`.  
+
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=3, eval=exists("l3")}
 
 p <- ggplot(DT, aes(x=ECMp))+
-  geom_bar(width=.8)+geom_hline(yintercept = mean(table(DT$ECMp)), colour="blue")+
+  geom_bar(width=.8)+geom_hline(yintercept = median(table(DT$ECMp)), colour="blue")+
+  scale_y_log10()+
   ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
   xlab("Printed ECM Protein")+ylab("Number of spots")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
@@ -808,6 +806,8 @@ for (barcode in barcodes){
   setkey(DT,ECMp)
   DT <- DT[!"fiducial"]
   DT <- DT[!"blank"]
+  DT$Well_Ligand <- sub("_","\n",DT$Well_Ligand)
+  
   
   p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))

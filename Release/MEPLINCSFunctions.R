@@ -78,12 +78,12 @@ plotTotalDAPI <- function(l1, barcodes){
     mDT <- l1[l1$Barcode == barcode]
     mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
     mDT <- mDT[,DNAThresh := min(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==2]), by="Well"]
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 500000)+
+    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 50000)+
       geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
       facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
       ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
       ylab("Count")+xlab("Total Intensity DAPI")+
-      theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+      theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)),strip.text.x = element_text(size = rel(.5)))
     suppressWarnings(print(p))
   }
 }
@@ -643,4 +643,12 @@ boundedLogit <- function(x){
   x[x==1]<- (xMax+1)/2
   xLogit <- log2(x/(1-x))
   return(xLogit)
+}
+
+shortenHA <- function(x){
+  x$ECMp <- gsub("hyaluronicacid","HA",x$ECMp)
+  x$ECMp <- gsub("lessthan","<",x$ECMp)
+  x$ECMp <- gsub("greaterthan",">",x$ECMp)
+  x$MEP <- paste(x$ECMp,x$Ligand,sep = "_")
+  return(x)
 }
