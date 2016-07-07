@@ -128,7 +128,7 @@ for (barcode in barcodes){
   dtb <- l1S[barcode]
   dtb <- dtb[log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) > quantile(log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), probs=.01, na.rm=TRUE) & log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) < quantile(log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker),probs=.98, na.rm=TRUE)]
   p <- ggplot(dtb, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
-    geom_histogram(binwidth = 10)+
+    geom_histogram(binwidth = binwidth)+
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("MitoTracker Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity MitoTracker\nLog2")+
@@ -147,7 +147,7 @@ p <- ggplot(l1[l1$PrintSpot==193,], aes(x=log2(Cytoplasm_CP_Intensity_MedianInte
   theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = rel(.5)))
 suppressWarnings(print(p))
 
-#Display histograms for one COl1 spot of each ligand
+#Display density plots for one COl1 spot of each ligand
 p <- ggplot(l1[grepl("VEGF",l1$Ligand)&grepl("COL1",l1$ECMp),], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
   geom_density(fill="blue", alpha=.5)+
   facet_wrap(~Spot, scales = "free")+
