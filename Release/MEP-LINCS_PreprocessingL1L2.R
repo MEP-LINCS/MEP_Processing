@@ -166,6 +166,9 @@ processJSON <- function (fileNames) {
   }, mc.cores=max(4, detectCores())))
 }
 
+spotNorm <- function(x){
+  return(x/median(x,na.rm=TRUE))
+}
 
 preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   startTime<- Sys.time()
@@ -244,7 +247,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   if(useJSONMetadata){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"]
-    metadata <- rbindlist(mclapply(fns, processJSON, mc.cores = detectCores()))
+    metadata <- rbindlist(mclapply(fns[1:limitBarcodes], processJSON, mc.cores = detectCores()))
     for (barcode in unique(metadata$Barcode)){
       metadata$Barcode[grepl(barcode, metadata$Barcode)] <- grep(barcode,unique(fileNames$Barcode),value=TRUE)
     }
@@ -357,10 +360,11 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       }
       return(DT)
     })#Revert to apply when debugging
-  #})
+    #})
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
-    #rm(wellDataList)
+    rm(wellDataList)
+    gc()
     
     if(!useJSONMetadata){
       #Read the well metadata from a multi-sheet Excel file
@@ -449,14 +453,15 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     if(any(grepl("Nuclei_CP_AreaShape_Eccentricity",colnames(pcDT)))){
       pcDT <- pcDT[,Nuclei_CP_AreaShape_EccentricityLogit := boundedLogit(Nuclei_CP_AreaShape_Eccentricity)]
     }
-    
-    #Add spot level normalizations for selected intensities
     if(normToSpot){
+      #Add spot level normalizations for selected intensities
       intensityNamesAll <- grep("_CP_Intensity_Median",colnames(pcDT), value=TRUE)
       intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
       for(intensityName in intensityNames){
         #Median normalize the median intensity at each spot
-        pcDT <- pcDT[,paste0(intensityName,"_SpotNorm") := medianNorm(.SD,intensityName),by="Barcode,Well,Spot"]
+        setnames(pcDT,intensityName,"value")
+        pcDT <- pcDT[,paste0(intensityName,"_SpotNorm") := spotNorm(value),by="Barcode,Well,Spot"]
+        setnames(pcDT,"value",intensityName)
       }
     }
     if(!useJSONMetadata){
@@ -467,11 +472,10 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)])
       pcDT$Ligand[grepl("IGF1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = pcDT$Ligand[grepl("IGF1",pcDT$Ligand)])
     }
-    pcDT$MEP <- paste(pcDT$ECMp,pcDT$Ligand,sep = "_")
-    
-    #Add a convenience label for wells and ligands
-    pcDT$Well_Ligand <- paste(pcDT$Well,pcDT$Ligand,sep = "_")
-    
+    #Add MEP and convenience labels for wells and ligands
+    pcDT <- pcDT[,MEP:=paste(ECMp,Ligand,sep = "_")]
+    pcDT <- pcDT[,Well_Ligand:=paste(Well,Ligand,sep = "_")]
+
     # Eliminate Variations in the Endpoint metadata
     endpointNames <- grep("End",colnames(pcDT), value=TRUE)
     endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
@@ -479,9 +483,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     
     #Create staining set specific derived parameters
-if (grepl("SS2|SS4|SS6",ss)){
+    if (grepl("SS2|SS4|SS6",ss)){
       pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
-      #pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := gateOnlocalMinima(Nuclei_CP_Intensity_MedianIntensity_Edu)-1, by="Barcode,Well"]
+      #Modify the gate threshold to be 3 sigma from the EdU- median
+      EdUDT <- pcDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
+      EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
+      pcDT <- merge(pcDT,EdUDT,by=c("Barcode","Well"))
+      pcDT$Nuclei_PA_Gated_EdUPositive[pcDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>pcDT$Median3SD]<-1
       #Calculate the EdU Positive Percent at each spot
       pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositiveProportion := sum(Nuclei_PA_Gated_EdUPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
       #Logit transform EdUPositiveProportion
@@ -535,7 +543,7 @@ if (grepl("SS2|SS4|SS6",ss)){
     ##Remove nuclear objects that dont'have cell and cytoplasm data
     if(any(grepl("SS1|SS3|SS6",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
     return(pcDT)
-  #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
   })
   cDT <- rbindlist(expDTList, fill = TRUE)
   
@@ -543,7 +551,7 @@ if (grepl("SS2|SS4|SS6",ss)){
   gc()
   
   
- 
+  
   # The cell level raw data and metadata is saved as Level 1 data. 
   
   if(writeFiles){
@@ -663,17 +671,17 @@ watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU56
 
 qualPlates <- data.frame(datasetName="MCF10A_Qual",
                          cellLine=c("MCF10A"),
-                          ss=c("SS0"),
-                          drug=c("none"),
-                          analysisVersion="av1.6",
-                          rawDataVersion="v2",
-                          limitBarcodes=c(4),
-                          k=c(0),
-                          calcAdjacency=FALSE,
-                          writeFiles = TRUE,
-                          mergeOmeroIDs = TRUE,
-                          useJSONMetadata=FALSE,
-                          stringsAsFactors=FALSE)
+                         ss=c("SS0"),
+                         drug=c("none"),
+                         analysisVersion="av1.6",
+                         rawDataVersion="v2",
+                         limitBarcodes=c(4),
+                         k=c(0),
+                         calcAdjacency=FALSE,
+                         writeFiles = TRUE,
+                         mergeOmeroIDs = TRUE,
+                         useJSONMetadata=FALSE,
+                         stringsAsFactors=FALSE)
 
 ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          cellLine=c("HMEC122L"),
@@ -690,18 +698,18 @@ ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          stringsAsFactors=FALSE)
 
 HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
-                         cellLine=c("HMEC240L"),
-                         ss=c("SS1","SS4"),
-                         drug=c("none"),
-                         analysisVersion="av1.6",
-                         rawDataVersion="v2",
-                         limitBarcodes=c(8,8),
-                         k=c(7,7),
-                         calcAdjacency=TRUE,
-                         writeFiles = TRUE,
-                         mergeOmeroIDs = TRUE,
-                         useJSONMetadata=TRUE,
-                         stringsAsFactors=FALSE)
+                       cellLine=c("HMEC240L"),
+                       ss=c("SS1","SS4"),
+                       drug=c("none"),
+                       analysisVersion="av1.6",
+                       rawDataVersion="v2",
+                       limitBarcodes=c(8,8),
+                       k=c(7,7),
+                       calcAdjacency=TRUE,
+                       writeFiles = TRUE,
+                       mergeOmeroIDs = TRUE,
+                       useJSONMetadata=TRUE,
+                       stringsAsFactors=FALSE)
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L)
 
