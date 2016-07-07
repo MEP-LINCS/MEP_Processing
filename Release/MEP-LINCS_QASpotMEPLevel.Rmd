@@ -187,12 +187,12 @@ print(p)
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS6",ss)}
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6",ss)}
 ```
 
 <br>
 
-```{r rawEdUBoxplots, fig.height=5, eval=grepl("SS2|SS6",ss)}
+```{r rawEdUBoxplots, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -207,14 +207,14 @@ print(p)
 
 
 
-```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3",ss)}
+```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3|SS4",ss)}
 ```
 
 <br>
 
 
 
-```{r rawKrt5Boxplots, fig.height=5, eval=grepl("SS3",ss)}
+```{r rawKrt5Boxplots, fig.height=5, eval=grepl("SS3|SS4",ss)}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -248,7 +248,7 @@ print(p)
 <br>
 
 
-```{r rawKrt19Boxplots, fig.height=5, eval=grepl("SS3|SS6",ss)}
+```{r rawKrt19Boxplots, fig.height=5, eval=grepl("SS3|SS4|SS6",ss)}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -282,7 +282,7 @@ if (grepl("SS2",ss)){
   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)]
 }
 
-if (grepl("SS3",ss)){
+if (grepl("SS3|SS4",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)]
   
@@ -407,11 +407,11 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS6",ss)}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4|SS6",ss)}
 ```
 
 
-```{r ProliferationHistogramFull, eval=grepl("SS2|SS6",ss)}
+```{r ProliferationHistogramFull, eval=grepl("SS2|SS4|SS6",ss)}
 
 dt <- l4F
 
@@ -422,7 +422,7 @@ p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+geom
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationByLigandFull, eval=grepl("SS2|SS6",ss)}
+```{r ProliferationByLigandFull, eval=grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand (full dataset)"))+
@@ -432,7 +432,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByECMpFull,eval=grepl("SS2|SS6",ss)}
+```{r ProliferationByECMpFull,eval=grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein (full dataset)"))+
@@ -443,7 +443,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r ProliferationHistogram, eval=grepl("SS2|SS6",ss)}
+```{r ProliferationHistogram, eval=grepl("SS2|SS4|SS6",ss)}
 
 setkey(l4HF,"Ligand")
 dt <- l4HF[!grepl("FBS",l4HF$Ligand)]
@@ -455,7 +455,7 @@ p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+geom
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationByLigand, eval=grepl("SS2|SS6",ss)}
+```{r ProliferationByLigand, eval=grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand (HF dataset)"))+
@@ -465,7 +465,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByECMp,eval=grepl("SS2|SS6",ss)}
+```{r ProliferationByECMp,eval=grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein (HF dataset)"))+
@@ -476,10 +476,10 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3",ss)}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3|SS4",ss)}
 ```
 
-```{r lineageRatioHistogram,eval=grepl("SS3",ss)}
+```{r lineageRatioHistogram,eval=grepl("SS3|SS4",ss)}
 
 p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_histogram(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
@@ -489,7 +489,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_hi
 suppressWarnings(print(p))
 ```
 
-```{r LineageRatioByLigand,eval=grepl("SS3",ss)}
+```{r LineageRatioByLigand,eval=grepl("SS3|SS4",ss)}
 p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
@@ -498,7 +498,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r lineageRatioByECMp,eval=grepl("SS3",ss)}
+```{r lineageRatioByECMp,eval=grepl("SS3|SS4",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
@@ -631,7 +631,7 @@ if(grepl("SS1",ss)){
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   
-} else if (ss=="SS3"){
+} else if (ss=="SS3|SS4"){
   
   
   p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)) +
@@ -664,7 +664,9 @@ if(grepl("SS1",ss)){
   print(p)
   
 }
+```
 
+```{r PCADatatable, cache=FALSE}
 datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5))
 #Extract the selectedPCs of each MEP into a matrix
 
@@ -704,7 +706,7 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 ##MEMA Layout
 All MEMAs in the experiment are in separate wells and have the same design of 48 ECM proteins spotted in 35 rows and 20 columns. The proteins are randomly assigned to spots in the top 30 rows. Rows 31-35 are replicates of rows 1-5. There is a higher number of COL1 spots (shown as black triangles) throughout the array that are control spots used to evaluate spatial variations. The upper left and bottom right corners of each MEMA are image fiducials in the 488nm channel and there are four blank spots for checking orientation in all channels.  
 
-```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=7, eval=exists("l3")}
+```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.height=6, fig.width=5, eval=exists("l3")}
 
 #Select the A row wells and delete the blanks
 setkey(l3,Well)
@@ -713,7 +715,7 @@ setkey(DT,ECMp)
 DT <- DT[!grepl("blank|PBS",DT$ECMp),]
 
 p <- ggplot(data=DT[!grepl("COL1",DT$ECMp),],aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
-  geom_point(shape=21, size = 2.2)+
+  geom_point(shape=21, size = 2.7)+
   guides(fill=guide_legend(ncol = 2))+
   theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
   scale_y_reverse()+
@@ -822,30 +824,34 @@ for (barcode in barcodes){
     
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
-  } else if (ss=="SS2"){
-    
-    #p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_H3", prDisplay = unique(DT$Endpoint488))
-    #suppressWarnings(print(p))
-    
-  } else if (grepl("SS2",ss)){   
+  }
+
+  if (grepl("SS2",ss)){   
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
-    
+  }
+    if (grepl("SS2|SS4",ss)){   
+
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
     
-  } else if (grepl("SS3",ss)){
+  } 
+  if (grepl("SS3|SS4",ss)){
     
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
     
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
-    
+  }
+  
+    if (grepl("SS3",ss)){
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
     
-  } else if (grepl("SS6",ss)){
+  }
+  
+  if (grepl("SS6",ss)){
     
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT14", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
@@ -900,7 +906,7 @@ print(p)
 
 ```
 
-```{r, , fig.height=10, eval=grepl("SS2|SS6",ss)}
+```{r, , fig.height=10, eval=grepl("SS2|SS4|SS6",ss)}
 
 
 if(exists("l3$Nuclei_PA_Gated_EdUPositiveProportion")){

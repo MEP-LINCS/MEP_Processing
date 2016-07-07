@@ -97,12 +97,12 @@ l4F <- createl4(l3F,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUV3Loess)]
 
-if (grepl("SS2",ss)){
+if (grepl("SS2|SS4",ss)){
   #Add Robust Z Score of the EdU Signal
   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUV3Loess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)]
 }
 
-if (grepl("SS3",ss)){
+if (grepl("SS3|SS4",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
 
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)]
@@ -133,7 +133,7 @@ A highly filtered dataset termed "HF" is created as follows. Spots with less tha
 
 
 
-```{r, child='MEP-LINCS_RUV3ResidualsText.Rmd', eval=unique(l3$NormMethod)=="RUV3LoessResiduals" & grepl("SS3",ss)}
+```{r, child='MEP-LINCS_RUV3ResidualsText.Rmd', eval=unique(l3$NormMethod)=="RUV3LoessResiduals" & grepl("SS3|SS4",ss)}
 ```
 
 
@@ -222,10 +222,10 @@ A useful mining method to use the first table to identify a MEP of interest as t
 if(any(grepl("SS1",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
-} else if (any(grepl("SS2|SS6",ss))){
+} else if (any(grepl("SS2|SS4|SS6",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3Loess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
-} else if (any(grepl("SS3",ss))){
+} else if (any(grepl("SS3|SS4",ss))){
   if (cellLine=="MCF10A"){
     colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV3", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUV3","Cytoplasm_PA_Intensity_LineageRatioLog2RUV3", "Spot_PA_ReplicateCount")
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
@@ -391,12 +391,12 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 ```
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2",ss)}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4",ss)}
 ```
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS6",ss), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6",ss), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -412,7 +412,7 @@ ggplotly(p)
 
 
 
-```{r NormedProliferationByMEPHF,eval=grepl("SS2|SS6",ss), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPHF,eval=grepl("SS2|SS4|SS6",ss), fig.width=8, fig.height=6}
 
 dt <- l4HF
 
@@ -427,11 +427,11 @@ ggplotly(p)
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2",ss)}
+```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4",ss)}
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
+```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess")
@@ -445,7 +445,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
+```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
@@ -460,7 +460,7 @@ ggplotly(p, tooltip="colour")
 ```
 
 
-```{r EdUHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS2|SS6",ss)}
+```{r EdUHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4HF[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess")
@@ -473,10 +473,10 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 ```
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3",ss)}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3|SS4",ss)}
 ```
 
-```{r LineageRatioByMEP,eval=grepl("SS3",ss), fig.width=8, fig.height=6}
+```{r LineageRatioByMEP,eval=grepl("SS3|SS4",ss), fig.width=8, fig.height=6}
 
 dt <- l4HF
 
@@ -492,7 +492,7 @@ ggplotly(p)
 
 
 
-```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS3",ss)}
+```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS3|SS4",ss)}
 
 dt <- l4HF
 
@@ -505,7 +505,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, 
 ```
 
 
-```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS3",ss)}
+```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS3|SS4",ss)}
 
 #Cast to get ECMps in rows and ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess")
@@ -519,7 +519,7 @@ try(d3heatmap(dfZoom(df, 0.02, 1), colors=hmcols, xaxis_font_size="6pt", yaxis_f
 ```
 
 
-```{r LineagRatioHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS3",ss)}
+```{r LineagRatioHeatmapHF, fig.width=8, fig.height=5, eval=grepl("SS3|SS4",ss)}
 
 #Cast to get ECMps in rows and ligands into columns
 df <- dcast(data.frame(l4HF[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess")
@@ -532,6 +532,18 @@ try(d3heatmap(dfZoom(df, 0.001, .9995), colors=hmcols, xaxis_font_size="6pt", ya
 
 ```
 
+
+```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS4",ss)}
+
+dt <- l4
+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour = Ligand))+
+  geom_point(alpha=.5)+
+  guides(colour=FALSE)+
+  xlab("Lineage Ratio")+ylab("EdU Proliferation")+
+  ggtitle("EdU vs Lineage by Ligand")
+(gg <- ggplotly(p))
+```
 
 ##Unbiased Analysis
 
@@ -579,7 +591,7 @@ The tSNE algorithm is run on the curated feature vectors reducing the dataset to
 
 <br>
 
-```{r createtSNE, eval=TRUE}
+```{r createtSNE, eval=FALSE}
 
 tSNEParameters <- grep("MEP|Ligand|ECMp|Replicate|Barcode",colnames(filterl4RUV3(l4, lowQALigands)), invert=TRUE, value=TRUE)
 data_matrix <- scale(as.matrix(dt[,tSNEParameters, with=FALSE]))
@@ -590,7 +602,7 @@ dtt <- cbind(dt,data_tsne$Y)
 
 ```
 
-```{r plottSNEBarcode,fig.width=4, fig.height=3, eval=TRUE}
+```{r plottSNEBarcode,fig.width=4, fig.height=3, eval=FALSE}
 
 p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "Barcode"))+
   geom_point(size=rel(.2), alpha=.5)+
@@ -602,7 +614,7 @@ print(p)
 ```
 
 
-```{r plottSNEFeatures,fig.width=3, fig.height=3, eval=TRUE}
+```{r plottSNEFeatures,fig.width=3, fig.height=3, eval=FALSE}
 
 tmp <- lapply(c(tSNEParameters),function(sigName){
   p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = paste(sigName)))+
@@ -617,7 +629,7 @@ tmp <- lapply(c(tSNEParameters),function(sigName){
 ```
 
 
-```{r ggplotlytSNEMEPs,fig.width=6, fig.height=6, eval=TRUE}
+```{r ggplotlytSNEMEPs,fig.width=6, fig.height=6, eval=FALSE}
 
 p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "ECMp"))+
   geom_point(size=rel(1.2), alpha=.5)+
@@ -635,7 +647,7 @@ p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "Ligand"))+
 (gg <- ggplotly(p))
 ```
 
-```{r plottSNEMEPs,fig.width=6, fig.height=6, eval=TRUE }
+```{r plottSNEMEPs,fig.width=6, fig.height=6, eval=FALSE }
 p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "MEP"))+
   geom_point(size=rel(.2), alpha=.5)+
   ggtitle(paste("tSNE plot by MEP"))+

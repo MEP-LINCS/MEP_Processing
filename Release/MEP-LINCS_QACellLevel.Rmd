@@ -33,6 +33,10 @@ plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
 l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="\n")
+
+l1 <- l1[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
+l1 <- l1[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
 
 barcodes <- sort(unique(l1$Barcode))
 
@@ -71,12 +75,21 @@ The LINCS Pilot `r cellLine` `r ss` experiment was performed with cells grown in
 ###DAPI QA
 Histograms of the total DAPI signal are typicaly bimodal with peaks at the 2N and $N DNA positions. The blue vertical line shows the auto-gate value for classifying 2N and 4N populations.
 
+We want to normalize the DNA signal so that the G0/G1 peak has a value of 1. This should yield G2 peak at 2. To achieve this, the total DAPI intensity is divided by the median total DAPI intensity for all cells that have a DNA Cycle State value of 1.
+
 <br>
 
-```{r rawDAPIPlots, fig.width=3.7,fig.height=4, eval=exists("l1")}
+```{r rawDAPIPlots, fig.width=10,fig.height=20, eval=exists("l1")}
+dt <- l1[sample(1:nrow(l1),.1*nrow(l1),replace=FALSE),.(Barcode,Well,TotalDNANormed,DNAThresh,Well_Ligand,Well)]
+    p <- ggplot(dt, aes(x=TotalDNANormed))+geom_histogram(binwidth = .05)+
+      coord_cartesian(x=c(0,4))+
+      geom_vline(data = dt, aes(xintercept = DNAThresh), colour = "blue")+
+      facet_grid(Barcode~Well)+
+      ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
+      ylab("Count")+xlab("Total Intensity DAPI")+
+      theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)),strip.text.x = element_text(size = rel(.5)))
+    suppressWarnings(print(p))
 
-l1$Well_Ligand <- paste(l1$Well,l1$Ligand, sep="\n")
-plotTotalDAPI(l1, barcodes)
 
 ```
 
@@ -108,30 +121,30 @@ for (barcode in barcodes){
 p <- ggplot(l1[l1$PrintSpot==193,], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
   geom_density(fill="blue", alpha=.5)+
   facet_wrap(~Ligand, scales = "free")+
-    ggtitle(paste("Median MitoTracker Signal in Sampled COL1 Spots"))+
-    ylab("Count")+xlab("Median Intensity MitoTracker")+
-    theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
-  suppressWarnings(print(p))
-  
+  ggtitle(paste("Median MitoTracker Signal in Sampled COL1 Spots"))+
+  ylab("Count")+xlab("Median Intensity MitoTracker")+
+  theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+
 #Display histograms for one COl1 spot of each ligand
 p <- ggplot(l1[grepl("VEGF",l1$Ligand)&grepl("COL1",l1$ECMp),], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
   geom_density(fill="blue", alpha=.5)+
   facet_wrap(~Spot, scales = "free")+
-    ggtitle(paste("Median MitoTracker Signal in VEGF COL1 Spots"))+
-    ylab("Count")+xlab("Median Intensity MitoTracker")+
-    theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
-  suppressWarnings(print(p))
-  
-  
+  ggtitle(paste("Median MitoTracker Signal in VEGF COL1 Spots"))+
+  ylab("Count")+xlab("Median Intensity MitoTracker")+
+  theme(axis.text.x=element_blank(), axis.text.y=element_blank(), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+
+
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS6",ss)}
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6",ss)}
 ```
 
 <br>
 
-```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS6",ss)}
+```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS4|SS6",ss)}
 
 for (barcode in barcodes){
   mDT <- l1[l1$Barcode == barcode]
@@ -141,7 +154,7 @@ for (barcode in barcodes){
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("\n\n","Median EdU Signal,",barcode))+
     ylab("Count")+xlab("Median Intensity EdU")+
-theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   suppressWarnings(print(p))
 }
 
@@ -149,12 +162,12 @@ theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)),
 
 
 
-```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3",ss)}
+```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3|SS4",ss)}
 ```
 
 <br>
 
-```{r rawKrt5Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3",ss)}
+```{r rawKrt5Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
 
 xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.01, na.rm=TRUE)
 xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.99, na.rm=TRUE)
@@ -167,7 +180,7 @@ for (barcode in barcodes){
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("\n\n","Median KRT5 Signal,",barcode))+
     ylab("Count")+xlab("Median Intensity KRT5")+
-theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   suppressWarnings(print(p))
 }
 
@@ -192,7 +205,7 @@ for (barcode in barcodes){
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("\n\n","Median KRT14 Signal,",barcode))+
     ylab("Count")+xlab("Median Intensity KRT14")+
-theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   suppressWarnings(print(p))
 }
 
@@ -201,7 +214,7 @@ theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)),
 
 <br>
 
-```{r rawKrt19Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3|SS6",ss)}
+```{r rawKrt19Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3|SS4|SS6",ss)}
 xMin <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,probs=.01, na.rm=TRUE)
 xMax <- quantile(l1$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,probs=.99, na.rm=TRUE)
 
@@ -213,7 +226,7 @@ for (barcode in barcodes){
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("\n\n","Median KRT19 Signal,",barcode))+
     ylab("Count")+xlab("Median Intensity KRT19")+
-theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   suppressWarnings(print(p))
 }
 
@@ -222,7 +235,7 @@ theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)),
 
 <br>
 
-```{r rawlineageRatioHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3",ss)}
+```{r rawlineageRatioHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
 xMin <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.01, na.rm=TRUE)
 xMax <- quantile(l1$Cytoplasm_PA_Intensity_LineageRatioLog2,probs=.99, na.rm=TRUE)
 
@@ -234,7 +247,7 @@ for (barcode in barcodes){
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("\n\n","Median Lineage Ratio Signal,",barcode))+
     ylab("Count")+xlab("Median Intensity Lineage Ratio")+
-theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   suppressWarnings(print(p))
 }
 
@@ -246,7 +259,7 @@ theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)),
 #Supplemental Material
 
 
-```{r, , fig.height=10, eval=exists("l1")&grepl("SS2|SS6",ss)}
+```{r, , fig.height=10, eval=exists("l1")&grepl("SS2|SS4|SS6",ss)}
 
 p <- ggplot(l1, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_EdU)))+
   geom_histogram(binwidth=.05)+
@@ -259,16 +272,16 @@ print(p)
 
 ```
 
-```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS6",ss)}
+```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS4|SS6",ss)}
 
 for (barcode in barcodes){
   mDT <- l1[l1$Barcode == barcode] 
   mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
   
-  p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi, y = log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour = Nuclei_PA_Gated_EdUPositive))+geom_point(size = rel(.2), alpha = .6)+
+  p <- ggplot(mDT, aes(x=TotalDNANormed, y = log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour = Nuclei_PA_Gated_EdUPositive))+geom_point(size = rel(.2), alpha = .6)+
     geom_rug(col=rgb(.5,0,0,alpha=.01))+
     #coord_cartesian(xlim=c(0,160),ylim=c(-9,-4))+
-    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+ggtitle(paste("\n\n","EdU vs. Total DAPI Signal,",barcode))+ylab("EdU (log2)")+xlab("Total Intensity DAPI")+
+    facet_wrap(~Well_Ligand, nrow=2)+ggtitle(paste("\n\n","EdU vs. Total DAPI Signal,",barcode))+ylab("EdU (log2)")+xlab("Total Intensity DAPI")+
     guides(colour=FALSE)+
     theme(strip.text = element_text(size = 5),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
   

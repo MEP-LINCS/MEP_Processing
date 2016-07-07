@@ -12,7 +12,7 @@ library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 getFactors <- function (factors) {
-  sl <- mclapply(factors, function(factor){
+  sl <- lapply(factors, function(factor){
     the_set <- factor$the_set
     if(is.null((the_set))) the_set <-"NoSet"
     content <- factor$content
@@ -25,7 +25,7 @@ getFactors <- function (factors) {
 }
 
 getParameters <- function(parameters) {
-  sl <- mclapply(parameters, function(parameter){
+  sl <- lapply(parameters, function(parameter){
     ss <- parameter$the_set
     pContent <- parameter$content
     data.table(ParameterContent = pContent, StainingSet = ss)
@@ -57,7 +57,7 @@ getParameters <- function(parameters) {
 }
 
 getSample <- function (samples) {
-  sl <- mclapply(samples, function(sample){
+  sl <- lapply(samples, function(sample){
     passage <- sample$fraction
     if(is.null(passage)) passage<-NA
     CellSeedCount <- sample$value
@@ -94,7 +94,7 @@ processJSON <- function (fileNames) {
     
     #Get the well name and spot metadata
     startTime <- Sys.time()
-    spotmMdList <- mclapply(plateMetadata, function(spotMetadata){
+    spotmMdList <- lapply(plateMetadata, function(spotMetadata){
       #Get the well alphanumeric
       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
       wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
@@ -111,7 +111,7 @@ processJSON <- function (fileNames) {
                         ArrayColumn = as.integer(str_split_fixed(ArrayPositions[1,2],"_",2)[1,2]),
                         ECMp = ECMp)
       return(mDT)
-    }, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    })#Revert to apply when debugging
     #})
     elapsedTime <- Sys.time()-startTime
     
@@ -244,7 +244,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   if(useJSONMetadata){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"]
-    metadata <- rbindlist(lapply(fns, processJSON))
+    metadata <- rbindlist(mclapply(fns, processJSON, mc.cores = detectCores()))
     for (barcode in unique(metadata$Barcode)){
       metadata$Barcode[grepl(barcode, metadata$Barcode)] <- grep(barcode,unique(fileNames$Barcode),value=TRUE)
     }
@@ -291,7 +291,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
                              ignore.case = TRUE)
-      if (ss %in% c("SS1","SS3", "SS6")){
+      if (ss %in% c("SS1","SS3","SS4", "SS6")){
         cellsDataFile <- grep("Cell",wellDataFiles,value=TRUE,
                               ignore.case = TRUE)
         cytoplasmDataFile <- grep("Cytoplasm",wellDataFiles,value=TRUE,
@@ -304,7 +304,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       nuclei <- nuclei[,grep("Euler",colnames(nuclei),invert=TRUE), with=FALSE]
       nuclei <- nuclei[,grep("AreaShape|Intensity|Number",colnames(nuclei)), with=FALSE]
       setkey(nuclei,CP_ImageNumber,CP_ObjectNumber)
-      if (ss %in% c("SS1","SS3", "SS6")){
+      if (ss %in% c("SS1","SS3","SS4", "SS6")){
         cells <- convertColumnNames(fread(cellsDataFile))
         if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
         #Remove selected columns
@@ -321,13 +321,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       
       #Add the data location as a prefix in the column names
       setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
-      if (ss %in% c("SS1","SS3","SS6")){
+      if (ss %in% c("SS1","SS3","SS4","SS6")){
         setnames(cells,paste0("Cells_",colnames(cells)))
         setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
       }
       
       #Merge the cells, cytoplasm and nuclei data
-      if (ss %in% c("SS1","SS3","SS6")){
+      if (ss %in% c("SS1","SS3","SS4","SS6")){
         setkey(cells,Cells_CP_ImageNumber,Cells_CP_ObjectNumber)
         setkey(cytoplasm,Cytoplasm_CP_ImageNumber,Cytoplasm_CP_ObjectNumber)
         setkey(nuclei,Nuclei_CP_ImageNumber,Nuclei_CP_ObjectNumber)
@@ -479,8 +479,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     
     #Create staining set specific derived parameters
-    if(grepl("SS0|SS1",ss)){
-    } else if (grepl("SS2|SS6",ss)){
+if (grepl("SS2|SS4|SS6",ss)){
       pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
       #pcDT <- pcDT[,Nuclei_PA_Gated_EduPositive := gateOnlocalMinima(Nuclei_CP_Intensity_MedianIntensity_Edu)-1, by="Barcode,Well"]
       #Calculate the EdU Positive Percent at each spot
@@ -488,19 +487,18 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       #Logit transform EdUPositiveProportion
       #logit(p) = log[p/(1-p)]
       pcDT <-pcDT[,Nuclei_PA_Gated_EdUPositiveProportionLogit:= boundedLogit(Nuclei_PA_Gated_EdUPositiveProportion)]
-      
-      
-    } else if (grepl("SS3",ss)){
+    } 
+    if (grepl("SS3|SS4",ss)){
       #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
-      
-    } else if (grepl("SS6",ss)){
+    }
+    
+    if (grepl("SS6",ss)){
       #Calculate a lineage ratio of luminal/basal or KRT19/KRT14
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT14]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
-      
-    } else stop("Invalid ss parameter")
+    }
     
     #Move adjacency processing to within parallel code
     if(calcAdjacency){
@@ -691,24 +689,24 @@ ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          useJSONMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
-HMEC204L <- data.frame(datasetName="HMEC240L_SS1",
-                         cellLine=c("240L"),
-                         ss=c("SS1"),
+HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
+                         cellLine=c("HMEC240L"),
+                         ss=c("SS1","SS4"),
                          drug=c("none"),
                          analysisVersion="av1.6",
                          rawDataVersion="v2",
-                         limitBarcodes=c(8),
-                         k=c(7),
+                         limitBarcodes=c(8,8),
+                         k=c(7,7),
                          calcAdjacency=TRUE,
                          writeFiles = TRUE,
                          mergeOmeroIDs = TRUE,
                          useJSONMetadata=TRUE,
                          stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC204L)
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(20),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(21),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
