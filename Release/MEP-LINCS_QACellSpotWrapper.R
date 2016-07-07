@@ -147,5 +147,5 @@ renderQACellReports <- function(x){
 }
 
 tmp <- apply(ssDatasets[c(21),], 1, renderQACellReports)
-tmp <- apply(ssDatasets[c(21),], 1, renderQASpotMEPReports)
+#tmp <- apply(ssDatasets[c(21),], 1, renderQASpotMEPReports)
 
