@@ -170,6 +170,12 @@ spotNorm <- function(x){
   return(x/median(x,na.rm=TRUE))
 }
 
+gateOnQuantile <- function(x,probs){
+  gatedClass <- integer(length(x))
+  gatedClass[x>quantile(x,probs=probs,na.rm=TRUE)]<-1
+  return(gatedClass)
+}
+
 preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   startTime<- Sys.time()
   datasetName<-ssDataset[["datasetName"]]
@@ -500,6 +506,33 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
+      #Gate the KRT signals using kmeans clustering and calculate the spot proportions
+  
+      if(grepl("HMEC",cellLine)) {
+        pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
+        } else {
+          pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",ctrlLigand = "."), by="Barcode"]
+        }
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT19Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",ctrlLigand = "."), by="Barcode"]
+      #Determine the class of each cell based on KRT5 and KRT19 class
+      #0 double negative
+      #1 KRT5+, KRT19-
+      #2 KRT5-, KRT19+
+      #3 KRT5+, KRT19+
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRTClass := Cytoplasm_PA_Gated_KRT5Positive+2*Cytoplasm_PA_Gated_KRT19Positive]
+      #Calculate the positive proportion at each spot
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5PositiveProportion := sum(Cytoplasm_PA_Gated_KRT5Positive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5PositiveProportion)]
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRT19Positive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT19PositiveProportion)]
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5KRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5KRT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19NegativeProportion)]
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportion)]
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion)]
     }
     
     if (grepl("SS6",ss)){
@@ -546,14 +579,10 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
   })
   cDT <- rbindlist(expDTList, fill = TRUE)
-  
   rm(expDTList)
   gc()
   
-  
-  
   # The cell level raw data and metadata is saved as Level 1 data. 
-  
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
     level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
@@ -716,5 +745,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(21),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[21,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
