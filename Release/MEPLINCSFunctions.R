@@ -440,20 +440,26 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   library(RUVnormalize)
   library(ruv)
   
-  #Read in the 3 level 3 datasets
+  #Read in the level 3 datasets
   l3List <- apply(x, 1, function(fn){
     dt <- fread(paste0("MEP_LINCS/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["drug"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
     dt$StainingSet <- fn[["ss"]]
     return(dt)
   })
-  
-  #identify the common signals
-  commonSignals <- intersect(intersect(colnames(l3List[[1]]),colnames(l3List[[2]])),colnames(l3List[[3]]))
-  
-  #Combine the common signals into a datatable
-  l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
-               l3List[[2]][,commonSignals,with=FALSE],
-               l3List[[3]][,commonSignals,with=FALSE])
+
+  #identify the common signals in 2 or 3 staining sets
+  if(length(l3List) ==2){
+    commonSignals <- intersect(colnames(l3List[[1]]),colnames(l3List[[2]]))
+    #Combine the common signals into a datatable
+    l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
+                 l3List[[2]][,commonSignals,with=FALSE])
+  } else {
+    commonSignals <- intersect(intersect(colnames(l3List[[1]]),colnames(l3List[[2]])),colnames(l3List[[3]]))
+    #Combine the common signals into a datatable
+    l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
+                 l3List[[2]][,commonSignals,with=FALSE],
+                 l3List[[3]][,commonSignals,with=FALSE])
+  }
   
   #Remove normalized and spot level signals
   l3c <- l3c[,grep("RUV3|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]

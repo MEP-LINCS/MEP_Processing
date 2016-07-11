@@ -29,13 +29,20 @@ MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 3),
                        rawDataVersion=c("v2","v2","v2"),
                        stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf)
+HMEC240L <- data.frame(cellLine=rep(c("HMEC240L"), 2),
+                             ss=c("SS1","SS4"),
+                             drug="none",
+                             analysisVersion="av1.6",
+                             rawDataVersion=c("v2","v2"),
+                             stringsAsFactors=FALSE)
 
-x <- ssDatasets[c(10:12),]
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L)
+
+x <- ssDatasets[c(13:14),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 
-l3n <- preprocessCommonSignals1x(x=x, k=135L, verbose=TRUE)
+l3n <- preprocessCommonSignals1x(x=x, k=70L, verbose=TRUE)
 
 l4n <- level4CommonSignals(l3n)
 

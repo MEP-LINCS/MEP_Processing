@@ -146,6 +146,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(21),], 1, renderQACellReports)
-#tmp <- apply(ssDatasets[c(11,12,13),], 1, renderQASpotMEPReports)
+tmp <- apply(ssDatasets[c(20),], 1, renderQACellReports)
+tmp <- apply(ssDatasets[c(20,21),], 1, renderQASpotMEPReports)
 
