@@ -482,7 +482,12 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
 print(p)
+```
 
+###Gated Proportions
+The KRT19 Proportion signal is the porportion of cells in each spot that were in the KRT19 high gate. The gate threshold is automatically determined by kmeans clustering (k=2) the median KRT19 intensity of all cells in each plate.  
+
+```{r gatedKRT19Boxplots}
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -498,7 +503,7 @@ p <- ggplot(dt, aes(x=reorder(Ligand, btLogit(Cytoplasm_PA_Gated_KRT19PositivePr
   guides(fill=FALSE, colour=FALSE)+
   #coord_cartesian(ylim = c(7,13))+
   xlab("Ligand")+ylab("Normalized KRT19 Proportion")+
-  ggtitle("KRT19+ by Ligand")+
+  ggtitle("Proportion of KRT19 High by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
 print(p)
@@ -520,6 +525,20 @@ p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loes
   ggtitle("MEP KRT19 vs Proliferation")+
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 ggplotly(p)
+
+```
+
+```{r, fig.width=10, fig.height=7, eval=FALSE}
+
+dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+p <- ggplot(dt, aes(x=factor(ECMp), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, colour=Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUV3Loess< (-.5), size=Spot_PA_SpotCellCountLog2, text=paste("ECMp:",ECMp)))+
+  geom_boxplot()+
+  guides(colour=FALSE, size=FALSE)+
+  #coord_cartesian(ylim = c(7,13))+
+  xlab("ECMp")+ylab("Normalized KRT5 Intensity")+
+  ggtitle("MEP KRT19 vs Proliferation")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+print(p)
 
 ```
 

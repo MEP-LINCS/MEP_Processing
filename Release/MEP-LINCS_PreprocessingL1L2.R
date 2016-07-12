@@ -241,6 +241,17 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   
   fileNames <- rbindlist(apply(datasetBarcodes[datasetBarcodes$DatasetName==datasetName,], 1, getMEMADataFileNames))
   
+  #Select the correct path based on the system that's executing the code
+  if(Sys.info()[["nodename"]]=="omero"){
+    fileNames$Path <- fileNames$Path
+  } else if(Sys.info()[["nodename"]]=="eppec"){
+    fileNames$Path <- fileNames$eppecPath
+  } else if(Sys.info()[["nodename"]]=="CLSBA715"){
+    fileNames$Path <- fileNames$LocalPath
+  } else {
+    stop("Executing on unknown system and need path to input files")
+  }
+  
   ##Summary
   # This script prepares cell-level data and metadata for the MEP LINCs Analysis Pipeline. 
   # 
@@ -481,7 +492,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     #Add MEP and convenience labels for wells and ligands
     pcDT <- pcDT[,MEP:=paste(ECMp,Ligand,sep = "_")]
     pcDT <- pcDT[,Well_Ligand:=paste(Well,Ligand,sep = "_")]
-
+    
     # Eliminate Variations in the Endpoint metadata
     endpointNames <- grep("End",colnames(pcDT), value=TRUE)
     endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
@@ -507,12 +518,12 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
       #Gate the KRT signals using kmeans clustering and calculate the spot proportions
-  
+      
       if(grepl("HMEC",cellLine)) {
         pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
-        } else {
-          pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",ctrlLigand = "."), by="Barcode"]
-        }
+      } else {
+        pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",ctrlLigand = "."), by="Barcode"]
+      }
       pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT19Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",ctrlLigand = "."), by="Barcode"]
       #Determine the class of each cell based on KRT5 and KRT19 class
       #0 double negative
@@ -533,6 +544,23 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
       pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
       pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion)]
+    }
+    if (grepl("SS4",ss)){
+      #Determine the class of each cell based on KRT19 and EdU class
+      #0 double negative
+      #1 KRT19+, EdU-
+      #2 KRT19-, EdU+
+      #3 KRT19+, EdU+
+      pcDT <- pcDT[,Cells_PA_Gated_EdUKRT19Class := Cytoplasm_PA_Gated_KRT19Positive+2*Nuclei_PA_Gated_EdUPositive]
+      #Calculate gating proportions for EdU and KRT19
+      pcDT <- pcDT[,Cells_PA_Gated_EdUKRT19NegativeProportion := sum(Cells_PA_Gated_EdUKRT19Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT19NegativeProportion)]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUPositiveKRT19NegativeProportion := sum(Cells_PA_Gated_EdUKRT19Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUPositiveKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT19NegativeProportion)]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUNegativeKRT19PositiveProportion := sum(Cells_PA_Gated_EdUKRT19Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUNegativeKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT19PositiveProportion)]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUKRT19PositiveProportion := sum(Cells_PA_Gated_EdUKRT19Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT19PositiveProportion)]
     }
     
     if (grepl("SS6",ss)){
@@ -745,5 +773,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[20,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[21,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

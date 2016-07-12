@@ -31,16 +31,22 @@ library(plotly)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
+sampleProportion <- .1
+
 ```
 
 ```{r}
 l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
 ```
+###Sampling
+
+Most of histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset (sample proportion = `r sampleProportion`).
+
 
 ```{r}
 set.seed(42)
-sampleProportion <- .1
-l1S <- l1[sample(1:nrow(l1),sampleProportion*nrow(l1),replace=FALSE),grep("Barcode|Well|TotalDNANormed|DNAThresh|Ligand|Nuclei_CP_Intensity_IntegratedIntensity_Dapi|Nuclei_PA_Cycle_State|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Nuclei_CP_Intensity_MedianIntensity_EdU|Nuclei_PA_Gated_EdUPositive|Cytoplasm_CP_Intensity_MedianIntensity_KRT|LineageRatio|Cytoplasm_PA_Gated_KRTClass",colnames(l1)), with=FALSE]
+
+l1S <- l1[sample(1:nrow(l1),sampleProportion*nrow(l1),replace=FALSE),grep("Barcode|Well|Ligand|ECMp|TotalDNANormed|DNAThresh|Ligand|Nuclei_CP_Intensity_IntegratedIntensity_Dapi|Nuclei_PA_Cycle_State|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Nuclei_CP_Intensity_MedianIntensity_EdU|Nuclei_PA_Gated_EdUPositive|Cytoplasm_CP_Intensity_MedianIntensity_KRT|LineageRatio|Cytoplasm_PA_Gated_KRTClass|Cytoplasm_PA_Gated_KRT19Positive|Cells_PA_Gated",colnames(l1)), with=FALSE]
 l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
 l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
@@ -89,7 +95,7 @@ The plots below are of a randomly sampled subset of the cell-level data.
 <br>
 
 ```{r rawDAPIPlots, fig.width=3.7,fig.height=3, eval=exists("l1")}
-set.seed(42)
+
 binwidth=.04
 cummulativeMaxCount<-0
 for(barcode in barcodes){
@@ -289,6 +295,47 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
 }
 
+```
+
+
+```{r gatedKRTLigandboxplots, fig.width=10,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
+
+  p <- ggplot(l1S, aes(x=factor(Ligand),y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2, colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
+    geom_boxplot(outlier.colour = NA)+
+    ggtitle(paste("KRT5 Intensities by KRT19 State and Ligand"))+
+    guides(colour=guide_legend(title="KRT19+", override.aes = list(alpha = 1, size=1)))+
+    ylab("Median KRT5 Intensity\nLog2")+xlab("Ligand")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(.5)),axis.title.x = element_text(size = rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.y = element_text(size = rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)), strip.text = element_text(size = rel(.5)))
+  suppressWarnings(print(p))
+```
+
+
+```{r EdUgatedKRTScatterplots, fig.width=8,fig.height=8, eval=exists("l1")&grepl("SS3|SS4",ss)}
+
+for (barcode in barcodes){
+  mDT <- l1S[l1S$Barcode == barcode]
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2,y=Nuclei_CP_Intensity_MedianIntensity_EdULog2, colour=factor(Cells_PA_Gated_EdUKRT19Class)))+
+    geom_point(size=rel(.2), alpha=.2)+
+    geom_rug(col=rgb(.5,0,0,alpha=.01))+
+    facet_wrap(~Well_Ligand, nrow=2)+
+    ggtitle(paste("EdU vs KRT19 Intensities,",barcode))+
+    guides(colour=guide_legend(title="KRT EdU Class", override.aes = list(alpha = 1, size=1)))+
+    ylab("Median EdU Intensity\nLog2")+xlab("Median KRT19 Intensity\nLog2")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(.5)),axis.title.x = element_text(size = rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.y = element_text(size = rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)), strip.text = element_text(size = rel(.5)))
+  suppressWarnings(print(p))
+}
+
+```
+
+```{r EdUbygatedKRTLigandboxplots, fig.width=10,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
+
+  p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
+    geom_boxplot(outlier.colour = NA)+
+    ggtitle(paste("EdU Intensities by KRT19 State and Ligand"))+
+    guides(colour=guide_legend(title="KRT19+", override.aes = list(alpha = 1, size=1)))+
+    ylab("Median EdU Intensity\nLog2")+xlab("Ligand")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(.5)),axis.title.x = element_text(size = rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.y = element_text(size = rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)), strip.text = element_text(size = rel(.5)))
+  suppressWarnings(print(p))
 ```
 
 ```{r rawCOL1KRT5Densities, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS3|SS4",ss)}

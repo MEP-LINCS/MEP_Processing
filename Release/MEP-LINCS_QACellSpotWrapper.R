@@ -1,3 +1,4 @@
+#.libPaths("/home/rstudio_user/R/x86_64-redhat-linux-gnu-library/3.3")
 library("rmarkdown")
 
 PC3df <- data.frame(datasetName=c("PC3_SS1","PC3_SS2","PC3_SS3","PC3_SS2noH3"),
@@ -146,6 +147,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(20),], 1, renderQACellReports)
-tmp <- apply(ssDatasets[c(20,21),], 1, renderQASpotMEPReports)
+tmp <- apply(ssDatasets[c(21),], 1, renderQACellReports)
+#-tmp <- apply(ssDatasets[c(20,21),], 1, renderQASpotMEPReports)
 
