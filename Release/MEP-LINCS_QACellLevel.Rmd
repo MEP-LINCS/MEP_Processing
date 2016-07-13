@@ -331,6 +331,7 @@ for (barcode in barcodes){
 
   p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
     geom_boxplot(outlier.colour = NA)+
+  coord_cartesian(ylim = c(6,8))+
     ggtitle(paste("EdU Intensities by KRT19 State and Ligand"))+
     guides(colour=guide_legend(title="KRT19+", override.aes = list(alpha = 1, size=1)))+
     ylab("Median EdU Intensity\nLog2")+xlab("Ligand")+

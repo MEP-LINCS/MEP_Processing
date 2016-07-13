@@ -227,8 +227,8 @@ watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU56
                           drug=c("DMSO","Lapatinib"),
                           analysisVersion="av1.6",
                           rawDataVersion="v2",
-                          limitBarcodes=c(8,2,2,2),
-                          k=c(7,1,1,1),
+                          limitBarcodes=c(8,8,8,8),
+                          k=c(7,7,7,7),
                           calcAdjacency=TRUE,
                           writeFiles = TRUE,
                           mergeOmeroIDs = TRUE,
@@ -282,4 +282,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(21),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(16:17),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)

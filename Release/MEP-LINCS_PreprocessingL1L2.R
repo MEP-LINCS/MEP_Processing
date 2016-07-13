@@ -242,10 +242,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   fileNames <- rbindlist(apply(datasetBarcodes[datasetBarcodes$DatasetName==datasetName,], 1, getMEMADataFileNames))
   
   #Select the correct path based on the system that's executing the code
-  if(Sys.info()[["nodename"]]=="omero"){
+  if(grepl("omero|eppec",Sys.info()[["nodename"]])){
     fileNames$Path <- fileNames$Path
-  } else if(Sys.info()[["nodename"]]=="eppec"){
-    fileNames$Path <- fileNames$eppecPath
   } else if(Sys.info()[["nodename"]]=="CLSBA715"){
     fileNames$Path <- fileNames$LocalPath
   } else {
@@ -506,7 +504,12 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       EdUDT <- pcDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
       EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
       pcDT <- merge(pcDT,EdUDT,by=c("Barcode","Well"))
+      #Overide autogate for AU565 cell line in Lapatinib MEMAs
       pcDT$Nuclei_PA_Gated_EdUPositive[pcDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>pcDT$Median3SD]<-1
+      if(grepl("AU565_Lapatinib|AU565_DMSO",datasetName)){
+        pcDT$Nuclei_PA_Gated_EdUPositive <- 0
+        pcDT$Nuclei_PA_Gated_EdUPositive[pcDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>10] <- 1 
+      }
       #Calculate the EdU Positive Percent at each spot
       pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositiveProportion := sum(Nuclei_PA_Gated_EdUPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
       #Logit transform EdUPositiveProportion
@@ -718,8 +721,8 @@ watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU56
                           drug=c("DMSO","Lapatinib"),
                           analysisVersion="av1.6",
                           rawDataVersion="v2",
-                          limitBarcodes=c(8,2,2,2),
-                          k=c(7,1,1,1),
+                          limitBarcodes=c(8,8,8,8),
+                          k=c(7),
                           calcAdjacency=TRUE,
                           writeFiles = TRUE,
                           mergeOmeroIDs = TRUE,
@@ -773,5 +776,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[21,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[16,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
