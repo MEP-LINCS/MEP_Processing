@@ -36,9 +36,16 @@ HMEC240L <- data.frame(cellLine=rep(c("HMEC240L"), 2),
                              rawDataVersion=c("v2","v2"),
                              stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L)
+HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
+                       ss=c("SS1","SS4"),
+                       drug="none",
+                       analysisVersion="av1.6",
+                       rawDataVersion=c("v2","v2"),
+                       stringsAsFactors=FALSE)
 
-x <- ssDatasets[c(13:14),]
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
+
+x <- ssDatasets[c(15:16),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 

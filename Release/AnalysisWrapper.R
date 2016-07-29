@@ -43,7 +43,14 @@ HMEC240L <- data.frame(cellLine=c("HMEC240L"),
                        rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,HMEC240L)
+HMEC122L <- data.frame(cellLine=c("HMEC122L"),
+                       ss=c("SS1","SS4"),
+                       drug=c("none"),
+                       analysisVersion="av1.6",
+                       rawDataVersion="v2",
+                       stringsAsFactors=FALSE)
+
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, HMEC240L, HMEC122L)
 
 renderAnalysisReports <- function(x){
   cellLine <- x[["cellLine"]]
@@ -61,6 +68,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(16:17),], 1, renderAnalysisReports)
+tmp <- apply(ssDatasets[c(20:21),], 1, renderAnalysisReports)
 
 

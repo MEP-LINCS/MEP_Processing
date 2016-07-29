@@ -422,7 +422,7 @@ p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+geom
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationByLigandandKRT19Full, eval=grepl("SS4",ss)}
+```{r ProliferationByLigandandKRT19Full, eval=grepl("SS4",ss)&FALSE}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour = Cytoplasm_PA_Gated_KRT19Positive))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand (full dataset)"))+

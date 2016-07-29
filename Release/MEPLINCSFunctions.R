@@ -616,8 +616,8 @@ getMEMADataFileNames <- function(dataset){
   ifns <- rbindlist(ifnL)
   
   mdfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
-    if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx"))==0){
-      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx", full.names = TRUE), Type="metadata")
+    if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx|an2omero"))==0){
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx|an2omero", full.names = TRUE), Type="metadata")
     }
   }, path=path)
   mdns <- rbindlist(mdfnL)

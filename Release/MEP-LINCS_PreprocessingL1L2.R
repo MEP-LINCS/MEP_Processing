@@ -66,7 +66,6 @@ getSample <- function (samples) {
   })
   sDT <- rbindlist(sl)
 }
-
 processJSON <- function (fileNames) {
   rbindlist(mclapply(fileNames, function(fn){
     #Process each file separately
@@ -166,6 +165,40 @@ processJSON <- function (fileNames) {
   }, mc.cores=max(4, detectCores())))
 }
 
+processan2omero <- function (fileNames) {
+  rbindlist(mclapply(fileNames, function(fn){
+    #Process each file separately
+    dt <- fread(fn)
+
+    #Rename to preprocessing pipeline variable names
+    setnames(dt,"Well","OmeroWell")
+    setnames(dt,"SpotNumber","Spot")
+    setnames(dt,"PlateID","Barcode")
+    setnames(dt,"TrueWell","Well")
+    setnames(dt,"Ligand1","Ligand")
+    setnames(dt,"ECM1","ECMp")
+    setnames(dt,"395nm","EndpointDAPI")
+    setnames(dt,"488nm","Endpoint488")
+    setnames(dt,"555nm","Endpoint555")
+    setnames(dt,"640nm","Endpoint647")
+    setnames(dt,"750nm","Endpoint750")
+    #Shorten Annot names
+    dt$CellLine <- gsub("_.*","",dt$CellLine)
+    dt$ECMp <-gsub("_.*","",dt$ECMp)
+    dt$Ligand <-gsub("_.*","",dt$Ligand)
+    dt$EndpointDAPI <-gsub("_.*","",dt$EndpointDAPI)
+    dt$Endpoint488 <-gsub("_.*","",dt$Endpoint488)
+    dt$Endpoint555 <-gsub("_.*","",dt$Endpoint555)
+    dt$Endpoint647 <-gsub("_.*","",dt$Endpoint647)
+    #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
+    dt$PrintSpot <- dt$Spot
+    nrArrayRows <- max(dt$ArrayRow)
+    nrArrayColumns <- max(dt$ArrayColumn)
+    dt$PrintSpot[grepl("B", dt$Well)] <- (nrArrayRows*nrArrayColumns+1)-dt$PrintSpot[grepl("B", dt$Well)]
+    return(dt)
+  }, mc.cores=max(4, detectCores())))
+}
+
 spotNorm <- function(x){
   return(x/median(x,na.rm=TRUE))
 }
@@ -257,16 +290,12 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   # 
   # The merging assumes that the actual, physical B row wells (B01-B04) have been printed upside-down. That is, rotated 180 degrees resulting in the spot 1, 1 being in the lower right corner instead of the upper left corner. The metadata is matched to the actual printed orientation.
   
-  #Use metadata from Annot JSON files or 
+  #Use metadata from an2omero files or 
   #directly from GAL and xlsx files
   if(useJSONMetadata){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"]
-    metadata <- rbindlist(mclapply(fns[1:limitBarcodes], processJSON, mc.cores = detectCores()))
-    for (barcode in unique(metadata$Barcode)){
-      metadata$Barcode[grepl(barcode, metadata$Barcode)] <- grep(barcode,unique(fileNames$Barcode),value=TRUE)
-    }
-    
+    metadata <- rbindlist(mclapply(fns[1:limitBarcodes], processan2omero, mc.cores = detectCores()))
   } else {
     # Read and clean spotmetadata
     
@@ -771,10 +800,23 @@ HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
                        useJSONMetadata=TRUE,
                        stringsAsFactors=FALSE)
 
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L)
+HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
+                       cellLine=c("HMEC122L"),
+                       ss=c("SS1","SS4"),
+                       drug=c("none"),
+                       analysisVersion="av1.6",
+                       rawDataVersion="v2",
+                       limitBarcodes=c(8,8),
+                       k=c(7,7),
+                       calcAdjacency=TRUE,
+                       writeFiles = TRUE,
+                       mergeOmeroIDs = TRUE,
+                       useJSONMetadata=TRUE,
+                       stringsAsFactors=FALSE)
+ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L, HMEC122L)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[16,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[22,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
