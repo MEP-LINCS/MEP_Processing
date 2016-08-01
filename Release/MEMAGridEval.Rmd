@@ -1,0 +1,128 @@
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+
+```
+
+```{r setup, cache=FALSE}
+#Author: Mark Dane, copyright 2016
+
+library("ggplot2")
+library(scales)
+library("data.table")
+library("MEMA")
+library("grid")
+library("knitr")
+library("gplots")
+library("RColorBrewer")
+library(DT)
+library(d3heatmap)
+library(plotly)
+source("MEPLINCSFunctions.R")
+```
+
+
+```{r specificFunctions}
+create8WellPseudoImage <- function(DT, pr, prDisplay,highThresh = .99, lowThresh = .01, highThreshValue=NULL, lowThreshValue=NULL){
+  #find high and low values
+  if(is.null(highThreshValue)) highThreshValue<-quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)
+  if(is.null(lowThreshValue)) lowThreshValue<-quantile(DT[[pr]],probs = lowThresh,na.rm=TRUE)
+  p <- ggplot(DT, aes_string(x="ArrayColumn", y="ArrayRow",colour=pr))+
+    geom_point(size=rel(.25))+
+    scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
+    scale_colour_gradient(low = "white", high = "red", limits=c(lowThreshValue, highThreshValue), oob=squish)+
+    guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
+    ggtitle(paste(prDisplay,"\n",unique(DT$CellLine), "cells\nplate",unique(DT$Barcode)))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(.5)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
+    facet_wrap(~Well_Ligand, ncol=4)
+}
+create8WellPseudoImageTriColor <- function(DT, pr, prDisplay,highThresh = .99, lowThresh = .01, highThreshValue=NULL, lowThreshValue=NULL){
+  #find high and low values
+  if(is.null(highThreshValue)) highThreshValue<-quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)
+  if(is.null(lowThreshValue)) lowThreshValue<-quantile(DT[[pr]],probs = lowThresh,na.rm=TRUE)
+  p <- ggplot(DT, aes_string(x="ArrayColumn", y="ArrayRow",colour=pr))+
+    geom_point(size=rel(.25))+
+    scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
+    scale_colour_distiller(palette="RdBu",limits=c(lowThreshValue, highThreshValue), oob=squish)+
+    guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
+    ggtitle(paste(prDisplay,"\n",unique(DT$CellLine), "cells \nplate",unique(DT$Barcode)))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(.5)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
+    facet_wrap(~Well_Ligand, ncol=4)
+}
+
+```
+
+
+```{r readProcessData}
+
+#Setup colors for Barcode and text in all heatmaps
+selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
+plateCol = selDark2(8)
+hmcols<-colorRampPalette(c("blue","white","red"))(16)
+cellLine<-"HMEC240L"
+ss<-"SS1"
+drug<-"none"
+rawDataVersion<-"v2"
+analysisVersion<-"av1.6"
+
+slDT <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_SpotLevel.txt"), showProgress = FALSE))
+slDT$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
+slDT$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
+slDT$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
+slDT <- slDT[,Spot_PA_SpotCellCountRes:=calcResidual(Spot_PA_SpotCellCount),by="Barcode,Well,ECMp"]
+slDT$Well_Ligand <- sub("_","\n",slDT$Well_Ligand)
+barcodes <- sort(unique(slDT$Barcode))
+setkey(slDT,ECMp)
+gslDT <- slDT["COL1",]
+
+```
+
+#MEMA Grid Normalization Evaluation
+####date: `r Sys.Date()`
+
+##Introduction
+The MEP-LINCS MEMAs are printed with `r max(slDT$ArrayRow)` rows and `r max(slDT$ArrayCol)` columns containing a grid of `r sum(slDT$Barcode==unique(slDT$Barcode)[1]&slDT$Well=="A01" & slDT$ECMp=="COL1")` COL1 spots spatially distributed among replicates of `r length(unique(slDT$ECMp))-3` other ECM proteins. This reports evaluates the COL1 grid for as a means of normalizing the dataset for technical artifacts. 
+
+Cell Line: `r cellLine`   
+Staining set: `r ss` 
+Number of 8-well plates: `r length(unique(slDT$Barcode))`  
+Endpoints: `r unique(slDT$EndpointDAPI)`, `r unique(slDT$Endpoint488)`, `r unique(slDT$Endpoint555)` and `r unique(slDT$Endpoint647)`.  
+
+<br>
+
+```{r rawArrayValues, fig.width=3.7,fig.height=4, eval=TRUE}
+setkey(gslDT,Barcode)
+lowThreshValue <- quantile(gslDT$Spot_PA_SpotCellCount,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(gslDT$Spot_PA_SpotCellCount,probs=.98,na.rm=TRUE)
+for(barcode in barcodes){
+  DT <- gslDT[barcode,]
+  p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
+  suppressWarnings(print(p))
+}
+
+```
+
+```{r SCCResidualArrays, fig.width=3.7,fig.height=4, eval=TRUE}
+setkey(gslDT,Barcode)
+lowThreshValue <- quantile(gslDT$Spot_PA_SpotCellCountRes,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(gslDT$Spot_PA_SpotCellCountRes,probs=.98,na.rm=TRUE)
+
+for(barcode in barcodes){
+  DT <- gslDT[barcode,]
+  p <- create8WellPseudoImageTriColor(DT, pr = "Spot_PA_SpotCellCountRes",prDisplay = "Spot Cell Count Residuals",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
+  suppressWarnings(print(p))
+}
+
+```
+
