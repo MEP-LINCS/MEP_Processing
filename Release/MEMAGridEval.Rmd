@@ -1,13 +1,16 @@
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, root.dir="/data/share/dane/MEP-LINCS/MEP_LINCS/Release")
 
 ```
 
 ```{r setup, cache=FALSE}
 #Author: Mark Dane, copyright 2016
 
+library(parallel)
+library(randomForest)
+library(class)
 library("ggplot2")
 library(scales)
 library("data.table")
@@ -75,6 +78,8 @@ ss<-"SS1"
 drug<-"none"
 rawDataVersion<-"v2"
 analysisVersion<-"av1.6"
+verbose<-TRUE
+devel<- TRUE
 
 slDT <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_SpotLevel.txt"), showProgress = FALSE))
 slDT$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
@@ -92,7 +97,7 @@ gslDT <- slDT["COL1",]
 ####date: `r Sys.Date()`
 
 ##Introduction
-The MEP-LINCS MEMAs are printed with `r max(slDT$ArrayRow)` rows and `r max(slDT$ArrayCol)` columns containing a grid of `r sum(slDT$Barcode==unique(slDT$Barcode)[1]&slDT$Well=="A01" & slDT$ECMp=="COL1")` COL1 spots spatially distributed among replicates of `r length(unique(slDT$ECMp))-3` other ECM proteins. This reports evaluates the COL1 grid for as a means of normalizing the dataset for technical artifacts. 
+The MEP-LINCS MEMAs are printed with `r max(slDT$ArrayRow)` rows and `r max(slDT$ArrayCol)` columns containing a grid of `r sum(slDT$Barcode==unique(slDT$Barcode)[1]&slDT$Well=="A01" & slDT$ECMp=="COL1")` COL1 spots and replicates of `r length(unique(slDT$ECMp))-3` other ECM proteins. This reports evaluates the COL1 grid as a means of removing technical variations from the data. 
 
 Cell Line: `r cellLine`   
 Staining set: `r ss` 
@@ -100,6 +105,9 @@ Number of 8-well plates: `r length(unique(slDT$Barcode))`
 Endpoints: `r unique(slDT$EndpointDAPI)`, `r unique(slDT$Endpoint488)`, `r unique(slDT$Endpoint555)` and `r unique(slDT$Endpoint647)`.  
 
 <br>
+
+###Spot Cell Count
+The first set of figures shows the spot cell count of the COL1 grid.  
 
 ```{r rawArrayValues, fig.width=3.7,fig.height=4, eval=TRUE}
 setkey(gslDT,Barcode)
@@ -112,6 +120,10 @@ for(barcode in barcodes){
 }
 
 ```
+
+###Spot Cell Count Residuals
+The following figures show the residuals after subtracting the median of the COL1 replicates within each well. All figures have the same color scale.    
+<br>
 
 ```{r SCCResidualArrays, fig.width=3.7,fig.height=4, eval=TRUE}
 setkey(gslDT,Barcode)
@@ -126,3 +138,127 @@ for(barcode in barcodes){
 
 ```
 
+###Leave One Out Cross Validation
+Create and evaluate several types of models for each signal in each well. For each model type, create a set of models that leaves out one of the spots. Then use the model to predict the value of the missing spot. Calculate the Mean Squared Error (MSE) for each model and signal type by comparing the predicted and actual values. 
+
+```{r LOO-CV}
+#The dimensions of the data are model, model parameters, signal, array
+#Use lapply/mclapply to enable parallel processing
+#Keep the data in lists for efficiency
+
+#Start with model type
+modelTypes<-list(list(name="loess",span=c(.2,.5,1)),list(name="randomForest"),list(name="1NN"))[[1]]
+#Start with only SpotCellCount signal
+signals <- grep("SpotCellCount$",colnames(gslDT), value=TRUE)
+
+####
+dt <- gslDT[,.(Barcode,Well,ArrayRow,ArrayColumn,Spot_PA_SpotCellCount,Well_Ligand)]
+setnames(dt, "Spot_PA_SpotCellCount","value")
+dt$PrintRow <- dt$ArrayRow
+dt$PrintColumn <- dt$ArrayColumn
+
+#set.seed(42)
+#dt <- dt[sample(1:nrow(dt),.2*nrow(dt), replace=FALSE),]
+barcodes <- unique(dt$Barcode)
+###
+#Create a wrapper function for modeling with loess
+#Return the predicted values from models that leave out each value, one at a time
+loessLOO <- function(dt, span=1){
+  if(!("PrintRow"%in%colnames(dt)&"PrintColumn"%in%colnames(dt)&"value"%in%colnames(dt)))stop("loess modelingrequires PrintRow, PrintColumn and value columns")
+  predictedValue<-unlist(lapply((1:nrow(dt)), function(looRow){
+    m <- loess(value~PrintRow+PrintColumn,dt[-looRow,], span=span)
+    predict(m,dt[looRow,])
+  }))
+}
+
+#Create a wrapper function for modeling with random forest
+#Return the predicted values from models that leave out each value, one at a time
+rfLOO <- function(dt){
+  if(!("PrintRow"%in%colnames(dt)&"PrintColumn"%in%colnames(dt)&"value"%in%colnames(dt)))stop("random forest modelingrequires PrintRow, PrintColumn and value columns")
+  predictedValue<-unlist(lapply((1:nrow(dt)), function(looRow){
+    m <- randomForest(value~PrintRow+PrintColumn,dt[-looRow,])
+    predict(m,dt[looRow,])
+  }))
+}
+
+#Create a wrapper function for modeling with knn
+#Return the predicted values from models that leave out each value, one at a time
+knnLOO <- function(dt){
+  if(!("PrintRow"%in%colnames(dt)&"PrintColumn"%in%colnames(dt)&"value"%in%colnames(dt)))stop("random forest modelingrequires PrintRow, PrintColumn and value columns")
+  as.integer(knn.cv(train=dt[,.(PrintRow,PrintColumn)], cl=factor(dt[,value])))
+}
+
+#Add the loo loess results and return the span used in the model as part of the column name
+addLoessPredictions<-function(dt,span=1){
+  loessDT <- rbindlist(lapply(barcodes,function(barcode){
+    setkey(dt,Barcode)
+    dtb<-dt[barcode,]
+    wellDT<-rbindlist(lapply(unique(dtb$Well),function(well){
+      setkey(dtb,Well)
+      dtbw<-dtb[well,]
+      dtbw[[paste0("PredictedLoessValue_",span)]]<-loessLOO(dtbw,span=span)
+      return(dtbw)
+    }))
+  }))
+}
+
+#Add the loo random forest results
+addRFPredictions<-function(dt){
+  rfDT <- rbindlist(lapply(barcodes,function(barcode){
+    setkey(dt,Barcode)
+    dtb<-dt[barcode,]
+    wellDT<-rbindlist(lapply(unique(dtb$Well),function(well){
+      setkey(dtb,Well)
+      dtbw<-dtb[well,]
+      dtbw[[paste0("PredictedRFValue")]]<-rfLOO(dtbw)
+      return(dtbw)
+    }))
+  }))
+}
+
+#Add the loo knn results
+addknnPredictions<-function(dt){
+  knnDT <- rbindlist(lapply(barcodes,function(barcode){
+    setkey(dt,Barcode)
+    dtb<-dt[barcode,]
+    wellDT<-rbindlist(lapply(unique(dtb$Well),function(well){
+      setkey(dtb,Well)
+      dtbw<-dtb[well,]
+      dtbw[[paste0("PredictedknnValue")]]<-knnLOO(dtbw)
+      return(dtbw)
+    }))
+  }))
+}
+#load the modeled data instead of recalcualting it
+if(devel){
+  load("dtPreds.RData")
+} else {
+  dtl1 <- addLoessPredictions(dt,span=.5)
+dtl2 <- addLoessPredictions(dt, span=1)
+dtrf1 <- addRFPredictions(dt)
+dt1nn <- addknnPredictions(dt)
+dtPreds <- merge(merge(merge(dtl1, dtl2),dtrf1),dt1nn)
+dtPreds <- dtPreds[,PredictedLoessValue_0.5Res:=calcResidual(PredictedLoessValue_0.5),by="Barcode,Well,ECMp"]
+dtPreds <- dtPreds[,PredictedLoessValue_1Res:=calcResidual(PredictedLoessValue_1),by="Barcode,Well,ECMp"]
+dtPreds <- dtPreds[,PredictedRFValue:=calcResidual(PredictedRFValue),by="Barcode,Well,ECMp"]
+dtPreds <- dtPreds[,PredictedknnValue:=calcResidual(PredictedknnValue),by="Barcode,Well,ECMp"]
+}
+
+
+```
+
+
+```{r SCCPredictedResidualArrays, fig.width=3.7,fig.height=4, eval=TRUE}
+setkey(dtPreds,Barcode)
+lowThreshValue <- quantile(dtPreds$PredictedLoessValue_0.5,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(dtPreds$PredictedLoessValue_0.5,probs=.98,na.rm=TRUE)
+
+for(barcode in barcodes[1]){
+  DT <- dtPreds[barcode,]
+  p <- create8WellPseudoImageTriColor(DT, pr = "PredictedLoessValue_0.5",prDisplay = "Predicted Loess Values, span=.5",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
+  suppressWarnings(print(p))
+}
+
+```
+
+```
