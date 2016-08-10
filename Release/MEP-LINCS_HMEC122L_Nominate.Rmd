@@ -234,14 +234,14 @@ l3n <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLin
 
 l4 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_CS_",x[["drug"]], "_",x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
 
-#Match the FBA wells up as replicates and change to common names
-tmp <- l4[grepl("FBS",l4$Ligand),]
-suffixes <- sort(sub("FBS","",unique(tmp$Ligand)))
-replacements <- rep(paste0("_P",1:8), times=3)
-for(i in 1:16){
-  l4$MEP[grepl(suffixes[i],l4$MEP)] <- sub(suffixes[i],replacements[i],l4$MEP[grepl(suffixes[i],l4$MEP)])
-  l4$Ligand[grepl(suffixes[i],l4$Ligand)] <- sub(suffixes[i],replacements[i],l4$Ligand[grepl(suffixes[i],l4$Ligand)])
-}
+# #Match the FBS wells up as replicates and change to common names
+# tmp <- l4[grepl("FBS",l4$Ligand),]
+# suffixes <- sort(sub("FBS","",unique(tmp$Ligand)))
+# replacements <- rep(paste0("_P",1:8), times=3)
+# for(i in 1:16){
+#   l4$MEP[grepl(suffixes[i],l4$MEP)] <- sub(suffixes[i],replacements[i],l4$MEP[grepl(suffixes[i],l4$MEP)])
+#   l4$Ligand[grepl(suffixes[i],l4$Ligand)] <- sub(suffixes[i],replacements[i],l4$Ligand[grepl(suffixes[i],l4$Ligand)])
+# }
 
 l3SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
 

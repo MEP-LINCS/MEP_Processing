@@ -437,6 +437,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   
   library("data.table")
   library("MEMA")
+  library(parallel)
   library(RUVnormalize)
   library(ruv)
   
@@ -467,6 +468,9 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   #Remove blank spot data
   l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
   
+  #Remove data from low quality wells
+  l3c <-l3c[!l3c$QA_LowWellQA,]
+  
   #Remove NID1 spots
   #Retain NID1 until the method is proven
   #l3c <- l3c[!grepl("NID",l3c$ECMp),]
@@ -477,7 +481,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   #manual remove extreme value datapoints
   #l3c <- l3c[!grepl("VCAM1_FBS427",l3c$MEP),]
   
-  #RUV3 Normalize each signal
+  #RUV Normalize each signal
   metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
   #Save the metadata to merge in later
   mdDT <- l3c[,metadataNames, with = FALSE]
@@ -575,11 +579,47 @@ preprocessCommonSignals <- function(x, k=128L, verbose=FALSE){
   
   return(l3nn)
 }
+numericMedianUniqueMetadata<-function(x){
+  if(is.numeric(x)){
+    as.numeric(median(x))
+  } else {
+    if(!length(unique(x))==1){
+      stop("metadata of summarized values must be identical")
+    } else{
+      unique(x)
+    }
+  }
+}
+
+summarizeFBS <- function(dt){
+  #Summarize all by ligand and ECMp
+  #This will only change the FBS data
+  dtFBS <- dt[grepl("FBS",dt$Ligand),]
+  #Add an na for the barcode valuesas they are not unique
+  dtFBS$Barcode <- NA
+  if("StainingSet" %in% colnames(dtFBS)){
+    #Find the medians or the unique metadata values
+    dtFBSMedians <- dtFBS[, lapply(.SD, numericMedianUniqueMetadata), keyby = "Ligand,ECMp,StainingSet"]
+  } else {
+    #Find the medians or the unique metadata values
+    dtFBSMedians <- dtFBS[, lapply(.SD, numericMedianUniqueMetadata), keyby = "Ligand,ECMp"]
+  }
+  #Delete the FBS wells from the original dt
+  dt <- dt[!grepl("FBS",dt$Ligand),]
+  #Bind in the summarized FBS values
+  dt <- rbind(dt,dtFBSMedians)
+  return(dt)
+}
 
 level4CommonSignals <-function(dt){
   
   l4 <- createl4KeepRaw(dt)
-  l4 <- addRLEs(l4)
+  #Combine the FBS replicates
+  l4$Ligand<-gsub("FBS.*","FBS",l4$Ligand)
+  l4$MEP<-gsub("FBS.*","FBS",l4$MEP)
+  #Summarize the FBS MEPs
+  l4FBS <- summarizeFBS(l4)
+  l4 <- addRLEs(l4FBS)
   return(l4)
 }
 
@@ -657,4 +697,31 @@ shortenHA <- function(x){
   x$ECMp <- gsub("greaterthan",">",x$ECMp)
   x$MEP <- paste(x$ECMp,x$Ligand,sep = "_")
   return(x)
+}
+
+RUVIII <- function (Y, M, ctl, k = NULL, eta = NULL, average = FALSE, fullalpha = NULL) 
+{
+  Y = RUV1(Y, eta, ctl)
+  if (is.null(k)) {
+    ycyctinv = solve(Y[, ctl] %*% t(Y[, ctl]))
+    newY = (M %*% solve(t(M) %*% ycyctinv %*% M) %*% (t(M) %*% 
+                                                        ycyctinv)) %*% Y
+    fullalpha = NULL
+  }
+  else if (k == 0) 
+    newY = Y
+  else {
+    m = nrow(Y)
+    Y0 = residop(Y, M)
+    fullalpha = t(svd(Y0 %*% t(Y0))$u[, 1:(m - ncol(M)), 
+                                      drop = FALSE]) %*% Y
+    k <- min(k,nrow(fullalpha))
+    alpha = fullalpha[1:k, , drop = FALSE]
+    ac = alpha[, ctl, drop = FALSE]
+    W = Y[, ctl] %*% t(ac) %*% solve(ac %*% t(ac))
+    newY = Y - W %*% alpha
+  }
+  if (average) 
+    newY = ((1/apply(M, 2, sum)) * t(M)) %*% newY
+  return(list(newY = newY, fullalpha = fullalpha))
 }
