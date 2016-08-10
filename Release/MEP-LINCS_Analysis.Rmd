@@ -10,6 +10,36 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 
 source("MEPLINCSFunctions.R")
 
+numericMedianUniqueMetadata<-function(x){
+  if(is.numeric(x)){
+    as.numeric(median(x))
+  } else {
+    if(!length(unique(x))==1){
+      stop("metadata of summarized values must be identical")
+    } else{
+      unique(x)
+    }
+  }
+}
+
+summarizeFBS <- function(dt){
+  #Summarize all by ligand and ECMp
+  #This will only change the FBS data
+  dtFBS <- dt[grepl("FBS",dt$Ligand),]
+  #Add an na for the barcode valuesas they are not unique
+  dtFBS$Barcode <- NA
+  #Find the medians or the unique metadata values
+  dtFBSMedians <- dtFBS[, lapply(.SD, numericMedianUniqueMetadata), keyby = "Ligand,ECMp"]
+  #Delete the FBS wells from the original dt
+  dt <- dt[!grepl("FBS",dt$Ligand),]
+  #Bind in the summarized FBS values
+  dt <- rbind(dt,dtFBSMedians)
+  return(dt)
+}
+
+btLogit <- function(x){
+  2^x/(1+2^x)
+}
 ```
 
 
@@ -85,8 +115,7 @@ PoorQualityWells$QA_LowWellQA <- TRUE
 l3F <- l3F[,QA_LowWellQA :=NULL]
 l3F <- merge(l3F,PoorQualityWells,by=c("Barcode","Well"),all=TRUE)
 l3F$QA_LowWellQA[is.na(l3F$QA_LowWellQA)]<-FALSE
-#Add flags for manually curated wells
-l3F$QA_LowWellQA<-FALSE
+
 #Delete wells that have been flagged for low well quality
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
@@ -95,6 +124,9 @@ l3F <- l3F[l3F$QAScore>wellQAThresh]
 l3FFBS <- l3F
 l3FFBS$Ligand[grepl("FBS",l3FFBS$Ligand)] <- gsub("_.*","",l3FFBS$Ligand[grepl("FBS",l3FFBS$Ligand)])
 l4F <- createl4(l3FFBS,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
+#Summarize the FBS MEPs
+l4F <- summarizeFBS(l4F)
+
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUV3Loess)]
 
@@ -105,7 +137,7 @@ if (grepl("SS2|SS4",ss)){
 
 if (grepl("SS3|SS4",ss)){
   #Add Robust Z Scores of the normalized lineage ratios
-
+  
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess)]
 }
 
@@ -314,13 +346,13 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 ```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
 
-p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess))+
+p <- ggplot(l4F, aes(x=Ligand, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
   guides(colour=FALSE)+
-  xlab("Ligand")+ylab("Normalized EdU+\n(Logit)")+
+  xlab("Ligand")+ylab("Normalized EdU+")+
   ggtitle("MEP EdU+ Response by Ligand")+
-theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-  
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
 print(p)
 ggplotly(p, tooltip="colour")
 
@@ -368,7 +400,7 @@ rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
 
-try(d3heatmap(dfZoom(df, 0.02, 1), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
 
 ```
 
@@ -377,7 +409,7 @@ try(d3heatmap(dfZoom(df, 0.02, 1), colors=hmcols, xaxis_font_size="6pt", yaxis_f
 
 dt <- l4
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, colour = Ligand))+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess, y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("Lineage Ratio")+ylab("EdU Proliferation")+
