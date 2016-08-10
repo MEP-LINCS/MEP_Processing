@@ -213,10 +213,10 @@ MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
                        drug=c("none"),
                        analysisVersion="av1.6",
                        rawDataVersion="v2",
-                       limitBarcodes=c(2,8,8),
-                       k=c(1,7,7),
-                       calcAdjacency=FALSE,
-                       writeFiles = FALSE,
+                       limitBarcodes=c(8,8,8),
+                       k=c(7,7,7),
+                       calcAdjacency=TRUE,
+                       writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
                        useJSONMetadata=TRUE,
                        stringsAsFactors=FALSE)
@@ -295,4 +295,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(22),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(20:23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
