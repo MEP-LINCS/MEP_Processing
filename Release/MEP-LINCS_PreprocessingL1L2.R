@@ -10,6 +10,8 @@
 
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
+.libPaths(c("/home/users/dane/R/x86_64-pc-linux-gnu-library/3.3","~/R/x86_64-redhat-linux-gnu-library/3.3"))
+
 
 getFactors <- function (factors) {
   sl <- lapply(factors, function(factor){
@@ -101,7 +103,6 @@ processJSON <- function (fileNames) {
       spotFactors <- getFactors(spotMetadata$content$factor)
       #Get the spot information
       ArrayPositions <- str_split_fixed(spotMetadata["ii|ii"],"[|]",2)
-      #browser()
       m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"])
       ECMp <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"], m))
       mDT <- data.table(Barcode=barcode,
@@ -175,8 +176,6 @@ processan2omero <- function (fileNames) {
     setnames(dt,"SpotNumber","Spot")
     setnames(dt,"PlateID","Barcode")
     setnames(dt,"TrueWell","Well")
-    setnames(dt,"Ligand1","Ligand")
-    setnames(dt,"ECM1","ECMp")
     setnames(dt,"395nm","EndpointDAPI")
     setnames(dt,"488nm","Endpoint488")
     setnames(dt,"555nm","Endpoint555")
@@ -184,8 +183,8 @@ processan2omero <- function (fileNames) {
     setnames(dt,"750nm","Endpoint750")
     #Shorten Annot names
     dt$CellLine <- gsub("_.*","",dt$CellLine)
-    dt$ECMp <-gsub("_.*","",dt$ECMp)
-    dt$Ligand <-gsub("_.*","",dt$Ligand)
+    dt$ECMp <-gsub("_.*","",dt$ECM1)
+    dt$Ligand <-gsub("_.*","",dt$Ligand1)
     dt$EndpointDAPI <-gsub("_.*","",dt$EndpointDAPI)
     dt$Endpoint488 <-gsub("_.*","",dt$Endpoint488)
     dt$Endpoint555 <-gsub("_.*","",dt$Endpoint555)
@@ -222,7 +221,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   mergeOmeroIDs<-as.logical(ssDataset[["mergeOmeroIDs"]])
   calcAdjacency<-as.logical(ssDataset[["calcAdjacency"]])
   writeFiles<-as.logical(ssDataset[["writeFiles"]])
-  useJSONMetadata<-as.logical(ssDataset[["useJSONMetadata"]])
+  useAnnotMetadata<-as.logical(ssDataset[["useAnnotMetadata"]])
   
   seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
   
@@ -292,9 +291,9 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   
   #Use metadata from an2omero files or 
   #directly from GAL and xlsx files
-  if(useJSONMetadata){
+  if(useAnnotMetadata){
     #readJSONMetadata
-    fns <- fileNames$Path[fileNames$Type=="metadata"]
+    fns <- fileNames$Path[fileNames$Type=="metadata"&grepl("an2omero",fileNames$Path)]
     metadata <- rbindlist(mclapply(fns[1:limitBarcodes], processan2omero, mc.cores = detectCores()))
   } else {
     # Read and clean spotmetadata
@@ -325,7 +324,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   if(length(fileNames$Path[fileNames$Type=="Raw"])==0) stop("No raw data files found")
   cellDataFiles <- fileNames$Path[fileNames$Type=="Raw"]
   
-  barcodes <- unique(fileNames$Barcode)[1:limitBarcodes]
+  barcodes <- gsub("rescan","",unique(fileNames$Barcode)[1:limitBarcodes])
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
   expDTList <- lapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
@@ -392,7 +391,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       DT <- DT[,Well := well]
       DT <- DT[,Barcode := barcode]
       
-      if (useJSONMetadata) {
+      if (useAnnotMetadata) {
         DT <- merge(DT,metadata,by = c("Barcode","Well","Spot"))
       } else {
         #Merge the data with its metadata based on the row it's in
@@ -410,7 +409,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     rm(wellDataList)
     gc()
     
-    if(!useJSONMetadata){
+    if(!useAnnotMetadata){
       #Read the well metadata from a multi-sheet Excel file
       #wellMetadata <- data.table(readMetadata(paste0(filePath,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
       #Debug reDAPI plates with new file structure
@@ -425,10 +424,9 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     }
     
     if(mergeOmeroIDs){
-      #imageURLFiles <- grep("reDAPI", allImageFiles, invert=TRUE, value=TRUE)
-      imageURLFile <- fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="imageID"]
+      imageURLFile <- fileNames$Path[grepl(barcode,fileNames$Barcode)&grepl("imageID",fileNames$Type)]
       #Read in and merge the Omero URLs
-      omeroIndex <- fread(fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="imageID"])[,list(WellName,Row,Column,ImageID)]
+      omeroIndex <- fread(fileNames$Path[grepl(barcode,fileNames$Barcode)&grepl("imageID",fileNames$Type)])[,list(WellName,Row,Column,ImageID)]
       m <- regexpr("Well[[:digit:]]",omeroIndex$WellName)
       wellNames <- regmatches(omeroIndex$WellName,m)
       omeroIndex$Well <- sapply(gsub("Well","",wellNames,""),FUN=switch,
@@ -508,7 +506,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
         setnames(pcDT,"value",intensityName)
       }
     }
-    if(!useJSONMetadata){
+    if(!useAnnotMetadata){
       #Create short display names, then replace where not unique
       #Use entire AnnotID for ligands with same uniprot IDs
       pcDT$Ligand[grepl("NRG1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = pcDT$Ligand[grepl("NRG1",pcDT$Ligand)])
@@ -641,7 +639,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   cDT <- rbindlist(expDTList, fill = TRUE)
   rm(expDTList)
   gc()
-  
+
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
@@ -699,7 +697,7 @@ PC3df <- data.frame(datasetName=c("PC3_SS1","PC3_SS2","PC3_SS3","PC3_SS2noH3"),
                     calcAdjacency=TRUE,
                     writeFiles = TRUE,
                     mergeOmeroIDs = TRUE,
-                    useJSONMetadata=TRUE,
+                    useAnnotMetadata=TRUE,
                     stringsAsFactors=FALSE)
 
 MCF7df <- data.frame(datasetName=c("MCF7_SS1","MCF7_SS2","MCF7_SS3"),
@@ -713,7 +711,7 @@ MCF7df <- data.frame(datasetName=c("MCF7_SS1","MCF7_SS2","MCF7_SS3"),
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
-                     useJSONMetadata=TRUE,
+                     useAnnotMetadata=TRUE,
                      stringsAsFactors=FALSE)
 
 YAPCdf <- data.frame(datasetName=c("YAPC_SS1","YAPC_SS2","YAPC_SS3"),
@@ -727,7 +725,7 @@ YAPCdf <- data.frame(datasetName=c("YAPC_SS1","YAPC_SS2","YAPC_SS3"),
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
-                     useJSONMetadata=TRUE,
+                     useAnnotMetadata=TRUE,
                      stringsAsFactors=FALSE)
 
 MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
@@ -741,7 +739,7 @@ MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
-                       useJSONMetadata=TRUE,
+                       useAnnotMetadata=TRUE,
                        stringsAsFactors=FALSE)
 
 watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU565_DMSO","AU565_Lapatinib"),
@@ -755,7 +753,7 @@ watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU56
                           calcAdjacency=TRUE,
                           writeFiles = TRUE,
                           mergeOmeroIDs = TRUE,
-                          useJSONMetadata=FALSE,
+                          useAnnotMetadata=FALSE,
                           stringsAsFactors=FALSE)
 
 qualPlates <- data.frame(datasetName="MCF10A_Qual",
@@ -769,7 +767,7 @@ qualPlates <- data.frame(datasetName="MCF10A_Qual",
                          calcAdjacency=FALSE,
                          writeFiles = TRUE,
                          mergeOmeroIDs = TRUE,
-                         useJSONMetadata=FALSE,
+                         useAnnotMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
 ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
@@ -783,7 +781,7 @@ ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          calcAdjacency=FALSE,
                          writeFiles = TRUE,
                          mergeOmeroIDs = TRUE,
-                         useJSONMetadata=FALSE,
+                         useAnnotMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
 HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
@@ -797,7 +795,7 @@ HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
-                       useJSONMetadata=TRUE,
+                       useAnnotMetadata=TRUE,
                        stringsAsFactors=FALSE)
 
 HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
@@ -811,12 +809,12 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
-                       useJSONMetadata=TRUE,
+                       useAnnotMetadata=TRUE,
                        stringsAsFactors=FALSE)
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L, HMEC122L)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[22,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(20,22:23),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
