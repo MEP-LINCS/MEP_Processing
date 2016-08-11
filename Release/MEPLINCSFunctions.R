@@ -579,6 +579,7 @@ preprocessCommonSignals <- function(x, k=128L, verbose=FALSE){
   
   return(l3nn)
 }
+
 numericMedianUniqueMetadata<-function(x){
   if(is.numeric(x)){
     as.numeric(median(x))

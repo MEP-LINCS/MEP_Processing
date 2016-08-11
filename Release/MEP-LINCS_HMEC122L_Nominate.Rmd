@@ -119,7 +119,10 @@ shortenHA <- function(x){
   x$MEP <- paste(x$ECMp,x$Ligand,sep = "_")
   return(x)
 }
-
+#Add an index for the plate in the ligand set
+addLigandPlate <- function(dt){
+  
+}
 addOmeroIDs <- function(dt){
   if(any(grepl("^ImageID$",colnames(dt)))){
     dt <- dt[,OmeroDetailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',ImageID,'/"',' target="_blank">Omero</a>')]
@@ -127,13 +130,6 @@ addOmeroIDs <- function(dt){
     dt <- dt[,OmeroImageURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',ImageID,'/"',' target="_blank">Omero</a>')]
   }
   return(dt)
-}
-
-addLigandPlate <- function(dt){
-  barcodeFBS <- unique(dt[grepl("FBS",dt$Ligand),list(Barcode,Ligand)])
-  barcodeFBS$LigandPlate <- sub(".*_","",barcodeFBS$Ligand)
-  barcodeFBS <- barcodeFBS[,Ligand :=NULL]
-  barcodeLigandPlate <- merge(dt,barcodeFBS,by="Barcode")
 }
 
 create8WellPseudoImage <- function(DT, pr, prDisplay,highThresh = .99, lowThresh = .01, highThreshValue=NULL, lowThreshValue=NULL){
@@ -247,7 +243,7 @@ l3SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellL
 
 l3SS4 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS4_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
 
-l4SS1 <- addLigandPlate(addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE))))
+l4SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
 
 l4SS4 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS4_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
 
@@ -258,10 +254,10 @@ l3SS14 <- l3SS14[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransfo
 l3SS14 <- l3SS14[,Nuclei_PA_Cycle_DNA4NProportionLogitRUV3LoessBacktransformed :=  2^Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess/(1+2^Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess)]
 
 l4nMean <- meanSummarizel4(l4)
-l4Merge <- merge(l4SS1[!grepl("FBS",l4SS1$MEP),grep("MEP|MitoTracker|LigandPlate",colnames(l4SS1), value=TRUE), with=FALSE],
+l4Merge <- merge(l4SS1[!grepl("FBS",l4SS1$MEP),grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
                   l4SS4[!grepl("FBS",l4SS4$MEP),grep("MEP|EdU|KRT",colnames(l4SS4), value=TRUE), with=FALSE],by = "MEP")
 
-l4MergeFBS <- merge(l4SS1[,grep("MEP|MitoTracker|LigandPlate",colnames(l4SS1), value=TRUE), with=FALSE],
+l4MergeFBS <- merge(l4SS1[,grep("MEP|MitoTracker",colnames(l4SS1), value=TRUE), with=FALSE],
                      l4SS4[,grep("MEP|EdU|Fibrillarin|KRT",colnames(l4SS4), value=TRUE), with=FALSE],by = "MEP")
 
 l4Merge <- merge(l4Merge, l4nMean[!grepl("FBS",l4nMean$MEP),], by="MEP")
@@ -321,7 +317,7 @@ The cell cycle boxplots are based on gating the cells on their total DAPI signal
 
 ```{r CellCycleBoxplots, fig.width=8, fig.height=5}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -351,7 +347,7 @@ The boxplots show the RUV and loess normalized MEP level data for the gated EdU+
 
 ```{r EdUBoxplotsFull, fig.width=8, fig.height=5}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -382,7 +378,7 @@ The spot cell count boxplots are based on the DAPI signals in all wells. This da
 
 ```{r SCCBoxplots, fig.width=8, fig.height=5}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -436,7 +432,7 @@ The boxplots show the RUV and loess normalized MEP level data for the KRT5 and K
 
 ```{r KRT5BoxplotsFull, fig.width=8, fig.height=5}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -462,7 +458,7 @@ print(p)
 
 ```{r KRT19BoxplotsFull, fig.width=8, fig.height=5}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -514,9 +510,9 @@ print(p)
 ###Lineage and Proliferation
 The scatter plot below shows the normalized KRT19+ proportion vs the normalized EdU+ measured proliferation. The spot size represents the relative number of cells. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
 
-```{r, fig.width=10, fig.height=7}
+```{r, fig.width=10, fig.height=7, eval=FALSE}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUV3Loess), colour=Ligand, size=Spot_PA_SpotCellCountLog2, text=paste("ECMp:",ECMp)))+
   geom_point(alpha=.4)+
   guides(colour=FALSE, size=FALSE)+
@@ -530,7 +526,7 @@ ggplotly(p)
 
 ```{r, fig.width=10, fig.height=7, eval=FALSE}
 
-dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
+dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 p <- ggplot(dt, aes(x=factor(ECMp), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess, colour=Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUV3Loess< (-.5), size=Spot_PA_SpotCellCountLog2, text=paste("ECMp:",ECMp)))+
   geom_boxplot()+
   guides(colour=FALSE, size=FALSE)+
@@ -543,7 +539,7 @@ print(p)
 ```
 
 
-```{r PCAData, eval=TRUE}
+```{r PCAData}
 ###PCA Unbiased Analysis  
 
 #Get a PCA model from the raw data
@@ -559,7 +555,7 @@ RUV3LoessNames <- grep("LoessRUV3",grep("Log2RUV3Loess$|LogitRUV3Loess$",colname
 RUV3LoessPCAModel <- createPCAModel(dt=l4nMean, fvNames = RUV3LoessNames)
 
 #Get a PCA model from the RUV3Loess of all signals
-RUV3LoessMEPNames <- grep("LoessRUV3",grep("Log2RUV3Loess$|LogitRUV3Loess$",colnames(l4Merge), value=TRUE), value=TRUE, invert=TRUE)
+RUV3LoessMEPNames <- grep("LoessRUV3",grep("Log2RUV3Loess$|LogitRUV3Loess$",colnames(l4MergeFBS), value=TRUE), value=TRUE, invert=TRUE)
 RUV3LoessMEPPCAModel <- createPCAModel(dt=l4Merge, fvNames = RUV3LoessMEPNames)
 
 RUV3LoessMEPFBSPCAModel <- createPCAModel(dt=l4MergeFBS, fvNames = RUV3LoessMEPNames)
@@ -631,7 +627,7 @@ plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4nMean
 
 ```
 
-####PCA Coloured by Ligand Plate
+####PCA Coloured by Barcode
 ```{r, fig.height=2, fig.width=3, eval =FALSE}
 #Start debug here
 p <- ggplot(data.frame(RUV3LoessMEPFBSPCAModel$x), aes(x = PC1, y = PC2))+geom_point(size = rel(.5), alpha = .5)+
@@ -639,10 +635,10 @@ p <- ggplot(data.frame(RUV3LoessMEPFBSPCAModel$x), aes(x = PC1, y = PC2))+geom_p
       theme(legend.text=element_text(size = 6),
             plot.title=element_text(size = rel(.7)))
 
-p <- p + geom_point(l4MergeFBS, aes(colour=factor(LigandPlate)))
+p <- p + geom_point(l4MergeFBS, aes(colour=factor(Barcode)))
 print(p)
 
-plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4MergeFBS$LigandPlate", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10))
+plotPCs(m = RUV3LoessMEPFBSPCAModel,PCs = c("PC1","PC2","PC3"),colour = "l4MergeFBS$Barcode", title = "PCA of All MEP Signals\n", legendTitle = "Barcode", xlim = c(-15,15), ylim=c(-10,10))
 print(p)
 
 ```
@@ -700,7 +696,7 @@ l4Merge <- cbind(l4Merge,data_tsne$Y)
 
 p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=Ligand, text=paste("ECMp:",ECMp)))+
   geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot of HMEC122L MEPs Coloured by Ligand"))+
+  ggtitle(paste("tSNE plot of HMEC122L MEPs Coloured by Ligand without FBS"))+
   guides(colour = FALSE)
 ggplotly(p)
 
@@ -718,11 +714,11 @@ ggplotly(p)
 ```
 
 
-```{r plottSNELigandPlate,fig.width=8, fig.height=5, eval=TRUE}
+```{r plottSNEBarcodes,fig.width=8, fig.height=5, eval=FALSE}
 
-p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=LigandPlate, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
+p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=Barcode, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
   geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot of HMEC122L MEPs Coloured by Ligand Plate"))+
+  ggtitle(paste("tSNE plot of HMEC122L MEPs Coloured by Barcode"))+
   guides(colour =FALSE)
 ggplotly(p)
 
@@ -737,9 +733,9 @@ data_tsne <- Rtsne(data_matrix, perplexity = 30)
 l4Merge$V1 <- data_tsne$Y[,1]
 l4Merge$V2 <- data_tsne$Y[,2]
 
-p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=LigandPlate, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
+p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=Ligand, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
   geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot Coloured by Ligand Plate, seed:",seed))+
+  ggtitle(paste("tSNE plot Coloured by Ligand, seed:",seed))+
   guides(colour =FALSE)+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 print(p)
@@ -750,9 +746,9 @@ data_tsne <- Rtsne(data_matrix, perplexity = 30)
 l4Merge$V1 <- data_tsne$Y[,1]
 l4Merge$V2 <- data_tsne$Y[,2]
 
-p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=LigandPlate, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
+p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=Ligand, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
   geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot Coloured by Ligand Plate, seed:",seed))+
+  ggtitle(paste("tSNE plot Coloured by Ligand, seed:",seed))+
   guides(colour =FALSE)+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 print(p)
@@ -764,9 +760,9 @@ data_tsne <- Rtsne(data_matrix, perplexity = 30)
 l4Merge$V1 <- data_tsne$Y[,1]
 l4Merge$V2 <- data_tsne$Y[,2]
 
-p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=LigandPlate, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
+p <- ggplot(l4Merge, aes(x=V1, y=V2, colour=Ligand, text=paste("Ligand:",Ligand,"ECMp:",ECMp)))+
   geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot Coloured by Ligand Plate, seed:",seed))+
+  ggtitle(paste("tSNE plot Coloured by Ligand, seed:",seed))+
   guides(colour =FALSE)+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 print(p)
