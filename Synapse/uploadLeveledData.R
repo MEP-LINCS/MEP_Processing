@@ -73,6 +73,18 @@ ssDatasets <- rbind(
              Drug="none",
              Preprocess="av1.6",
              Segmentation="v2",
+             stringsAsFactors=FALSE),
+  data.frame(CellLine=rep(c("HMEC240L"), 2),
+             StainingSet=c("SS1","SS4"),
+             Drug="none",
+             Preprocess="av1.6",
+             Segmentation="v2",
+             stringsAsFactors=FALSE),
+  data.frame(CellLine=rep(c("HMEC122L"), 2),
+             StainingSet=c("SS1","SS4"),
+             Drug="none",
+             Preprocess="av1.6",
+             Segmentation="v2",
              stringsAsFactors=FALSE))
 
 #Code to get the level 1 syn ID which may not exist if not uploading
@@ -83,8 +95,8 @@ ssDatasets <- rbind(
 #ssDatasets <- select(ssDatasets, -name)
 #ssDatasets <- reshape2::dcast(ssDatasets,CellLine+StainingSet+Drug+Preprocess+Segmentation~Level, value.var="id")
 
-uploadReport <- function(x){
-  dataDir <- paste("AnnotatedData/",sep="/")
+uploadFile <- function(x){
+  dataDir <- paste("../AnnotatedData")
   # Take file names and turn into basic annotation set
   # Replace this with a better way to get basic annotations from 
   # a standardized source
@@ -95,16 +107,15 @@ uploadReport <- function(x){
                          Segmentation=x$Segmentation,
                          DataType=dataType,
                          Consortia="MEP-LINCS",
-                         Level=3,
+                         Level=1,
                         # Level1SynID=x[[1]],
                          stringsAsFactors = FALSE)
   
   dataFile$filename <- paste(dataDir,paste0(paste(x$CellLine,x$StainingSet,x$Drug,x$Segmentation,x$Preprocess,"Level1",sep="_"),".txt"),sep="/")
-  filename=list.files(path=dataDir), stringsAsFactors = FALSE
   uploadToSynapse(dataFile, parentId=synapseAnnotatedDataDir)
   
 }
 
-res <- dlply(ssDatasets[11,], c("CellLine","StainingSet"), uploadReport)
+res <- dlply(ssDatasets[14,], c("CellLine","StainingSet"), uploadFile)
 
 
