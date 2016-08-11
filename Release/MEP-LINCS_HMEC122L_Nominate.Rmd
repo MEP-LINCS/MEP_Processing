@@ -458,11 +458,6 @@ print(p)
 
 ```{r KRT19BoxplotsFull, fig.width=8, fig.height=5}
 
-dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
-dt$gsColours <- "Samples"
-dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
-dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
-dt$gsColours <- factor(dt$gsColours,levels=c("Samples","Selected","NegCtrl"),ordered=TRUE)
 textOrdered <- levels(reorder(dt$Ligand, dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUV3Loess, FUN=median))
 textColourVec <- rep("black",length.out=length(textOrdered))
 textColourVec[grepl("BMP",textOrdered)] <- "gold"
@@ -510,7 +505,7 @@ print(p)
 ###Lineage and Proliferation
 The scatter plot below shows the normalized KRT19+ proportion vs the normalized EdU+ measured proliferation. The spot size represents the relative number of cells. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
 
-```{r, fig.width=10, fig.height=7, eval=FALSE}
+```{r, fig.width=10, fig.height=7, eval=TRUE}
 
 dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUV3Loess), colour=Ligand, size=Spot_PA_SpotCellCountLog2, text=paste("ECMp:",ECMp)))+

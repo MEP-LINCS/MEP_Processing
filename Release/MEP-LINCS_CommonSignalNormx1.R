@@ -45,7 +45,7 @@ HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
 
-x <- ssDatasets[c(15:16),]
+x <- ssDatasets[c(13:14),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 

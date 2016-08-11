@@ -183,7 +183,9 @@ processan2omero <- function (fileNames) {
     setnames(dt,"750nm","Endpoint750")
     #Shorten Annot names
     dt$CellLine <- gsub("_.*","",dt$CellLine)
-    dt$ECMp <-gsub("_.*","",dt$ECM1)
+    dt$ECMp <- dt$ECM1
+    dt <- shortenHA(dt)
+    dt$ECMp <-gsub("_.*","",dt$ECMp)
     dt$Ligand <-gsub("_.*","",dt$Ligand1)
     dt$EndpointDAPI <-gsub("_.*","",dt$EndpointDAPI)
     dt$Endpoint488 <-gsub("_.*","",dt$Endpoint488)
@@ -816,5 +818,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(20,22:23),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(20:23),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

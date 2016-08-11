@@ -475,7 +475,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   #Retain NID1 until the method is proven
   #l3c <- l3c[!grepl("NID",l3c$ECMp),]
   #Make the FBS in each plate unique
-  l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
+  #l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
   l3c$MEP<- paste(l3c$ECMp,l3c$Ligand,sep="_")
   
   #manual remove extreme value datapoints
@@ -693,6 +693,8 @@ boundedLogit <- function(x){
 }
 
 shortenHA <- function(x){
+  x$ECMp <- gsub("(hyaluronic_acid_greater_than_500kDa)","HA>500kDa",x$ECMp)
+  x$ECMp <- gsub("(hyaluronic_acid_less_than_500kDa)","HA<500kDa",x$ECMp)
   x$ECMp <- gsub("hyaluronicacid","HA",x$ECMp)
   x$ECMp <- gsub("lessthan","<",x$ECMp)
   x$ECMp <- gsub("greaterthan",">",x$ECMp)
