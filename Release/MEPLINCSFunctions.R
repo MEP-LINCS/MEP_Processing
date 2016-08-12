@@ -443,7 +443,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   
   #Read in the level 3 datasets
   l3List <- apply(x, 1, function(fn){
-    dt <- fread(paste0("MEP_LINCS/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["drug"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
+    dt <- fread(paste0("MEP_LINCS/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_Level3.txt"), showProgress = FALSE)
     dt$StainingSet <- fn[["ss"]]
     return(dt)
   })

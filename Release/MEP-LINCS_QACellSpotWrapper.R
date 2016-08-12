@@ -136,11 +136,7 @@ renderQASpotMEPReports <- function(x){
   analysisVersion <- x[["analysisVersion"]]
   render("MEP_LINCS/Release/MEP-LINCS_QASpotMEPLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_SpotMEP_",
-                              x[["cellLine"]],"_",
-                              x[["ss"]],"_",
-                              x[["drug"]],"_",
-                              x[["rawDataVersion"]],"_",
-                              x[["analysisVersion"]],".html"),
+                              x[["cellLine"]],"_",x[["ss"]],".html"),
          output_format = "html_document")
 }
 
@@ -152,11 +148,7 @@ renderQACellReports <- function(x){
   analysisVersion <- x[["analysisVersion"]]
   render("MEP_LINCS/Release/MEP-LINCS_QACellLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_Cell_",
-                              x[["cellLine"]],"_",
-                              x[["ss"]],"_",
-                              x[["drug"]],"_",
-                              x[["rawDataVersion"]],"_",
-                              x[["analysisVersion"]],".html"),
+                              x[["cellLine"]],"_",x[["ss"]],".html"),
          output_format = "html_document")
 }
 

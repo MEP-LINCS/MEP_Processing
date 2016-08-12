@@ -60,9 +60,7 @@ renderAnalysisReports <- function(x){
   analysisVersion <- x[["analysisVersion"]]
   render("./MEP_LINCS/Release/MEP-LINCS_Analysis.Rmd",
          output_file = paste0("../AnalysisReports/MEP-LINCS_Analysis_",
-                              x[["cellLine"]],"_",
-                              x[["ss"]],"_",
-                              ".html"),
+                              x[["cellLine"]],"_",x[["ss"]],"_",".html"),
          output_format = "html_document")
 }
 

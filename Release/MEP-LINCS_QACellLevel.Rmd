@@ -36,7 +36,7 @@ sampleProportion <- .1
 ```
 
 ```{r}
-l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level1.txt"), showProgress = FALSE)
+l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 ```
 ###Sampling
 

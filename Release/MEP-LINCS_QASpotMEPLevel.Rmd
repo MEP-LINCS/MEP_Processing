@@ -32,8 +32,8 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
-l3 <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level3.txt"), showProgress = FALSE))
-l4 <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_Level4.txt"), showProgress = FALSE))
+l3 <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE))
+l4 <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_Level4.txt"), showProgress = FALSE))
 
 barcodes <- sort(unique(l3$Barcode))
 

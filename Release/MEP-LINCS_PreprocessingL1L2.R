@@ -648,7 +648,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    fwrite(cDT[,level1Names, with=FALSE], paste0( "MEP_LINCS/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    fwrite(cDT[,level1Names, with=FALSE], paste0( "MEP_LINCS/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -657,7 +657,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     slDT <- createl3(cDT, lthresh, seNames = seNames)
     rm(cDT)
     gc()
-    fwrite(slDT, paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+    fwrite(slDT, paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -683,7 +683,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       lowReplicateCount =lowReplicateCount,
       lthresh = lthresh
     ),
-    paste0("MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_",drug,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
+    paste0("MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-startTime, "\n")
 }
@@ -818,5 +818,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(20:23),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(11:13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

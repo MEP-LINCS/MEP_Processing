@@ -45,7 +45,7 @@ HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
 
-x <- ssDatasets[c(13:14),]
+x <- ssDatasets[c(15:16),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 
@@ -55,7 +55,7 @@ l4n <- level4CommonSignals(l3n)
 
 #WriteData
 cat("Writing level 3 file to disk\n")
-write.table(format(l3n, digits = 4, trim=TRUE), paste0("MEP_LINCS/AnnotatedData/", cellLine,"_CS_",unique(x[["drug"]]),"_",analysisVersion,"_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+write.table(format(l3n, digits = 4, trim=TRUE), paste0("MEP_LINCS/AnnotatedData/", cellLine,"_SSC_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
 
 cat("Writing level 4 file to disk\n")
-write.table(format(l4n, digits = 4, trim=TRUE),paste0("MEP_LINCS/AnnotatedData/", cellLine,"_CS_",unique(x[["drug"]]),"_",analysisVersion,"_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
+write.table(format(l4n, digits = 4, trim=TRUE),paste0("MEP_LINCS/AnnotatedData/", cellLine,"_SSC_","Level4.txt"), sep = "\t",row.names = FALSE, quote=FALSE)

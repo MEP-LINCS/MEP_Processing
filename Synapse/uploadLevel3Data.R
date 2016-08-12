@@ -4,6 +4,7 @@ library(plyr)
 library(dplyr)
 library(stringr)
 library(githubr)
+library(limma)
 
 synapseLogin()
 
@@ -89,7 +90,10 @@ ssDatasets <- rbind(
              stringsAsFactors=FALSE))
 
 #Get the filepaths for the non-level 1data on the graylab server
-filePaths <- grep("Level1",grep("HMEC",dir("../AnnotatedData",full.names = TRUE), value=TRUE),invert=TRUE,value=TRUE)
+filePaths <- grep("Level3",grep("HMEC",dir("../AnnotatedData",full.names = TRUE), value=TRUE),value=TRUE)
+#Get annotations from filename
+splits <- strsplit2(filePaths,"_")
+serverFiles <- data.frame(FilePaths=splits[,1],ss=splits[,2], Level=gsub("Level|.txt","",splits[,6]), stringsAsFactors = FALSE)
 
   
 files <- synQuery(paste("select id, name, Level, CellLine, StainingSet from file where parentId=='",  synapseAnnotatedDataDir,"'"))
