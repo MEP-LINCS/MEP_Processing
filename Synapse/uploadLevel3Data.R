@@ -8,7 +8,7 @@ library(limma)
 
 synapseLogin()
 
-reportType <- "Preprocessing"
+reportType <- "PreprocessingL3L4"
 dataType <- "Quantitative Imaging"
 #dataType <- "Metadata"
 activityName <- "Annotate data"
@@ -16,7 +16,7 @@ activityName <- "Annotate data"
 #reportDesc <- "Analysis"
 
 ## USE TOKEN TO AUTHENTICATE FOR YOUR CURRENT SESSION
-setGithubToken("4de3666dc4be8a8174192b1c892202a99311c7ab")
+setGithubToken("")
 repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
 scriptLink <- getPermlink(repo, paste0("Release/MEP-LINCS_",reportType,".R"))
 
@@ -43,9 +43,8 @@ uploadToSynapse <- function(x, parentId) {
   obj <- synStore(obj, 
                   activityName=activityName,
                   #used=c(x$Level1SynID),
-                  forceVersion=FALSE)
-                  #,
-                  #executed=scriptLink)
+                  forceVersion=FALSE,
+                  executed=scriptLink)
   obj
 }
 
@@ -90,10 +89,10 @@ ssDatasets <- rbind(
              stringsAsFactors=FALSE))
 
 #Get the filepaths for the non-level 1data on the graylab server
-filePaths <- grep("Level3",grep("HMEC",dir("../AnnotatedData",full.names = TRUE), value=TRUE),value=TRUE)
+filePaths <- grep("L_SS[14C]_Level3",dir("../AnnotatedData",full.names = TRUE), value=TRUE)
 #Get annotations from filename
 splits <- strsplit2(filePaths,"_")
-serverFiles <- data.frame(FilePaths=splits[,1],ss=splits[,2], Level=gsub("Level|.txt","",splits[,6]), stringsAsFactors = FALSE)
+serverFiles <- data.frame(FilePaths=filePaths,ss=splits[,2], CellLine=gsub("../AnnotatedData/","",splits[,1]),Level=as.numeric(gsub("Level|.txt","",splits[,3])), stringsAsFactors = FALSE)
 
   
 files <- synQuery(paste("select id, name, Level, CellLine, StainingSet from file where parentId=='",  synapseAnnotatedDataDir,"'"))
@@ -115,11 +114,11 @@ uploadFile <- function(x){
                          Segmentation=x$Segmentation,
                          DataType=dataType,
                          Consortia="MEP-LINCS",
-                         Level=1,
+                         Level=3,
                          Level1SynID=x[[1]],
                          stringsAsFactors = FALSE)
   
-  dataFile$filename <- paste(dataDir,paste0(paste(x$CellLine,x$StainingSet,x$Drug,x$Segmentation,x$Preprocess,"Level1",sep="_"),".txt"),sep="/")
+  dataFile$filename <- paste(dataDir,paste0(paste(x$CellLine,x$StainingSet,x$Drug,x$Segmentation,x$Preprocess,"Level3",sep="_"),".txt"),sep="/")
   uploadToSynapse(dataFile, parentId=synapseAnnotatedDataDir)
   
 }
