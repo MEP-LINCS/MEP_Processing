@@ -45,11 +45,11 @@ HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
 
-x <- ssDatasets[c(15:16),]
+x <- ssDatasets[c(10:12),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 
-l3n <- preprocessCommonSignals1x(x=x, k=70L, verbose=TRUE)
+l3n <- preprocessCommonSignals1x(x=x, k=128L, verbose=TRUE)
 
 l4n <- level4CommonSignals(l3n)
 

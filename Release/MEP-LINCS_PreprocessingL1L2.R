@@ -210,6 +210,18 @@ gateOnQuantile <- function(x,probs){
   return(gatedClass)
 }
 
+kmeansCluster <- function (x, value, ctrlLigand = "HighSerum") 
+{
+  ctrlClusters <- kmeansClusterValue(log2(1+x[[value]][grepl(ctrlLigand, 
+                                                           x$Ligand)]))
+  ctrlPositiveThresh <- min(x[[value]][grepl(ctrlLigand, x$Ligand)][ctrlClusters == 
+                                                                      2])
+  clusters <- rep.int(0, nrow(x))
+  clusters[x[[value]] > ctrlPositiveThresh] <- 1
+  return(clusters)
+}
+
+
 preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   startTime<- Sys.time()
   datasetName<-ssDataset[["datasetName"]]
@@ -326,7 +338,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   if(length(fileNames$Path[fileNames$Type=="Raw"])==0) stop("No raw data files found")
   cellDataFiles <- fileNames$Path[fileNames$Type=="Raw"]
   
-  barcodes <- gsub("rescan","",unique(fileNames$Barcode)[1:limitBarcodes])
+  barcodes <- gsub("rescan|reDAPI","",unique(fileNames$Barcode)[1:limitBarcodes])
   if(verbose) cat(paste("Reading and annotating cell level data for",cellLine,ss)," \n")
   expDTList <- lapply(barcodes, function(barcode){
     plateDataFiles <- fileNames$Path[grepl(barcode,fileNames$Barcode)&
@@ -818,5 +830,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(11:13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

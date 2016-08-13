@@ -40,7 +40,7 @@ l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgr
 ```
 ###Sampling
 
-Most of histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset (sample proportion = `r sampleProportion`).
+Most of the histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset (sample proportion = `r sampleProportion`).
 
 
 ```{r}
@@ -310,7 +310,7 @@ for (barcode in barcodes){
 ```
 
 
-```{r EdUgatedKRTScatterplots, fig.width=8,fig.height=8, eval=exists("l1")&grepl("SS3|SS4",ss)}
+```{r EdUgatedKRTScatterplots, fig.width=8,fig.height=8, eval=exists("l1")&grepl("SS4",ss)}
 
 for (barcode in barcodes){
   mDT <- l1S[l1S$Barcode == barcode]
@@ -327,7 +327,7 @@ for (barcode in barcodes){
 
 ```
 
-```{r EdUbygatedKRTLigandboxplots, fig.width=10,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
+```{r EdUbygatedKRTLigandboxplots, fig.width=10,fig.height=4, eval=exists("l1")&grepl("SS4",ss)}
 
   p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
     geom_boxplot(outlier.colour = NA)+
