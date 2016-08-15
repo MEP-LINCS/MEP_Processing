@@ -172,10 +172,8 @@ processan2omero <- function (fileNames) {
     dt <- fread(fn)
 
     #Rename to preprocessing pipeline variable names
-    setnames(dt,"Well","OmeroWell")
-    setnames(dt,"SpotNumber","Spot")
+    setnames(dt,"OSpot","Spot")
     setnames(dt,"PlateID","Barcode")
-    setnames(dt,"TrueWell","Well")
     setnames(dt,"395nm","EndpointDAPI")
     setnames(dt,"488nm","Endpoint488")
     setnames(dt,"555nm","Endpoint555")
@@ -830,5 +828,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(21),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

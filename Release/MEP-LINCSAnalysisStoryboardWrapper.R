@@ -58,12 +58,12 @@ renderAnalysisReports <- function(x){
   drug <- x[["drug"]]
   rawDataVersion <- x[["rawDataVersion"]]
   analysisVersion <- x[["analysisVersion"]]
-  render("./MEP_LINCS/Release/MEP-LINCS_Analysis.Rmd",
-         output_file = paste0("../AnalysisReports/MEP-LINCS_Analysis_",
+  render("./MEP_LINCS/Release/MEP-LINCS_AnalysisStoryBoard.Rmd",
+         output_file = paste0("../AnalysisReports/MEP-LINCS_AnalysisStoryBoard_",
                               x[["cellLine"]],"_",x[["ss"]],"_",".html"),
-         output_format = "html_document")
+         output_format = NULL)
 }
 
-tmp <- apply(ssDatasets[c(11:13,18:21),], 1, renderAnalysisReports)
+tmp <- apply(ssDatasets[c(20),], 1, renderAnalysisReports)
 
 

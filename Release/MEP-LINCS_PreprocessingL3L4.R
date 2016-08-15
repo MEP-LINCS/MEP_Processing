@@ -295,4 +295,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(20:23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
