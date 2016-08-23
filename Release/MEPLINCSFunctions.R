@@ -470,12 +470,6 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   
   #Remove data from low quality wells
   l3c <-l3c[!l3c$QA_LowWellQA,]
-  
-  #Remove NID1 spots
-  #Retain NID1 until the method is proven
-  #l3c <- l3c[!grepl("NID",l3c$ECMp),]
-  #Make the FBS in each plate unique
-  #l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
   l3c$MEP<- paste(l3c$ECMp,l3c$Ligand,sep="_")
   
   #manual remove extreme value datapoints
@@ -493,7 +487,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
   l3n <- normRUV3LoessResidualsCS(l3s, k)
   
-  l3n$NormMethod <- "RUV3LoessResidualsx2"
+  l3n$NormMethod <- "RUV3LoessResiduals"
   
   l3n <- merge(l3n,mdDT,by = c("Barcode","Well","Spot", "PrintSpot"))
   
@@ -613,7 +607,6 @@ summarizeFBS <- function(dt){
 }
 
 level4CommonSignals <-function(dt){
-  
   l4 <- createl4KeepRaw(dt)
   #Combine the FBS replicates
   l4$Ligand<-gsub("FBS.*","FBS",l4$Ligand)
@@ -727,4 +720,50 @@ RUVIII <- function (Y, M, ctl, k = NULL, eta = NULL, average = FALSE, fullalpha 
   if (average) 
     newY = ((1/apply(M, 2, sum)) * t(M)) %*% newY
   return(list(newY = newY, fullalpha = fullalpha))
+}
+
+addOmeroIDs <- function(dt){
+  if(any(grepl("^ImageID$",colnames(dt)))){
+    dt <- dt[,OmeroDetailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',ImageID,'/"',' target="_blank">Omero</a>')]
+    dt <- dt[,OmeroThumbnailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',ImageID,'/"',' target="_blank">Omero</a>')]
+    dt <- dt[,OmeroImageURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',ImageID,'/"',' target="_blank">Omero</a>')]
+  }
+  return(dt)
+}
+
+medianSummarizel4 <- function(dt){
+  #median summarize the MEP replicates in a datatable
+  #Select all signal names and the minimal metadata
+  dtNames <- grep("^Ligand$|^ECMp$|MEP|^Well$|_CP_|_PA_",x = names(dt), value = TRUE)
+  
+  #Create a datatable of the signals and minimal metadata
+  dtKeep <- dt[, dtNames, with = FALSE]
+  dtMedians <- dtKeep[, lapply(.SD, numericMedian), keyby = "Ligand,ECMp,MEP,Well"]
+  return(dtMedians)
+}
+
+meanSummarizel4 <- function(dt){
+  #median summarize the MEP replicates in a datatable
+  #Select all signal names and the minimal metadata
+  dtNames <- grep("^Ligand$|^ECMp$|MEP|^Well$|_CP_|_PA_",x = names(dt), value = TRUE)
+  
+  #Create a datatable of the signals and minimal metadata
+  dtKeep <- dt[, dtNames, with = FALSE]
+  dtMeans <- dtKeep[, lapply(.SD, numericMean), keyby = "Ligand,ECMp,MEP,Well"]
+  return(dtMeans)
+}
+
+meanSummarizel3 <- function(dt){
+  #median summarize the Spot replicates in a datatable
+  #Select all signal names and the minimal metadata
+  dtNames <- grep("^Ligand$|^ECMp$|MEP|^Well$|PrintSpot|_CP_|_PA_",x = names(dt), value = TRUE)
+  
+  #Create a datatable of the signals and minimal metadata
+  dtKeep <- dt[, dtNames, with = FALSE]
+  dtMeans <- dtKeep[, lapply(.SD, numericMean), keyby = "Ligand,ECMp,MEP,Well,PrintSpot"]
+  return(dtMeans)
+}
+
+numericMean <- function(x){
+  as.numeric(mean(x, na.rm=TRUE))
 }

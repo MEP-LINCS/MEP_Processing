@@ -286,7 +286,7 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        limitBarcodes=c(8,8),
                        k=c(7,7),
                        calcAdjacency=TRUE,
-                       writeFiles = TRUE,
+                       writeFiles = FALSE,
                        mergeOmeroIDs = TRUE,
                        useJSONMetadata=TRUE,
                        stringsAsFactors=FALSE)
@@ -295,4 +295,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(20:23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(22:23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)

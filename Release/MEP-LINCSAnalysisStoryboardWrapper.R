@@ -1,69 +1,16 @@
 library("rmarkdown")
 
-PC3df <- data.frame(cellLine=rep(c("PC3"), 4),
-                    ss=c("SS1", "SS2","SS3","SS2noH3"),
-                    drug=c("none"),
-                    analysisVersion="av1.6",
-                    rawDataVersion=c("v2","v2.1","v2.1", "v1"),
-                    stringsAsFactors=FALSE)
-
-MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
-                     ss=c("SS1", "SS2","SS3"),
-                     drug=c("none"),
-                     analysisVersion="av1.6",
-                     rawDataVersion=c("v2","v2","v2"),
-                     stringsAsFactors=FALSE)
-
-YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
-                     ss=c("SS1", "SS2","SS3"),
-                     drug=c("none"),
-                     analysisVersion="av1.6",
-                     rawDataVersion=c("v2","v2","v2"),
-                     stringsAsFactors=FALSE)
-
-MCF10Adf <- data.frame(cellLine="MCF10A",
-                       ss=c("SS1","SS2","SS3"),
-                       drug=c("none"),
-                       analysisVersion="av1.6",
-                       rawDataVersion="v2",
-                       stringsAsFactors=FALSE)
-
-watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
-                          ss=c("SS6"),
-                          drug=c("DMSO","Lapatinib"),
-                          analysisVersion="av1.6",
-                          rawDataVersion="v2",
-                          stringsAsFactors=FALSE)
 
 
-HMEC240L <- data.frame(cellLine=c("HMEC240L"),
-                       ss=c("SS1","SS4"),
-                       drug="none",
-                       analysisVersion="av1.6",
-                       rawDataVersion="v2",
-                       stringsAsFactors=FALSE)
-
-HMEC122L <- data.frame(cellLine=c("HMEC122L"),
-                       ss=c("SS1","SS4"),
-                       drug=c("none"),
-                       analysisVersion="av1.6",
-                       rawDataVersion="v2",
-                       stringsAsFactors=FALSE)
-
-ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, HMEC240L, HMEC122L)
-
-renderAnalysisReports <- function(x){
-  cellLine <- x[["cellLine"]]
-  ss <- x[["ss"]]
-  drug <- x[["drug"]]
-  rawDataVersion <- x[["rawDataVersion"]]
-  analysisVersion <- x[["analysisVersion"]]
-  render("./MEP_LINCS/Release/MEP-LINCS_AnalysisStoryBoard.Rmd",
-         output_file = paste0("../AnalysisReports/MEP-LINCS_AnalysisStoryBoard_",
-                              x[["cellLine"]],"_",x[["ss"]],"_",".html"),
+renderAnalysisReports <- function(cellLine){
+  render("./MEP_LINCS/Release/MEP-LINCS_AnalysisSB_SSC.Rmd",
+         output_file = paste0("../AnalysisReports/MEP-LINCS_AnalysisSB_",
+                              cellLine,"_SSC_",".html"),
          output_format = NULL)
 }
 
-tmp <- apply(ssDatasets[c(20),], 1, renderAnalysisReports)
+r <- renderAnalysisReports(cellLine="HMEC122L")
+r <- renderAnalysisReports(cellLine="HMEC240L")
+
 
 

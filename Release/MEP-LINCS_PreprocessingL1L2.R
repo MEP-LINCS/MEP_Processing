@@ -10,7 +10,7 @@
 
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-.libPaths(c("/home/users/dane/R/x86_64-pc-linux-gnu-library/3.3","~/R/x86_64-redhat-linux-gnu-library/3.3"))
+.libPaths(c("~/R/x86_64-redhat-linux-gnu-library/3.3"))
 
 
 getFactors <- function (factors) {
@@ -828,5 +828,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(21),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(22:23),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
