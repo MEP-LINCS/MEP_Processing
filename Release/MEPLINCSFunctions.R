@@ -174,7 +174,7 @@ filterl4 <- function(dt,lowQALigands){
   return(fvDT)
 }
 
-filterl4RUV3 <- function(dt,lowQALigands){
+filterl4RUV <- function(dt,lowQALigands){
   #Remove failed QA wells
   l4QA<- dt[!dt$Ligand %in% lowQALigands]
   
@@ -185,19 +185,19 @@ filterl4RUV3 <- function(dt,lowQALigands){
   
   #Define features for clustering
   fv <- paste("^Barcode","MEP",
-              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUV3Loess",
-              "Nuclei_CP_AreaShape_AreaLog2RUV3Loess",
-              "Nuclei_CP_AreaShape_EccentricityLog2RUV3Loess",
-              "Nuclei_CP_AreaShape_PerimeterLog2RUV3Loess",
-              "Nuclei_CP_Intensity_MedianIntensity_DapiLog2RUV3Loess",
-              "Spot_PA_SpotCellCountLog2RUV3Loess",
-              "Nuclei_PA_AreaShape_NeighborsLog2RUV3Loess",
-              "Nuclei_PA_Cycle_DNA2NProportionLogitRUV3Loess$",
-              "Nuclei_CP_Intensity_MedianIntensity_EdULog2RUV3Loess",
-              "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3LoessRUV3Loess",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUV3Loess",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess",
-              "Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess$",
+              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess",
+              "Nuclei_CP_AreaShape_AreaLog2RUVLoess",
+              "Nuclei_CP_AreaShape_EccentricityLog2RUVLoess",
+              "Nuclei_CP_AreaShape_PerimeterLog2RUVLoess",
+              "Nuclei_CP_Intensity_MedianIntensity_DapiLog2RUVLoess",
+              "Spot_PA_SpotCellCountLog2RUVLoess",
+              "Nuclei_PA_AreaShape_NeighborsLog2RUVLoess",
+              "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess$",
+              "Nuclei_CP_Intensity_MedianIntensity_EdULog2RUVLoess",
+              "Nuclei_PA_Gated_EduPositiveProportionLogitRUVLoessRUVLoess",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess",
+              "Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess$",
               sep="$|^")
   
   fv <- grep(fv, colnames(l4QA), value = TRUE)
@@ -210,7 +210,7 @@ plotSCCRobustZScores <- function(dt, thresh = 3){
   #Filter our FBS MEPs then plot spot cell count robust Z scores
   #browser()
   dt <- dt[!grepl("FBS",dt$MEP)]
-  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCountLog2RUV3Loess_RobustZ))+geom_histogram(binwidth = .1)+
+  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCountLog2RUVLoess_RobustZ))+geom_histogram(binwidth = .1)+
     geom_vline(xintercept = c(-thresh,thresh), colour = "blue")+
     ggtitle(paste("\n\n","MEP Normalized Spot Cell Count Robust Z Scores Distribution"))+
     ylab("Count")+xlab("Normalized Spot Cell Count Robust Z Scores")+
@@ -463,7 +463,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   }
   
   #Remove normalized and spot level signals
-  l3c <- l3c[,grep("RUV3|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
+  l3c <- l3c[,grep("Loess|RUV|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
   
   #Remove blank spot data
   l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
@@ -485,9 +485,9 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   
   #Normalize each feature, pass with location and content metadata
   if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
-  l3n <- normRUV3LoessResidualsCS(l3s, k)
+  l3n <- normRUVLoessResidualsCS(l3s, k)
   
-  l3n$NormMethod <- "RUV3LoessResiduals"
+  l3n$NormMethod <- "RUVLoessResiduals"
   
   l3n <- merge(l3n,mdDT,by = c("Barcode","Well","Spot", "PrintSpot"))
   
@@ -502,77 +502,77 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   return(l3n)
 }
 
-preprocessCommonSignals <- function(x, k=128L, verbose=FALSE){
-  cellLine <- unique(x[["cellLine"]])
-  analysisVersion <- unique(x[["analysisVersion"]])
-  
-  library("data.table")
-  library("MEMA")
-  library(RUVnormalize)
-  library(ruv)
-  
-  #Read in the 3 level 3 datasets
-  l3List <- apply(x, 1, function(fn){
-    dt <- fread(paste0("~/Documents/MEP-LINCS/",fn[["cellLine"]],"/",fn[["ss"]],"/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
-    dt$StainingSet <- fn[["ss"]]
-    return(dt)
-  })
-  
-  #identify the common signals
-  commonSignals <- intersect(intersect(colnames(l3List[[1]]),colnames(l3List[[2]])),colnames(l3List[[3]]))
-  
-  #Combine the common signals into a datatable
-  l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
-               l3List[[2]][,commonSignals,with=FALSE],
-               l3List[[3]][,commonSignals,with=FALSE])
-  
-  #Remove normalized and spot level signals
-  l3c <- l3c[,grep("RUV3|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
-  
-  #Remove blank spot data
-  l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
-  
-  #Remove NID1 spots
-  #Retain NID1 until the method is proven
-  #l3c <- l3c[!grepl("NID",l3c$ECMp),]
-  #Make the FBS in each plate unique
-  l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
-  l3c$MEP<- paste(l3c$ECMp,l3c$Ligand,sep="_")
-  
-  #manual remove extreme value datapoints
-  l3c <- l3c[!grepl("VCAM1_FBS427",l3c$MEP),]
-  
-  #RUV3 Normalize each signal
-  metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
-  #Save the metadata to merge in later
-  mdDT <- l3c[,metadataNames, with = FALSE]
-  #Identify parameters to be normalized
-  signalsWithMetadata <- grep("^Barcode$|^ECMp$|^Ligand$|^Well$|^Spot$|^PrintSpot$|^ArrayRow$|^ArrayColumn$|Log2|Logit",colnames(l3c),value=TRUE)
-  l3s <- l3c[,signalsWithMetadata, with=FALSE]
-  
-  #Normalize each feature, pass with location and content metadata
-  if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
-  l3n <- normRUV3LoessResidualsCS(l3s, k)
-  #Run a second cycle of RUV3Loess on the common signals
-  l3nx2 <- MEMA:::normRUV3LoessResidualsCSx2(l3n,k)
-  
-  #Merge back in the original raw and normalized data
-  l3nn <- merge(l3nx2,l3n, by=intersect(colnames(l3nx2),colnames(l3n)))
-  
-  l3nn$NormMethod <- "RUV3LoessResidualsx2"
-  
-  l3nn <- merge(l3nn,mdDT,by = c("Barcode","Well","Spot", "PrintSpot"))
-  
-  # https://meplincs.ohsu.edu/webclient/
-  
-  if(!analysisVersion=="v1"){
-    l3nn$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
-    l3nn$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
-    l3nn$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
-  }
-  
-  return(l3nn)
-}
+# preprocessCommonSignals <- function(x, k=128L, verbose=FALSE){
+#   cellLine <- unique(x[["cellLine"]])
+#   analysisVersion <- unique(x[["analysisVersion"]])
+#   
+#   library("data.table")
+#   library("MEMA")
+#   library(RUVnormalize)
+#   library(ruv)
+#   
+#   #Read in the 3 level 3 datasets
+#   l3List <- apply(x, 1, function(fn){
+#     dt <- fread(paste0("~/Documents/MEP-LINCS/",fn[["cellLine"]],"/",fn[["ss"]],"/AnnotatedData/",fn[["cellLine"]], "_",fn[["ss"]],"_",fn[["rawDataVersion"]],"_",fn[["analysisVersion"]],"_Level3.txt"), showProgress = FALSE)
+#     dt$StainingSet <- fn[["ss"]]
+#     return(dt)
+#   })
+#   
+#   #identify the common signals
+#   commonSignals <- intersect(intersect(colnames(l3List[[1]]),colnames(l3List[[2]])),colnames(l3List[[3]]))
+#   
+#   #Combine the common signals into a datatable
+#   l3c <- rbind(l3List[[1]][,commonSignals,with=FALSE],
+#                l3List[[2]][,commonSignals,with=FALSE],
+#                l3List[[3]][,commonSignals,with=FALSE])
+#   
+#   #Remove normalized and spot level signals
+#   l3c <- l3c[,grep("RUV|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
+#   
+#   #Remove blank spot data
+#   l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
+#   
+#   #Remove NID1 spots
+#   #Retain NID1 until the method is proven
+#   #l3c <- l3c[!grepl("NID",l3c$ECMp),]
+#   #Make the FBS in each plate unique
+#   l3c$Ligand[grepl("FBS",l3c$Ligand)] <- paste0("FBS",gsub("LI8XXX00|LI8X00|reDAPI","",l3c$Barcode[grepl("FBS",l3c$Ligand)]))
+#   l3c$MEP<- paste(l3c$ECMp,l3c$Ligand,sep="_")
+#   
+#   #manual remove extreme value datapoints
+#   l3c <- l3c[!grepl("VCAM1_FBS427",l3c$MEP),]
+#   
+#   #RUV Normalize each signal
+#   metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
+#   #Save the metadata to merge in later
+#   mdDT <- l3c[,metadataNames, with = FALSE]
+#   #Identify parameters to be normalized
+#   signalsWithMetadata <- grep("^Barcode$|^ECMp$|^Ligand$|^Well$|^Spot$|^PrintSpot$|^ArrayRow$|^ArrayColumn$|Log2|Logit",colnames(l3c),value=TRUE)
+#   l3s <- l3c[,signalsWithMetadata, with=FALSE]
+#   
+#   #Normalize each feature, pass with location and content metadata
+#   if(verbose) cat("Normalizing\n") #save(slDT, file="slDT.RData") save(l3s, file="l3s.RData")
+#   l3n <- normRUVLoessResidualsCS(l3s, k)
+#   #Run a second cycle of RUVLoess on the common signals
+#   l3nx2 <- MEMA:::normRUVLoessResidualsCSx2(l3n,k)
+#   
+#   #Merge back in the original raw and normalized data
+#   l3nn <- merge(l3nx2,l3n, by=intersect(colnames(l3nx2),colnames(l3n)))
+#   
+#   l3nn$NormMethod <- "RUVLoessResidualsx2"
+#   
+#   l3nn <- merge(l3nn,mdDT,by = c("Barcode","Well","Spot", "PrintSpot"))
+#   
+#   # https://meplincs.ohsu.edu/webclient/
+#   
+#   if(!analysisVersion=="v1"){
+#     l3nn$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
+#     l3nn$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
+#     l3nn$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3nn$ImageID,'/"',' target="_blank">Omero</a>')
+#   }
+#   
+#   return(l3nn)
+# }
 
 numericMedianUniqueMetadata<-function(x){
   if(is.numeric(x)){
@@ -613,7 +613,7 @@ level4CommonSignals <-function(dt){
   l4$MEP<-gsub("FBS.*","FBS",l4$MEP)
   #Summarize the FBS MEPs
   l4FBS <- summarizeFBS(l4)
-  l4 <- addRLEs(l4FBS)
+  #l4 <- addRLEs(l4FBS)
   return(l4)
 }
 

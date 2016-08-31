@@ -99,13 +99,13 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
       cat("Normalizing\n")
       #save(slDT, file="slDT.RData")
     }
-    nDT <- normRUV3LoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
-    nDT$NormMethod <- "RUV3LoessResiduals"
-    #nDT has transformed, loess, RUV3 and RUV3Loess 
+    nDT <- normRUVLoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
+    nDT$NormMethod <- "RUVLoessResiduals"
+    #nDT has transformed, loess, RUV and RUVLoess 
     #Merge the normalized data with its metadata
     setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
     setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-    #merge in the raw data to the transformed, loess, RUV3 and RUV3Loess 
+    #merge in the raw data to the transformed, loess, RUV and RUVLoess 
     slDT <- merge(nDT,mdDT)
     # #merge spot level normalized and raw data
     # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
@@ -283,10 +283,10 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        drug=c("none"),
                        analysisVersion="av1.6",
                        rawDataVersion="v2",
-                       limitBarcodes=c(8,8),
-                       k=c(7,7),
+                       limitBarcodes=c(2,2),
+                       k=c(1,1),
                        calcAdjacency=TRUE,
-                       writeFiles = FALSE,
+                       writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
                        useJSONMetadata=TRUE,
                        stringsAsFactors=FALSE)

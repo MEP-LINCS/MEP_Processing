@@ -13,158 +13,158 @@ source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 .libPaths(c("~/R/x86_64-redhat-linux-gnu-library/3.3"))
 
 
-getFactors <- function (factors) {
-  sl <- lapply(factors, function(factor){
-    the_set <- factor$the_set
-    if(is.null((the_set))) the_set <-"NoSet"
-    content <- factor$content
-    contentType <- switch(str_split(the_set,"")[[1]][1],N="ECMpBase",L="Ligand",E="ECMp","UnknownContentType")
-    data.table(Content = content, Set = the_set, ContentType = contentType)
-  })
-  sDT <- rbindlist(sl)
-  sDT$ContentShortName <- names(factors)
-  return(sDT)
-}
-
-getParameters <- function(parameters) {
-  sl <- lapply(parameters, function(parameter){
-    ss <- parameter$the_set
-    pContent <- parameter$content
-    data.table(ParameterContent = pContent, StainingSet = ss)
-  })
-  sDT <- rbindlist(sl)
-  splits <- str_split_fixed(sDT$ParameterContent,"-",n=5)
-  sDT$StainType <- splits[,1]
-  sDT$Endpoint <- ""
-  sDT$Endpoint[sDT$StainType %in% c("cstain", "antibody1")] <-strsplit2(splits[sDT$StainType %in% c("cstain", "antibody1"),2], "_")[,1]
-  sDT$Channel <- ""
-  sDT$Channel[sDT$StainType %in% c("cstain")] <-splits[sDT$StainType %in% c("cstain"),3]
-  sDT$Channel[sDT$StainType %in% c("antibody2")] <-splits[sDT$StainType %in% c("antibody2"),4]
-  sDT$Animal <- ""
-  if(any(sDT$StainType %in% c("antibody1","antibody2"))){
-    sDT$Animal[sDT$StainType %in% c("antibody1","antibody2")] <-strsplit2(splits[sDT$StainType %in% c("antibody1","antibody2"),3], "_")[,1]
-    #Match antibody1 animal to antibody2 animal
-    sDTA1 <- sDT[sDT$StainType=="antibody1",list(Endpoint,Animal)]
-    sDTA2 <- sDT[sDT$StainType=="antibody2",list(Channel,Animal)]
-    ch <- merge(sDTA1,sDTA2, by="Animal")
-    #then copy antibody2 channel into antibody 1 channel
-    sDT <- merge(sDT,ch,by="Endpoint", all=TRUE)
-    sDT$Channel.y[is.na(sDT$Channel.y)] <- ""
-    sDT$Channel <- paste0(sDT$Channel.x,sDT$Channel.y)
-    sDT <- sDT[,list(Endpoint,StainingSet,StainType,Channel,Animal.x)]
-    sDT <- sDT[!sDT$Endpoint==""]
-    setnames(sDT,"Animal.x","Animal")
-  }
-  return(sDT)
-}
-
-getSample <- function (samples) {
-  sl <- lapply(samples, function(sample){
-    passage <- sample$fraction
-    if(is.null(passage)) passage<-NA
-    CellSeedCount <- sample$value
-    if(is.null(CellSeedCount)) CellSeedCount<-NA
-    data.table(CellLine = gsub(".*-","",gsub("_.*","",sample$content)), Passage = passage, CellSeedCount = CellSeedCount)
-  })
-  sDT <- rbindlist(sl)
-}
-processJSON <- function (fileNames) {
-  rbindlist(mclapply(fileNames, function(fn){
-    #Process each file separately
-    plateMetadata <- fromJSON(fn)
-    
-    #Store and remove the welltype data
-    welltype <- plateMetadata$welltype
-    
-    #Get nr rows and columns and use to calculate spot index
-    columnParms <- as.integer(str_split_fixed(str_split_fixed(welltype,"[|]",2)[1,2],"_",3))
-    nrArrayColumns <- columnParms[2]*columnParms[3]
-    rowParms <- as.integer(str_split_fixed(str_split_fixed(welltype,"[|]",2)[1,1],"_",3))
-    nrArrayRows <- rowParms[2]*rowParms[3]
-    nrArraySpots <- nrArrayRows*nrArrayColumns
-    
-    #Get the barcode
-    barcode <- plateMetadata$assayrun
-    
-    #Delete all of the items at the end of the json file
-    plateMetadata$annot_id <- NULL
-    plateMetadata$assayrun <- NULL
-    plateMetadata$assaytype <- NULL
-    plateMetadata$label <- NULL
-    plateMetadata$welltype <- NULL
-    
-    #Get the well name and spot metadata
-    startTime <- Sys.time()
-    spotmMdList <- lapply(plateMetadata, function(spotMetadata){
-      #Get the well alphanumeric
-      wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
-      wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
-      #Read the spot specific metadata
-      spotFactors <- getFactors(spotMetadata$content$factor)
-      #Get the spot information
-      ArrayPositions <- str_split_fixed(spotMetadata["ii|ii"],"[|]",2)
-      m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"])
-      ECMp <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"], m))
-      mDT <- data.table(Barcode=barcode,
-                        Well = wellName,
-                        ArrayRow = as.integer(str_split_fixed(ArrayPositions[1,1],"_",2)[1,2]),
-                        ArrayColumn = as.integer(str_split_fixed(ArrayPositions[1,2],"_",2)[1,2]),
-                        ECMp = ECMp)
-      return(mDT)
-    })#Revert to apply when debugging
-    #})
-    elapsedTime <- Sys.time()-startTime
-    
-    spotMdDT <- rbindlist(spotmMdList)
-    
-    #Read well metadata from the first spot in each well
-    wellMdList <- lapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
-      #Get the well alphanumeric
-      wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
-      wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
-      #Get protein info from factors
-      spotFactors <- getFactors(spotMetadata$content$factor)
-      #Get stain info from parameters
-      spotParameters <- getParameters(spotMetadata$content$parameter)
-      #Get cell line info from sample
-      cellLineParameters <- getSample(spotMetadata$content$sample)
-      m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"])
-      ligand <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"], m))
-      EndpointDAPI <- spotParameters$Endpoint[grepl("DAPI",spotParameters$Channel)]
-      Endpoint488 <- spotParameters$Endpoint[grepl("488",spotParameters$Channel)]
-      if(length(Endpoint488)==0) Endpoint488<- "none"
-      
-      Endpoint555 <- spotParameters$Endpoint[grepl("555|Orange",spotParameters$Channel)]
-      if(length(Endpoint555)==0) Endpoint555<- "none"
-      
-      Endpoint647 <- spotParameters$Endpoint[grepl("647|Red",spotParameters$Channel)]
-      if(length(Endpoint647)==0) Endpoint647<- "none"
-      
-      mDT <- data.table(Barcode=barcode,
-                        CellLine = cellLineParameters$CellLine,
-                        Well = wellName,
-                        Ligand = ligand,
-                        EndpointDAPI = EndpointDAPI,
-                        Endpoint488 = Endpoint488,
-                        #StainType488 = spotParameters$StainType[grepl("488",spotParameters$Channel)],
-                        #Animal488 = spotParameters$Animal[grepl("488",spotParameters$Channel)],
-                        Endpoint555 = Endpoint555,
-                        #StainType555 = spotParameters$StainType[grepl("555|Orange",spotParameters$Channel)],
-                        #Animal555 = spotParameters$Animal[grepl("555|Orange",spotParameters$Channel)],
-                        Endpoint647 = Endpoint647)
-      #StainType647 = spotParameters$StainType[grepl("647|Red",spotParameters$Channel)],
-      #Animal647 = spotParameters$Animal[grepl("647|Red",spotParameters$Channel)]
-    })#Revert to apply when debugging
-    
-    wellMdDT <- rbindlist(wellMdList)
-    mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
-    mdDT$Spot <- as.integer(nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn)
-    #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-    mdDT$PrintSpot <- mdDT$Spot
-    mdDT$PrintSpot[grepl("B", mdDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-mdDT$PrintSpot[grepl("B", mdDT$Well)]
-    return(mdDT)
-  }, mc.cores=max(4, detectCores())))
-}
+# getFactors <- function (factors) {
+#   sl <- lapply(factors, function(factor){
+#     the_set <- factor$the_set
+#     if(is.null((the_set))) the_set <-"NoSet"
+#     content <- factor$content
+#     contentType <- switch(str_split(the_set,"")[[1]][1],N="ECMpBase",L="Ligand",E="ECMp","UnknownContentType")
+#     data.table(Content = content, Set = the_set, ContentType = contentType)
+#   })
+#   sDT <- rbindlist(sl)
+#   sDT$ContentShortName <- names(factors)
+#   return(sDT)
+# }
+# 
+# getParameters <- function(parameters) {
+#   sl <- lapply(parameters, function(parameter){
+#     ss <- parameter$the_set
+#     pContent <- parameter$content
+#     data.table(ParameterContent = pContent, StainingSet = ss)
+#   })
+#   sDT <- rbindlist(sl)
+#   splits <- str_split_fixed(sDT$ParameterContent,"-",n=5)
+#   sDT$StainType <- splits[,1]
+#   sDT$Endpoint <- ""
+#   sDT$Endpoint[sDT$StainType %in% c("cstain", "antibody1")] <-strsplit2(splits[sDT$StainType %in% c("cstain", "antibody1"),2], "_")[,1]
+#   sDT$Channel <- ""
+#   sDT$Channel[sDT$StainType %in% c("cstain")] <-splits[sDT$StainType %in% c("cstain"),3]
+#   sDT$Channel[sDT$StainType %in% c("antibody2")] <-splits[sDT$StainType %in% c("antibody2"),4]
+#   sDT$Animal <- ""
+#   if(any(sDT$StainType %in% c("antibody1","antibody2"))){
+#     sDT$Animal[sDT$StainType %in% c("antibody1","antibody2")] <-strsplit2(splits[sDT$StainType %in% c("antibody1","antibody2"),3], "_")[,1]
+#     #Match antibody1 animal to antibody2 animal
+#     sDTA1 <- sDT[sDT$StainType=="antibody1",list(Endpoint,Animal)]
+#     sDTA2 <- sDT[sDT$StainType=="antibody2",list(Channel,Animal)]
+#     ch <- merge(sDTA1,sDTA2, by="Animal")
+#     #then copy antibody2 channel into antibody 1 channel
+#     sDT <- merge(sDT,ch,by="Endpoint", all=TRUE)
+#     sDT$Channel.y[is.na(sDT$Channel.y)] <- ""
+#     sDT$Channel <- paste0(sDT$Channel.x,sDT$Channel.y)
+#     sDT <- sDT[,list(Endpoint,StainingSet,StainType,Channel,Animal.x)]
+#     sDT <- sDT[!sDT$Endpoint==""]
+#     setnames(sDT,"Animal.x","Animal")
+#   }
+#   return(sDT)
+# }
+# 
+# getSample <- function (samples) {
+#   sl <- lapply(samples, function(sample){
+#     passage <- sample$fraction
+#     if(is.null(passage)) passage<-NA
+#     CellSeedCount <- sample$value
+#     if(is.null(CellSeedCount)) CellSeedCount<-NA
+#     data.table(CellLine = gsub(".*-","",gsub("_.*","",sample$content)), Passage = passage, CellSeedCount = CellSeedCount)
+#   })
+#   sDT <- rbindlist(sl)
+# }
+# processJSON <- function (fileNames) {
+#   rbindlist(mclapply(fileNames, function(fn){
+#     #Process each file separately
+#     plateMetadata <- fromJSON(fn)
+#     
+#     #Store and remove the welltype data
+#     welltype <- plateMetadata$welltype
+#     
+#     #Get nr rows and columns and use to calculate spot index
+#     columnParms <- as.integer(str_split_fixed(str_split_fixed(welltype,"[|]",2)[1,2],"_",3))
+#     nrArrayColumns <- columnParms[2]*columnParms[3]
+#     rowParms <- as.integer(str_split_fixed(str_split_fixed(welltype,"[|]",2)[1,1],"_",3))
+#     nrArrayRows <- rowParms[2]*rowParms[3]
+#     nrArraySpots <- nrArrayRows*nrArrayColumns
+#     
+#     #Get the barcode
+#     barcode <- plateMetadata$assayrun
+#     
+#     #Delete all of the items at the end of the json file
+#     plateMetadata$annot_id <- NULL
+#     plateMetadata$assayrun <- NULL
+#     plateMetadata$assaytype <- NULL
+#     plateMetadata$label <- NULL
+#     plateMetadata$welltype <- NULL
+#     
+#     #Get the well name and spot metadata
+#     startTime <- Sys.time()
+#     spotmMdList <- lapply(plateMetadata, function(spotMetadata){
+#       #Get the well alphanumeric
+#       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
+#       wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
+#       #Read the spot specific metadata
+#       spotFactors <- getFactors(spotMetadata$content$factor)
+#       #Get the spot information
+#       ArrayPositions <- str_split_fixed(spotMetadata["ii|ii"],"[|]",2)
+#       m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"])
+#       ECMp <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="ECMp"], m))
+#       mDT <- data.table(Barcode=barcode,
+#                         Well = wellName,
+#                         ArrayRow = as.integer(str_split_fixed(ArrayPositions[1,1],"_",2)[1,2]),
+#                         ArrayColumn = as.integer(str_split_fixed(ArrayPositions[1,2],"_",2)[1,2]),
+#                         ECMp = ECMp)
+#       return(mDT)
+#     })#Revert to apply when debugging
+#     #})
+#     elapsedTime <- Sys.time()-startTime
+#     
+#     spotMdDT <- rbindlist(spotmMdList)
+#     
+#     #Read well metadata from the first spot in each well
+#     wellMdList <- lapply(plateMetadata[as.integer(names(plateMetadata)) %in% seq(1,length(plateMetadata),by=nrArraySpots)], function(spotMetadata){
+#       #Get the well alphanumeric
+#       wellIndices <- as.integer(str_split_fixed(spotMetadata["i|i"],"[|]",2))
+#       wellName <- wellAN(2,4)[(wellIndices[1]-1)*4+wellIndices[2]]
+#       #Get protein info from factors
+#       spotFactors <- getFactors(spotMetadata$content$factor)
+#       #Get stain info from parameters
+#       spotParameters <- getParameters(spotMetadata$content$parameter)
+#       #Get cell line info from sample
+#       cellLineParameters <- getSample(spotMetadata$content$sample)
+#       m <- regexpr(".*_",spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"])
+#       ligand <- gsub("_","",regmatches(spotFactors$ContentShortName[spotFactors$ContentType=="Ligand"], m))
+#       EndpointDAPI <- spotParameters$Endpoint[grepl("DAPI",spotParameters$Channel)]
+#       Endpoint488 <- spotParameters$Endpoint[grepl("488",spotParameters$Channel)]
+#       if(length(Endpoint488)==0) Endpoint488<- "none"
+#       
+#       Endpoint555 <- spotParameters$Endpoint[grepl("555|Orange",spotParameters$Channel)]
+#       if(length(Endpoint555)==0) Endpoint555<- "none"
+#       
+#       Endpoint647 <- spotParameters$Endpoint[grepl("647|Red",spotParameters$Channel)]
+#       if(length(Endpoint647)==0) Endpoint647<- "none"
+#       
+#       mDT <- data.table(Barcode=barcode,
+#                         CellLine = cellLineParameters$CellLine,
+#                         Well = wellName,
+#                         Ligand = ligand,
+#                         EndpointDAPI = EndpointDAPI,
+#                         Endpoint488 = Endpoint488,
+#                         #StainType488 = spotParameters$StainType[grepl("488",spotParameters$Channel)],
+#                         #Animal488 = spotParameters$Animal[grepl("488",spotParameters$Channel)],
+#                         Endpoint555 = Endpoint555,
+#                         #StainType555 = spotParameters$StainType[grepl("555|Orange",spotParameters$Channel)],
+#                         #Animal555 = spotParameters$Animal[grepl("555|Orange",spotParameters$Channel)],
+#                         Endpoint647 = Endpoint647)
+#       #StainType647 = spotParameters$StainType[grepl("647|Red",spotParameters$Channel)],
+#       #Animal647 = spotParameters$Animal[grepl("647|Red",spotParameters$Channel)]
+#     })#Revert to apply when debugging
+#     
+#     wellMdDT <- rbindlist(wellMdList)
+#     mdDT <- merge(spotMdDT,wellMdDT,by=c("Barcode","Well"))
+#     mdDT$Spot <- as.integer(nrArrayColumns*(mdDT$ArrayRow-1)+mdDT$ArrayColumn)
+#     #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
+#     mdDT$PrintSpot <- mdDT$Spot
+#     mdDT$PrintSpot[grepl("B", mdDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-mdDT$PrintSpot[grepl("B", mdDT$Well)]
+#     return(mdDT)
+#   }, mc.cores=max(4, detectCores())))
+# }
 
 processan2omero <- function (fileNames) {
   rbindlist(mclapply(fileNames, function(fn){
@@ -655,10 +655,11 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
-    level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
+    level1Names <- grep("Norm|RUV|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    fwrite(cDT[,level1Names, with=FALSE], paste0( "MEP_LINCS/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    
+    fwrite(data.table(format(cDT[,level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -667,7 +668,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     slDT <- createl3(cDT, lthresh, seNames = seNames)
     rm(cDT)
     gc()
-    fwrite(slDT, paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -744,7 +745,7 @@ MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
                        cellLine="MCF10A",
                        ss=c("SS1","SS2","SS3"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8,8),
                        k=c(7,7,7),
@@ -800,7 +801,7 @@ HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
                        cellLine=c("HMEC240L"),
                        ss=c("SS1","SS4"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8),
                        k=c(7,7),
@@ -814,7 +815,7 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        cellLine=c("HMEC122L"),
                        ss=c("SS1","SS4"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8),
                        k=c(7,7),
@@ -828,5 +829,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(22:23),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(ssDatasets[c(12:13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

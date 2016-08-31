@@ -29,7 +29,7 @@ MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 3),
                        k=135L,
                        ss=c("SS1","SS2","SS3"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion=c("v2","v2","v2"),
                        stringsAsFactors=FALSE)
 
@@ -37,7 +37,7 @@ HMEC240L <- data.frame(cellLine=rep(c("HMEC240L"), 2),
                        k=135L,
                        ss=c("SS1","SS4"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion=c("v2","v2"),
                        stringsAsFactors=FALSE)
 
@@ -45,14 +45,14 @@ HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
                        k=135L,
                        ss=c("SS1","SS4"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion=c("v2","v2"),
                        stringsAsFactors=FALSE)
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
 
 startTime <- Sys.time()
-x <- ssDatasets[grepl("HMEC240L",ssDatasets$cellLine),]
+x <- ssDatasets[grepl("HMEC122L",ssDatasets$cellLine),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 k <- unique(x[["k"]])

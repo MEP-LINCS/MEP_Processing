@@ -232,9 +232,9 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 PCAOnly <- TRUE
 cellLine <- x[["cellLine"]]
 
-l3n <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SSC","_Level3.txt")), showProgress = FALSE)))
+l3n <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SSR","_Level3.txt")), showProgress = FALSE)))
 
-l4 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SSC","_Level4.txt")), showProgress = FALSE)))
+l4 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SSR","_Level4.txt")), showProgress = FALSE)))
 
 l3SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1","_Level3.txt")), showProgress = FALSE)))
 
@@ -261,30 +261,6 @@ l4Merge <- merge(l4Merge, l4nMean[!grepl("FBS",l4nMean$MEP),], by="MEP")
 
 l4MergeFBS <- merge(l4MergeFBS, l4nMean, by="MEP")
 
-#Read in ligand metadata
-ligandMetadata <- readWorksheetFromFile("../Ligand-cellsource_effects_v1.xlsx", sheet="Sheet1",startRow=1, header=TRUE)
-ligandMetadataDT <- convertColumnNames(data.table(ligandMetadata))
-ligandMetadataDT$Ligand <- sub("_[[:alnum:]]*$","",ligandMetadataDT$protein)
-ligandMetadataDT$Growth <- grepl("Growth",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Migration <- grepl("Migration",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Invasion <- grepl("Invasion",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$TherapeuticResistance <- grepl("therapeutic resistance",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Metastasis <- grepl("metastasis",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Survival <- grepl("survival",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Angiogenesis <- grepl("angiogenesis",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Proliferation <- grepl("Proliferation",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Immunomodulatory <- grepl("Immunomodulatory",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$TumorProgression <- grepl("tumor progression",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$TherapeuticResponse <- grepl("therapeutic response",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$StemCellMaintenance <- grepl("stem cell maintenance",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$TumorInitiation <- grepl("tumor initiation",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$VascularHomeostasis <- grepl("vascular homeostasis",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Inflammation <- grepl("inflammation",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$ImmuneEffects <- grepl("immune effects",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Progression <- grepl("progression",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$Adhesion <- grepl("adhesion",ligandMetadataDT$Effect, ignore.case = TRUE)
-ligandMetadataDT$TumorEffects <- grepl("tumor effects",ligandMetadataDT$Effect, ignore.case = TRUE)
-
 l4Merge <- merge(l4Merge, ligandMetadataDT, by="Ligand")
 l4Merge <- unique(l4Merge,by = "MEP")
 
@@ -295,6 +271,10 @@ l4MergeFBS <- merge(l4MergeFBS, ligandMetadataDT, by="Ligand")
 l4MergeFBS <- unique(l4MergeFBS,by = "MEP")
 l4MergeFBS <- l4MergeFBS[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed :=  2^Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess/(1+2^Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess)]
 l4MergeFBS <- l4MergeFBS[,Nuclei_PA_Cycle_DNA4NProportionLogitRUV3LoessBacktransformed :=  2^Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess/(1+2^Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Loess)]
+
+fwrite(l4MergeFBS,file.path = unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SSC","_Level4.txt")),sep = "\t")
+
+
 ```
 
 ###Introduction
@@ -307,7 +287,7 @@ The Spot-level dataset is a matrix where each of the `r dim(l3SS14)[1]` rows is 
 ###The cell cycle boxplots are based on gating the cells on their total DAPI signals into 2N or 4N classes. 
 
 
-```{r CellCycleBoxplots, fig.width=8, fig.height=5}
+```{r CellCycleBoxplots, fig.width=12, fig.height=5}
 
 dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
@@ -328,7 +308,7 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3Lo
   ggtitle("MEP DNA4N Response by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
+p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
 print(p)
 ```
 
@@ -338,7 +318,7 @@ This data is RUV and loess normalized and then summarized across all staining se
 ###Proliferation Boxplots
 
 
-```{r EdUBoxplotsFull, fig.width=8, fig.height=5}
+```{r EdUBoxplotsFull, fig.width=12, fig.height=5}
 
 dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
@@ -359,7 +339,7 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogit
   ggtitle("MEP EdU+ Response by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
+p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
 print(p)
 
 
@@ -371,7 +351,7 @@ These boxplots show the RUV and loess normalized MEP level data for the gated Ed
 ###Spot Cell Count boxplots based on the DAPI signals in all wells. 
 
 
-```{r SCCBoxplots, fig.width=8, fig.height=5}
+```{r SCCBoxplots, fig.width=12, fig.height=5}
 
 dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
@@ -392,7 +372,7 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Spot_PA_SpotCellCountLog2RUV3Loess, FUN=me
   ggtitle("MEP Spot Cell Count Response by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
+p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
 print(p)
 ```
 
@@ -426,7 +406,7 @@ datatable(format(dt[,colNamesSpots, with=FALSE], digits=3, scientific = FALSE, n
 ###KRT5 Lineage Boxplots
 
 
-```{r KRT5BoxplotsFull, fig.width=8, fig.height=5}
+```{r KRT5BoxplotsFull, fig.width=20, fig.height=8}
 
 dt <- l4MergeFBS[!grepl("NID1|ELN",l4MergeFBS$ECMp),]
 dt$gsColours <- "Samples"
@@ -446,7 +426,7 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT
   xlab("Ligand")+ylab("Normalized KRT5\n(Log2)")+
   ggtitle("MEP Cytoplasmic KRT5 Median Intensity by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
+p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
 print(p)
 
 ```
@@ -457,7 +437,7 @@ The boxplots show the RUV and loess normalized MEP level data for the KRT5 and K
 ###KRT19 Intensity Lineage Boxplots
 
 
-```{r KRT19BoxplotsFull, fig.width=8, fig.height=5}
+```{r KRT19BoxplotsFull, fig.width=20, fig.height=8}
 
 textOrdered <- levels(reorder(dt$Ligand, dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUV3Loess, FUN=median))
 textColourVec <- rep("black",length.out=length(textOrdered))
@@ -472,13 +452,13 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT
   xlab("Ligand")+ylab("Normalized KRT19 Intensity\n(Log2)")+
   ggtitle("Cytoplasmic KRT19 Intensity by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
+p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
 print(p)
 ```
 
 ###KRT19 Gated Proportions Boxplots
 
-```{r gatedKRT19Boxplots}
+```{r gatedKRT19Boxplots, fig.width=20, fig.height=8}
 dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
@@ -496,7 +476,7 @@ p <- ggplot(dt, aes(x=reorder(Ligand, btLogit(Cytoplasm_PA_Gated_KRT19PositivePr
   xlab("Ligand")+ylab("Normalized KRT19 Proportion")+
   ggtitle("Proportion of KRT19 High by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.1),alpha=.5)
+p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
 print(p)
 
 
@@ -642,7 +622,7 @@ l4Merge <- cbind(l4Merge,data_tsne$Y)
 ###Spot Level Proliferation Responses
 
 
-```{r, fig.width=10, fig.height=18}
+```{r, fig.width=20, fig.height=8}
 dt <- l3SS14[grepl("BMP",Ligand),]
 
 p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed))+
@@ -666,7 +646,7 @@ These boxplots show the proliferation values for the replicate ECM protein spots
 
 ###Spot Level KRT19 Responses
 
-```{r, fig.width=10, fig.height=18}
+```{r, fig.width=20, fig.height=8}
 dt <- l3SS14[grepl("BMP",Ligand),]
 
 p <- ggplot(dt, aes(x=reorder(ECMp, btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUV3Loess), FUN=median), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUV3Loess)))+
@@ -690,7 +670,7 @@ These boxplots show the gated KRT19 high proportion values for the replicate ECM
 
 ###DAPI DNA Cell Cycle
 
-```{r, fig.width=10, fig.height=18}
+```{r, fig.width=20, fig.height=8}
 dt <- l3SS14[grepl("BMP",Ligand),]
 
 p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Cycle_DNA4NProportionLogitRUV3LoessBacktransformed, FUN=median), y=Nuclei_PA_Cycle_DNA4NProportionLogitRUV3LoessBacktransformed))+
