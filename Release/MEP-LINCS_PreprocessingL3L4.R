@@ -101,11 +101,12 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
     }
     nDT <- normRUVLoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
     nDT$NormMethod <- "RUVLoessResiduals"
-    #nDT has transformed, loess, RUV and RUVLoess 
+    
+    #nDT has transformed and RUVLoess values
     #Merge the normalized data with its metadata
     setkey(nDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
     setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
-    #merge in the raw data to the transformed, loess, RUV and RUVLoess 
+    #merge in the raw data to the transformed and RUVLoess 
     slDT <- merge(nDT,mdDT)
     # #merge spot level normalized and raw data
     # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
@@ -211,7 +212,7 @@ MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
                        cellLine="MCF10A",
                        ss=c("SS1","SS2","SS3"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8,8),
                        k=c(7,7,7),
@@ -267,7 +268,7 @@ HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
                        cellLine=c("HMEC240L"),
                        ss=c("SS1","SS4"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8),
                        k=c(7,7),
@@ -281,7 +282,7 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        cellLine=c("HMEC122L"),
                        ss=c("SS1","SS4"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(2,2),
                        k=c(1,1),
@@ -295,4 +296,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(22:23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(11:13,20:23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+
