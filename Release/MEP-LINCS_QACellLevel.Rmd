@@ -35,12 +35,9 @@ sampleProportion <- .1
 
 ```
 
-```{r}
+```{r readLevel1}
 l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgress = FALSE)
 ```
-###Sampling
-
-Most of the histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset (sample proportion = `r sampleProportion`).
 
 
 ```{r}
@@ -82,6 +79,8 @@ This report covers the cell-level data for the `r cellLine` `r ss` dataset. Ther
 
 ##Introduction
 The LINCS `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l1$Endpoint488)`, `r unique(l1$Endpoint555)` and `r unique(l1$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r rawDataVersion` performed the segmentation and the analysis pipeline is `r analysisVersion`.
+
+Most of the histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset (sample proportion = `r sampleProportion`).
 
 <br>
 
@@ -143,7 +142,7 @@ for (barcode in barcodes){
 }
 ```
 
-```{r rawCOL1Histograms, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS1",ss)}
+```{r rawCOL1Histograms, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS1",ss)&FALSE}
 #Display histograms for one COl1 spot of each ligand
 p <- ggplot(l1[l1$PrintSpot==193,], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
   geom_density(fill="blue", alpha=.5)+
@@ -220,17 +219,17 @@ for (barcode in barcodes){
 
 
 ```{r rawKrt14Histograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS6",ss)}
-xMin <- quantile(l1S$Cytoplasm_CP_Intensity_MedianIntensity_KRT14Log2,probs=.01, na.rm=TRUE)
-xMax <- quantile(l1S$Cytoplasm_CP_Intensity_MedianIntensity_KRT14Log2,probs=.99, na.rm=TRUE)
+xMin <- quantile(l1S$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.01, na.rm=TRUE)
+xMax <- quantile(l1S$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.99, na.rm=TRUE)
 
 for (barcode in barcodes){
   mDT <- l1S[l1S$Barcode == barcode]
-  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT14Log2))+
+  p <- ggplot(mDT, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2))+
     geom_histogram(binwidth = .01)+
     coord_cartesian(xlim=c(xMin,xMax))+
     facet_wrap(~Well_Ligand, nrow=2)+
-    ggtitle(paste("KRT14 Intensity,",barcode))+
-    ylab("Count")+xlab("Median Intensity KRT14\nLog2")+
+    ggtitle(paste("KRT5 Intensity,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT5\nLog2")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = rel(.5)))
   suppressWarnings(print(p))
 }
@@ -280,7 +279,7 @@ for (barcode in barcodes){
 ```
 
 
-```{r gatedKRTScatterplots, fig.width=8,fig.height=8, eval=exists("l1")&grepl("SS3|SS4",ss)}
+```{r gatedKRTScatterplots, fig.width=8,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
 
 for (barcode in barcodes){
   mDT <- l1S[l1S$Barcode == barcode]
@@ -310,7 +309,7 @@ for (barcode in barcodes){
 ```
 
 
-```{r EdUgatedKRTScatterplots, fig.width=8,fig.height=8, eval=exists("l1")&grepl("SS4",ss)}
+```{r EdUgatedKRTScatterplots, fig.width=8,fig.height=4, eval=exists("l1")&grepl("SS4",ss)}
 
 for (barcode in barcodes){
   mDT <- l1S[l1S$Barcode == barcode]
@@ -339,7 +338,7 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
 ```
 
-```{r rawCOL1KRT5Densities, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS3|SS4",ss)}
+```{r rawCOL1KRT5Densities, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS3|SS4",ss)&FALSE}
 #Display density plots for one COl1 spot of each ligand
 p <- ggplot(l1[l1$PrintSpot==193,], aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2))+
   geom_density(fill="blue", alpha=.5)+
@@ -360,7 +359,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r rawCOL1KRT19Histograms, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS3|SS4",ss)}
+```{r rawCOL1KRT19Histograms, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS3|SS4",ss)&FALSE}
 #Display histograms for one COl1 spot of each ligand
 p <- ggplot(l1[l1$PrintSpot==193,], aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2))+
   geom_density(fill="blue", alpha=.5)+

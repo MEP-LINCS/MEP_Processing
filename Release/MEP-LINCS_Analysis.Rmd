@@ -10,36 +10,6 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 
 source("MEPLINCSFunctions.R")
 
-numericMedianUniqueMetadata<-function(x){
-  if(is.numeric(x)){
-    as.numeric(median(x))
-  } else {
-    if(!length(unique(x))==1){
-      stop("metadata of summarized values must be identical")
-    } else{
-      unique(x)
-    }
-  }
-}
-
-summarizeFBS <- function(dt){
-  #Summarize all by ligand and ECMp
-  #This will only change the FBS data
-  dtFBS <- dt[grepl("FBS",dt$Ligand),]
-  #Add an na for the barcode valuesas they are not unique
-  dtFBS$Barcode <- NA
-  #Find the medians or the unique metadata values
-  dtFBSMedians <- dtFBS[, lapply(.SD, numericMedianUniqueMetadata), keyby = "Ligand,ECMp"]
-  #Delete the FBS wells from the original dt
-  dt <- dt[!grepl("FBS",dt$Ligand),]
-  #Bind in the summarized FBS values
-  dt <- rbind(dt,dtFBSMedians)
-  return(dt)
-}
-
-btLogit <- function(x){
-  2^x/(1+2^x)
-}
 ```
 
 

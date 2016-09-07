@@ -14,7 +14,7 @@ create8WellPseudoImage <- function(DT, pr, prDisplay){
     scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
     scale_colour_gradient(low = "white", high = "red")+
     guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
-    ggtitle(paste("\n\n",prDisplay,"for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
+    ggtitle(paste("\n",prDisplay,"for plate",unique(DT$Barcode)))+
     xlab("")+ylab("")+
     theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
           axis.title.x = element_text(size=rel(.5)),
@@ -120,7 +120,7 @@ plotSCCHeatmapsQAHistograms <- function(l3, barcodes, lthresh){
       geom_histogram(binwidth=.04)+
       geom_vline(xintercept=lthresh, colour="blue")+
       geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
-      ggtitle(paste("\n\n","QA on Loess Model of Spot Cell Count\n for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Loess Normalized Spot Cell Count")+xlim(0,3)+
+      ggtitle(paste("\n QA on Loess Model of Spot Cell Count\n for plate",unique(DT$Barcode)))+xlab("Loess Normalized Spot Cell Count")+xlim(0,3)+
       theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)),
             axis.title.x = element_text( size=rel(.5)),
             axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)),
@@ -586,25 +586,6 @@ numericMedianUniqueMetadata<-function(x){
   }
 }
 
-summarizeFBS <- function(dt){
-  #Summarize all by ligand and ECMp
-  #This will only change the FBS data
-  dtFBS <- dt[grepl("FBS",dt$Ligand),]
-  #Add an na for the barcode valuesas they are not unique
-  dtFBS$Barcode <- NA
-  if("StainingSet" %in% colnames(dtFBS)){
-    #Find the medians or the unique metadata values
-    dtFBSMedians <- dtFBS[, lapply(.SD, numericMedianUniqueMetadata), keyby = "Ligand,ECMp,StainingSet"]
-  } else {
-    #Find the medians or the unique metadata values
-    dtFBSMedians <- dtFBS[, lapply(.SD, numericMedianUniqueMetadata), keyby = "Ligand,ECMp"]
-  }
-  #Delete the FBS wells from the original dt
-  dt <- dt[!grepl("FBS",dt$Ligand),]
-  #Bind in the summarized FBS values
-  dt <- rbind(dt,dtFBSMedians)
-  return(dt)
-}
 
 level4CommonSignals <-function(dt){
   l4 <- createl4KeepRaw(dt)
@@ -766,4 +747,8 @@ meanSummarizel3 <- function(dt){
 
 numericMean <- function(x){
   as.numeric(mean(x, na.rm=TRUE))
+}
+
+btLogit <- function(x){
+  2^x/(1+2^x)
 }
