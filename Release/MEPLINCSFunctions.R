@@ -476,7 +476,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   #l3c <- l3c[!grepl("VCAM1_FBS427",l3c$MEP),]
   
   #RUV Normalize each signal
-  metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
+  metadataNames <- grep("_CP_|_PA_|^ECMp|^Ligand$|MEP|^ArrayRow$|^ArrayColumn$",colnames(l3c), value=TRUE, invert=TRUE)
   #Save the metadata to merge in later
   mdDT <- l3c[,metadataNames, with = FALSE]
   #Identify parameters to be normalized

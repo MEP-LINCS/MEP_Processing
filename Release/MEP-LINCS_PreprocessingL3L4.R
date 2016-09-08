@@ -1,18 +1,12 @@
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
-# 11/18/2015
+# 9/8/2016
 
 ##Introduction
-
-#   The MEP-LINCs dataset contains imaging data from a Nikon automated microscope that is analyzed with a CellProfiler pipeline.
-# 
-# Part of this preprocessing of the dataset will be deprecated when the merging of the data and metadata happens within the CellProfiler part of the pipeline. For now, the metadata about the ECM proteins is read from the GAL file and the metadata about the wells (cell line, stains and ligands) is read from Excel spreadsheets.
-
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
-  browser()
   startTime <- Sys.time()
   datasetName<-ssDataset[["datasetName"]]
   ss<-ssDataset[["ss"]]
@@ -54,10 +48,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   #Do not normalized to Spot level
   normToSpot <- TRUE
-  
-  #QA flags are used to enable analyses that require minimum cell and
-  #replicate counts
-  
+
   #Set a threshold for the lowSpotCellCount flag
   lowSpotCellCountThreshold <- 5
   
@@ -81,7 +72,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
-  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|LigandAnnotID|ECMpPK|LigandPK|MEP|ECM[[:digit:]]|Ligand[[:digit:]]|Set|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore|LINCS"
+  metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|LigandAnnotID|ECMpPK|LigandPK|MEP|ECM[[:digit:]]|Ligand[[:digit:]]|Set|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore|Lx|PinDiameter"
   
   rawSignalNames <- paste(grep("_SE",gsub("Log2|Logit","",grep("Log",colnames(slDT),value=TRUE)), value=TRUE,invert=TRUE),collapse="$|^")
   #Save the un-normalized parameters to merge in later
@@ -109,8 +100,6 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
     setkey(mdDT,Barcode,Well,Spot,ArrayRow,ArrayColumn,ECMp,Ligand,MEP)
     #merge in the raw data to the transformed and RUVLoess 
     slDT <- merge(nDT,mdDT)
-    # #merge spot level normalized and raw data
-    # slDT <- merge(slDT[,signalsWithMetadata, with = FALSE], nmdDT, by=c("Barcode", "Well", "Spot", "PrintSpot", "ArrayRow","ArrayColumn","ECMp","Ligand"))
   } else {
     slDT$NormMethod <- "none"
     slDT$k <- k
@@ -120,10 +109,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   #Label FBS with their plate index to keep separate
   slDT$Ligand[grepl("FBS",slDT$Ligand)] <- paste0(slDT$Ligand[grepl("FBS",slDT$Ligand)],"_P",match(slDT$Barcode[grepl("FBS",slDT$Ligand)], unique(slDT$Barcode)))
-  #Add QAScore and Spot_PA_LoessSCC to cell level data
-  #setkey(cDT,Barcode, Well, Spot)
-  
-  #cDT <- cDT[slDT[,list(Barcode, Well, Spot, QAScore, Spot_PA_LoessSCC)]]
+
   #The spot level data is median summarized to the replicate level and is stored as Level 4 data and metadata.
   
   #Level4Data
@@ -135,22 +121,17 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   #Write QA flags into appropriate data levels
   #Low cell count spots
-  #cDT$QA_LowSpotCellCount <- cDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
   slDT$QA_LowSpotCellCount <- slDT$Spot_PA_SpotCellCount < lowSpotCellCountThreshold
   
   #Low quality DAPI
-  #cDT$QA_LowDAPIQuality <- FALSE
   slDT$QA_LowDAPIQuality <- FALSE
   
   #Flag spots below automatically loess QA threshold
-  #cDT$QA_LowRegionCellCount <- cDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
   slDT$QA_LowRegionCellCount <- slDT$Spot_PA_LoessSCC < lowRegionCellCountThreshold
   
   #Flag wells below automatically calculated QA threshold
   slDT$QA_LowWellQA <- FALSE
   slDT$QA_LowWellQA[slDT$QAScore < lowWellQAThreshold] <- TRUE
-  #cDT$QA_LowWellQA <- FALSE
-  #cDT$QA_LowWellQA[cDT$QAScore < lowWellQAThreshold] <- TRUE
   
   #Level 4
   mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < lowReplicateCount
@@ -216,7 +197,7 @@ MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
                        analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8,8),
-                       k=c(7,7,7),
+                       k=c(135,135,135),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
@@ -272,7 +253,7 @@ HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
                        analysisVersion="av1.7",
                        rawDataVersion="v2",
                        limitBarcodes=c(8,8),
-                       k=c(7,7),
+                       k=c(64,64),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
@@ -297,5 +278,5 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(23),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(11),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 

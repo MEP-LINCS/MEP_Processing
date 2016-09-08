@@ -90,6 +90,10 @@ l3F$QA_LowWellQA[is.na(l3F$QA_LowWellQA)]<-FALSE
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
 
+#Remove features that will not be accessed in this analysis
+l3KeepNames <- grep("Omero|MEP|ECMp|Ligand|Array|QA|Barcode|Spot_PA_SpotCellCount|Nuclei_PA_Gated_EdUPositiveProportionLogit|Cytoplasm_PA_Intensity_LineageRatioLog2|Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess|Spot_PA_ReplicateCount|Cytoplasm_PA_Intensity_LineageRatioLog2|Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2|Cytoplasm_CP_Intensity_MedianIntensity_KRT",colnames(l3),value=TRUE)
+l3F <- l3F[,l3KeepNames, with=FALSE]
+
 #Combine FBS replicates
 l3FFBS <- l3F
 l3FFBS$Ligand[grepl("FBS",l3FFBS$Ligand)] <- gsub("_.*","",l3FFBS$Ligand[grepl("FBS",l3FFBS$Ligand)])
@@ -175,7 +179,7 @@ if(any(grepl("SS1",ss))){
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
 } else if (any(grepl("SS3|SS4",ss))){
   if (cellLine=="MCF10A"){
-    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUV", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUV","Cytoplasm_PA_Intensity_LineageRatioLog2RUV", "Spot_PA_ReplicateCount")
+    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess", "Spot_PA_ReplicateCount")
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
   }else{
     colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess", "Spot_PA_ReplicateCount")

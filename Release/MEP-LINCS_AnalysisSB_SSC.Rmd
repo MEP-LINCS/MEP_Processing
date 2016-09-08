@@ -224,7 +224,13 @@ library(XLConnect)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol <- selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
+
 PCAOnly <- TRUE
+if(cellLine=="MCF10A"){
+  ssNr <- 3
+} else {
+  ssNr <- 2
+}
 
 #Read in the data.table that holds every spot in the cell line
 #and can be used to index to the images
@@ -244,9 +250,9 @@ l4C <- l4C[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransformed:= 
 ```
 
 ###Introduction
-This analysis is of the MEP-LINCS HMEC240L MEMA experiments performed in eight well plates. The data is collected at the cell level from images captured on an automated Nikon microscope. The cell level data is summarized for each MEMA spot, RUV and loess normalized, then replicate spots are summarized to the MEP level.  
+This analysis is of the MEP-LINCS `r cellLine`  MEMA experiments performed in eight well plates. The data is collected at the cell level from images captured on an automated Nikon microscope. The cell level data is summarized for each MEMA spot, RUV and loess normalized, then replicate spots are summarized to the MEP level.  
 
-The MEP-level dataset is stored and manipulated as a matrix where each of the `r dim(l4C)[1]` rows are a unique MEP and each of the `r dim(l4C)[2]` columns are signals or metadata. Some signals are based on the DAPI staining that is present in all wells. This creates two replicate ligand wells which each have ~fourteen replicates of spotted ECM proteins. The rest of the signals are based on unique stains and the ~fourteen replicate spots are all in the same well. It's important to note that the MEP level data comes from two different experiments run over several weeks.
+The MEP-level dataset is stored and manipulated as a matrix where each of the `r dim(l4C)[1]` rows are a unique MEP and each of the `r dim(l4C)[2]` columns are signals or metadata. Some signals are based on the DAPI staining that is present in all wells. This creates `r ssNr` replicate ligand wells which each have ~fourteen replicates of spotted ECM proteins. The rest of the signals are based on unique stains and the ~fourteen replicate spots are all in the same well. It's important to note that the MEP level data comes from `r ssNr` different experiments run over several weeks.
 
 The Spot-level dataset is a matrix where each of the `r dim(l3C)[1]` rows is a spot and each of the `r dim(l3C)[2]` columns are signals or metadata. The spot level data is a sparse matrix where the each row has values from one staining set and NA values for the other.
 
@@ -279,7 +285,7 @@ print(p)
 ```
 
 ***
-This data is RUV and loess normalized and then summarized across all staining sets where each ligand has two replicates and there are 16 control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
+This data is RUV and loess normalized and then summarized across all staining sets where each ligand has `r ssNr` replicates and there are 16 control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
 
 ###Proliferation Boxplots
 
@@ -343,7 +349,7 @@ print(p)
 ```
 
 ***
-This data is RUV and loess normalized and then summarized across all staining sets where each ligand has three replicates and there are 24 control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
+This data is RUV and loess normalized and then summarized across all staining sets where each ligand has `r ssNr` replicates and there are `r ssNr*8` control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
 
 ###MEP Level interactive datatable displays data filtered on keywords and sorted by values.
 
@@ -357,7 +363,7 @@ dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransfor
 datatable(format(dt[, colNames, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 ```
 
-###Spot Level Data.   The interactive datatable of the spot level data displays spots filtered on keywords and sorted by values. There is one image of each spot which is displayed by clicking on the Omero link (OHSU Gray Lab Omero account needed).  
+###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values. Each spot's image is displayed by clicking on the Omero link (OHSU Gray Lab Omero account needed).  
 
 ```{r}
 #Setup for spots to display images
@@ -369,7 +375,7 @@ datatable(format(dt[,colNamesSpots, with=FALSE], digits=3, scientific = FALSE, n
 
 ```
 
-###KRT5 Lineage Boxplots
+###KRT5 Intensity Lineage Boxplots
 
 
 ```{r KRT5BoxplotsFull, fig.width=20, fig.height=8}
@@ -457,7 +463,7 @@ The KRT19 Gated Proportion signal is the porportion of cells in each spot that w
 ```{r, fig.width=10, fig.height=7, eval=TRUE}
 
 dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
-p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess), colour=Ligand, size=Spot_PA_SpotCellCountLog2, text=paste("ECMp:",ECMp)))+
+p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess), colour=Ligand, text=paste("ECMp:",ECMp)))+
   geom_point(size=.7, alpha=.4)+
   guides(colour=FALSE, size=FALSE)+
   #coord_cartesian(ylim = c(7,13))+
@@ -469,7 +475,7 @@ ggplotly(p)
 ```
 
 ***
-This scatter plot shows the normalized KRT19+ proportion vs the normalized EdU+ measured proliferation. The spot size represents the relative number of cells. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
+This scatter plot shows the normalized KRT19+ proportion vs. the normalized EdU+ measured proliferation. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
 
 ```{r, fig.width=10, fig.height=7, eval=FALSE}
 
@@ -567,7 +573,7 @@ l4CU <- cbind(l4CU,data_tsne$Y)
 
 p <- ggplot(l4CU, aes(x=V1, y=V2, colour=Ligand, text=paste("ECMp:",ECMp)))+
   geom_point(size=rel(.3), alpha=.5)+
-  ggtitle(paste("tSNE plot of HMEC240L MEPs with FBS Coloured by Ligand"))+
+  ggtitle(paste("tSNE plot of", cellLine,"MEPs with FBS Coloured by Ligand"))+
   guides(colour = FALSE)
 ggplotly(p)
 
@@ -577,7 +583,7 @@ ggplotly(p)
 The scatterplot shows the 2 tSNE components of all MEP signals colored by ligand. Hovering over a spot shows its ligand and ECM protein. The signals are the same as those used in the MEP PCA model.
 
 
-```{r tSNEData,fig.width=8, fig.height=5, eval=TRUE}
+```{r tSNEData,fig.width=8, fig.height=5, eval=FALSE}
 data_matrix <- scale(as.matrix(l4C[,RUVLoessMEPNames, with=FALSE]))
 
 set.seed(1234)
@@ -666,7 +672,7 @@ These boxplots show the cell cycle proportions as measured by total DAPI for the
 ```{r medianHeatMaps2, fig.width=9, fig.height=5.5}
 
 limits=c(.05, .95)
-titleExpression <-"Spot_PA_SpotCellCountLog2"
+titleExpression <-"Raw Spot Cell Count (log2)"
 plotLEHmap(l4C,  hclustfun = "hclust",fill="Spot_PA_SpotCellCountLog2", titleExpression=titleExpression, limits=limits)
 ```
 
@@ -677,7 +683,7 @@ This heatmap uses unsupervised clustering in the rows and columns using the comp
 
 ```{r}
 limits=c(.05, .95)
-titleExpression <-"Spot_PA_SpotCellCountLog2RUVLoess"
+titleExpression <-"Normalized Spot Cell Count (log2)"
 plotLEHmap(l4C, hclustfun = "hclust", fill="Spot_PA_SpotCellCountLog2RUVLoess", titleExpression=titleExpression, limits=limits)
 
 ```
