@@ -29,7 +29,7 @@ MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 3),
                        k=135L,
                        ss=c("SS1","SS2","SS3"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion=c("v2","v2","v2"),
                        stringsAsFactors=FALSE)
 
@@ -37,7 +37,7 @@ HMEC240L <- data.frame(cellLine=rep(c("HMEC240L"), 2),
                        k=135L,
                        ss=c("SS1","SS4"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion=c("v2","v2"),
                        stringsAsFactors=FALSE)
 
@@ -45,14 +45,14 @@ HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
                        k=135L,
                        ss=c("SS1","SS4"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion=c("v2","v2"),
                        stringsAsFactors=FALSE)
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
 
 startTime <- Sys.time()
-x <- ssDatasets[grepl("HMEC240L",ssDatasets$cellLine),]
+x <- ssDatasets[grepl("MCF10A",ssDatasets$cellLine),]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 k <- unique(x[["k"]])
@@ -74,8 +74,17 @@ write.table(format(l3R, digits = 4, trim=TRUE), paste0("MEP_LINCS/AnnotatedData/
 cat("Writing level 3 combined data to disk\n")
 write.table(format(l3C, digits = 4, trim=TRUE), paste0("MEP_LINCS/AnnotatedData/", cellLine,"_SSC_","Level3.txt"), sep = "\t",row.names = FALSE, quote=FALSE)
 
-#Median summarize the l3 replicates, add RLE values then mean summarize replicates
-l4R <- meanSummarizel4(level4CommonSignals(l3R))
+#Median summarize the l3 replicates, 
+l3RCS <- level4CommonSignals(l3R)
+
+#mean summarize replicates
+l4R <- meanSummarizel4(l3RCS)
+
+l3RMetadata <- unique(l3R[,grep("MEP|Lx|PinDiameter",colnames(l3R),value=TRUE), with=FALSE])
+l3RMetadata$MEP <- gsub("FBS_P.","FBS",l3RMetadata$MEP)
+l3RMetadata <- unique(l3RMetadata)
+#Merge back in the LINCS IDs and pin diameter
+l4R <- merge(l4R,l3RMetadata,by="MEP")
 
 #Read the level 4 staining set data and remove the common signals
 level4DataL <- lapply(unique(l3R$StainingSet), function(ss){

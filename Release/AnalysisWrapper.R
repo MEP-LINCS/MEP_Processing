@@ -24,7 +24,7 @@ YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
 MCF10Adf <- data.frame(cellLine="MCF10A",
                        ss=c("SS1","SS2","SS3"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
@@ -39,14 +39,14 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
 HMEC240L <- data.frame(cellLine=c("HMEC240L"),
                        ss=c("SS1","SS4"),
                        drug="none",
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
 HMEC122L <- data.frame(cellLine=c("HMEC122L"),
                        ss=c("SS1","SS4"),
                        drug=c("none"),
-                       analysisVersion="av1.6",
+                       analysisVersion="av1.7",
                        rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
@@ -64,6 +64,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(11:13,18:21),], 1, renderAnalysisReports)
+tmp <- apply(ssDatasets[c(11),], 1, renderAnalysisReports)
 
 
