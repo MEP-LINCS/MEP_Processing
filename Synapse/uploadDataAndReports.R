@@ -24,7 +24,6 @@ uploadToSynapseLevel1 <- function(x, parentId) {
   
   obj <- synStore(obj, 
                   activityName=activityName,
-                  contentType="text/tab-separated-values",
                   forceVersion=FALSE,
                   executed=scriptLink)
   obj
@@ -38,7 +37,7 @@ uploadToSynapseLevel3 <- function(x, parentId) {
   
   obj <- synStore(obj, 
                   activityName=activityName,
-                  #used=c(x$Level1SynID),
+                  used=c(x$Level1SynID),
                   contentType="text/tab-separated-values",
                   forceVersion=FALSE,
                   executed=scriptLink)
@@ -91,7 +90,7 @@ uploadFileLevel3 <- function(x){
                          Consortia="MEP-LINCS",
                          Level=x$Level,
                          filename=x$FilePath,
-                         #Level3ID=x$Level3ID,
+                         Level1ID=x$Level1ID,
                          stringsAsFactors = FALSE)
   uploadToSynapseLevel3(dataFile, parentId=synapseAnnotatedDataDir)
 }
@@ -110,9 +109,9 @@ uploadFileLevel4 <- function(x){
                          Consortia="MEP-LINCS",
                          Level=x$Level,
                          filename=x$FilePath,
-                         #Level3ID=x$Level3ID,
+                         Level3ID=x$Level3ID,
                          stringsAsFactors = FALSE)
-  uploadToSynapseLevel3(dataFile, parentId=synapseAnnotatedDataDir)
+  uploadToSynapseLevel4(dataFile, parentId=synapseAnnotatedDataDir)
 }
 
 synapseLogin()
@@ -181,44 +180,39 @@ serverFiles <- data.frame(FilePath=filePaths,StainingSet=splits[,2], CellLine=gs
 ssDatasets <- merge(datasetAnns,serverFiles, by=c("CellLine","StainingSet"))
 
 #Upload the level 1 files without a provenance to lower level files
-res <- dlply(ssDatasets[7,], c("CellLine","StainingSet"), uploadFileLevel1)
+res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadFileLevel1)
 
-#######End Upload of level 1 zipped files]
-reportType <- "PreprocessingL3L4"
+#Prepare to upload levle 3 data
+scriptName <- "PreprocessingL3L4"
 dataType <- "Quantitative Imaging"
-#dataType <- "Metadata"
 activityName <- "Annotate data"
-#activityName <- "Normalize Cell Data"
-#reportDesc <- "Analysis"
-
-scriptLink <- getPermlink(repo, paste0("Release/MEP-LINCS_",reportType,".R"))
-
-# Take row of data frame and remove file name
-# Convert to a list to use as Synapse annotations
-# toAnnotationList <- function(x) {
-#   if("Level3ID" %in% colnames(x)) x <- select(x,-Level3ID)
-#   if("Used3" %in% colnames(x)) x <- select(x,-Used3)
-#   if("Used4" %in% colnames(x)) x <- select(x,-Used4)
-#   if("Level1SynID" %in% colnames(x)) x <- select(x,-Level1SynID)
-#     as.list(x %>% select(-c(filename)))
-# }
-
-
+scriptLink <- getPermlink(repo, paste0("Release/MEP-LINCS_",scriptName,".R"))
 
 #Get the filepaths for the level 3 data on the graylab server
-filePaths <- grep("[LA]_SS[1234C]_Level3",dir("../AnnotatedData",full.names = TRUE), value=TRUE)
+filePaths <- grep("[LA]_SS[1234]_Level3",dir("../AnnotatedData",full.names = TRUE), value=TRUE)
 #Get annotations from filename
 splits <- strsplit2(filePaths,"_")
 serverFiles <- data.frame(FilePath=filePaths,StainingSet=splits[,2], CellLine=gsub("../AnnotatedData/","",splits[,1]),Level=as.numeric(gsub("Level|.txt","",splits[,3])), stringsAsFactors = FALSE)
 
 ssDatasets <- merge(datasetAnns,serverFiles, by=c("CellLine","StainingSet"))
 
+#Get the level 1 synIDs for the provenance
+synIDs <- synQuery(paste("select id, name, Level, CellLine, StainingSet from file where parentId=='",  synapseAnnotatedDataDir,"'"))
+colnames(synIDs)<-gsub("file.","",colnames(synIDs))
+synIDs <- filter(synIDs,!grepl("none|All",name))
+synIDs <- select(synIDs, -name)
+synIDs <- filter(synIDs, Level=="1")
+synIDs <- select(synIDs, -Level)
+
+#Merge in the synIDs of the level 1 data
+ssDatasets <- merge(ssDatasets,synIDs)
+ssDatasets <- rename(ssDatasets,Level1ID=id)
 
 #Upload the level 3 files without a provenance to lower level files
 res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadFileLevel3)
 
 #Get the filepaths for the level 4 data on the graylab server
-filePaths <- grep("[LA]_SS[1234C]_Level4",dir("../AnnotatedData",full.names = TRUE), value=TRUE)
+filePaths <- grep("[LA]_SS[1234]_Level4",dir("../AnnotatedData",full.names = TRUE), value=TRUE)
 splits <- strsplit2(filePaths,"_")
 serverFiles <- data.frame(FilePath=filePaths,StainingSet=splits[,2], CellLine=gsub("../AnnotatedData/","",splits[,1]),Level=as.numeric(gsub("Level|.txt","",splits[,3])), stringsAsFactors = FALSE)
 ssDatasets <- merge(datasetAnns,serverFiles, by=c("CellLine","StainingSet"))
@@ -234,25 +228,32 @@ synIDs <- select(synIDs, -Level)
 ssDatasets <- merge(ssDatasets,synIDs)
 ssDatasets <- rename(ssDatasets,Level3ID=id)
 
-uploadFileLevel4 <- function(x){
-  dataDir <- paste("../AnnotatedData")
-  # Take file names and turn into basic annotation set
-  # Replace this with a better way to get basic annotations from 
-  # a standardized source
-  dataFile <- data.frame(CellLine=x$CellLine,
-                         StainingSet=x$StainingSet,
-                         Drug=x$Drug,
-                         Preprocess=x$Preprocess,
-                         Segmentation=x$Segmentation,
-                         DataType=dataType,
-                         Consortia="MEP-LINCS",
-                         Level=x$Level,
-                         filename=x$FilePath,
-                         Level3ID=x$Level3ID,
-                         stringsAsFactors = FALSE)
-  uploadToSynapseLevel4(dataFile, parentId=synapseAnnotatedDataDir)
-}
+#Begin the level 4 uploads
+res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadFileLevel4)
+stop("Delete stop after debug")
 
+#Get the info for the level 3 SSC data
+scriptName <- "CommonSignalNormx1"
+dataType <- "Quantitative Imaging"
+activityName <- "Normalize and summarize data"
+scriptLink <- getPermlink(repo, paste0("Release/MEP-LINCS_",scriptName,".R"))
+filePaths <- grep("[LA]_SSC_Level3",dir("../AnnotatedData",full.names = TRUE), value=TRUE)
+splits <- strsplit2(filePaths,"_")
+serverFiles <- data.frame(FilePath=filePaths,StainingSet=splits[,2], CellLine=gsub("../AnnotatedData/","",splits[,1]),Level=as.numeric(gsub("Level|.txt","",splits[,3])), stringsAsFactors = FALSE)
+ssDatasets <- merge(datasetAnns,serverFiles, by=c("CellLine","StainingSet"))
+
+synIDs <- synQuery(paste("select id, name, Level, CellLine, StainingSet from file where parentId=='",  synapseAnnotatedDataDir,"'"))
+colnames(synIDs)<-gsub("file.","",colnames(synIDs))
+synIDs <- filter(synIDs,!grepl("none|All",name))
+synIDs <- select(synIDs, -name)
+synIDs <- filter(synIDs, Level=="3")
+synIDs <- select(synIDs, -Level)
+
+#Merge in the synIDs of the level 3 data
+ssDatasets <- merge(ssDatasets,synIDs)
+ssDatasets <- rename(ssDatasets,Level3ID=id)
+
+#Begin the level 4 uploads
 res <- dlply(ssDatasets, c("CellLine","StainingSet"), uploadFileLevel4)
 
 #Upload the reports
