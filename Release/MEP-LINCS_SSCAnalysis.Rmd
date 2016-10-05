@@ -282,7 +282,7 @@ l3 <-rbindlist(l3L, use.names=TRUE, fill=TRUE)
 l3 <- l3[,SCCClass := classifySCC(Spot_PA_SpotCellCount), by=c("Barcode","MEP")]
 l3 <- l3[,SCCQuartile := classifySCCQuartiles(Spot_PA_SpotCellCount)]
 l3$SCCBMPQuartile <- factor("Q0",levels=c("Q0","Q1","Q2","Q3","Q4"), ordered=TRUE)
-l3$SCCBMPQuartile[grepl("SS2",l3$StainingSet)&grepl("BMP",l3$MEP)] <- classifySCCQuartiles(l3$Spot_PA_SpotCellCount[grepl("SS2",l3$StainingSet)&grepl("BMP",l3$MEP)])
+l3$SCCBMPQuartile[grepl("SS2",l3$StainingSet)&grepl("BMP|FBS_P5",l3$Ligand)] <- classifySCCQuartiles(l3$Spot_PA_SpotCellCount[grepl("SS2",l3$StainingSet)&grepl("BMP|FBS_P5",l3$Ligand)])
 ```
 
 
