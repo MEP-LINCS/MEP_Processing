@@ -127,6 +127,28 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        stringsAsFactors=FALSE)
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L, HMEC122L)
 
+tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
+                        cellLine=c("MCF10A"),
+                        ss=c("SS4"),
+                        drug=c("none"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        limitBarcodes=c(3),
+                        k=c(64),
+                        calcAdjacency=TRUE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = TRUE,
+                        useAnnotMetadata=FALSE,
+                        stringsAsFactors=FALSE)
+
+collabs <- data.frame(datasetName=c("Bornstein"),
+                        cellLine=c("cellLineName"),
+                        ss=c("SS2"),
+                        drug=c("none"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        stringsAsFactors=FALSE)
+
 renderQASpotMEPReports <- function(x){
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
@@ -151,6 +173,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(11),], 1, renderQACellReports)
-tmp <- apply(ssDatasets[c(11),], 1, renderQASpotMEPReports)
+tmp <- apply(collabs, 1, renderQACellReports)
+tmp <- apply(collabs, 1, renderQASpotMEPReports)
 

@@ -373,7 +373,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     #Create staining set specific derived parameters
     if (grepl("SS2|SS4|SS6",ss)){
-      pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
+      #Use the entire plate to set the autogate threshold if there's no control well
+      if(grepl("FBS",unique(pcDT$Ligand))){
+        pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
+      } else {
+        pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "."), by="Barcode"]
+      }
+
       #Modify the gate threshold to be 3 sigma from the EdU- median
       EdUDT <- pcDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
       EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
@@ -668,8 +674,35 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        stringsAsFactors=FALSE)
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L, HMEC122L)
 
+tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
+                        cellLine=c("MCF10A"),
+                        ss=c("SS4"),
+                        drug=c("none"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        limitBarcodes=c(3),
+                        k=c(64),
+                        calcAdjacency=TRUE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = TRUE,
+                        useAnnotMetadata=FALSE,
+                        stringsAsFactors=FALSE)
+
+colabs <- data.frame(datasetName=c("Bornstein"),
+                        cellLine=c("cellLineName"),
+                        ss=c("SS2"),
+                        drug=c("none"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        limitBarcodes=c(4),
+                        k=c(64),
+                        calcAdjacency=FALSE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = FALSE,
+                        useAnnotMetadata=FALSE,
+                        stringsAsFactors=FALSE)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(13),], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(colabs, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

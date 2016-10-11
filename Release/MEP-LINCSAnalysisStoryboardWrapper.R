@@ -10,8 +10,8 @@ renderAnalysisReports <- function(cellLine){
 }
 
 r <- renderAnalysisReports(cellLine="MCF10A")
-#r <- renderAnalysisReports(cellLine="HMEC122L")
-#r <- renderAnalysisReports(cellLine="HMEC240L")
+r <- renderAnalysisReports(cellLine="HMEC122L")
+r <- renderAnalysisReports(cellLine="HMEC240L")
 
 
 

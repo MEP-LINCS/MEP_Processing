@@ -275,8 +275,36 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        stringsAsFactors=FALSE)
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L, HMEC122L)
 
+tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
+                        cellLine=c("MCF10A"),
+                        ss=c("SS4"),
+                        drug=c("none"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        limitBarcodes=c(3),
+                        k=c(64),
+                        calcAdjacency=TRUE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = TRUE,
+                        useJSONMetadata=FALSE,
+                        stringsAsFactors=FALSE)
+
+colabs <- data.frame(datasetName=c("Bornstein"),
+                     cellLine=c("cellLineName"),
+                     ss=c("SS2"),
+                     drug=c("none"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(4),
+                     k=c(0),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useJSONMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(11),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(colabs, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 
