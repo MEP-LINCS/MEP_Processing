@@ -500,6 +500,26 @@ ggplotly(p)
 ***
 This scatter plot shows the normalized KRT19+ proportion vs. the normalized EdU+ measured proliferation. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
 
+###KRT19 vs. KRT5 Scatterplot
+
+
+```{r, fig.width=10, fig.height=7, eval=TRUE}
+
+dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess, colour=Ligand, text=paste("ECMp:",ECMp)))+
+  geom_point(size=.7, alpha=.4)+
+  guides(colour=FALSE, size=FALSE)+
+  #coord_cartesian(ylim = c(7,13))+
+  xlab("Normalized KRT5")+ylab("Normalized KRT19")+
+  ggtitle("MEP KRT19 vs KRT5")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+ggplotly(p)
+
+```
+
+***
+This scatter plot shows the normalized KRT19 intensity vs normalized KRT5 intensity. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
+
 ```{r, fig.width=10, fig.height=7, eval=FALSE}
 
 dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
