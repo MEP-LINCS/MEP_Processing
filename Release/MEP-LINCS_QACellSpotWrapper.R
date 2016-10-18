@@ -141,12 +141,32 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
-collabs <- data.frame(datasetName=c("Bornstein"),
-                        cellLine=c("cellLineName"),
-                        ss=c("SS2"),
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
+                     cellLine=c("unknown"),
+                     ss=c("SSD"),
+                     drug=c("unknown"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(5),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
+MPDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
+                        cellLine=c("MCF10A"),
+                        ss=c("SS4"),
                         drug=c("none"),
                         analysisVersion="av1.7",
                         rawDataVersion="v2",
+                        limitBarcodes=c(8),
+                        k=c(64),
+                        calcAdjacency=TRUE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = TRUE,
+                        useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
 renderQASpotMEPReports <- function(x){
@@ -173,6 +193,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(collabs, 1, renderQACellReports)
-tmp <- apply(collabs, 1, renderQASpotMEPReports)
+tmp <- apply(Baylor[1,], 1, renderQACellReports)
+tmp <- apply(Baylor, 1, renderQASpotMEPReports)
 

@@ -132,7 +132,7 @@ for (barcode in barcodes){
 <br>
 
 ###Spot Cell Count Boxplots
-Boxplots of the spot cell counts show the values stratified by plate and well.The blue line shows the dataset median. Each boxplot summarizes data from ~700 spots.     
+Boxplots of the spot cell counts show the values stratified by plate and well. The blue line shows the dataset median. Each boxplot summarizes data from ~700 spots.     
 
 ```{r SCCBoxplots, fig.height=5}
 
@@ -183,12 +183,26 @@ print(p)
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6",ss)}
+
+```{r rawcaspaseBoxplots, fig.height=5, eval=grepl("SSD",ss)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  xlab("")+ylab("Median Intensity Caspase (log2)")+
+  ggtitle("Median Intensity Caspase per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(l3$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6|SSE",ss)}
 ```
 
 <br>
 
-```{r rawEdUBoxplots, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
+```{r rawEdUBoxplots, fig.height=5, eval=grepl("SS2|SS4|SS6|SSD|SSE",ss)}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -205,6 +219,21 @@ print(p)
 ```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=grepl("SS3|SS4",ss)}
 ```
 
+<br>
+
+
+
+```{r rawCaspaseBoxplots, fig.height=5, eval=grepl("SSD",ss)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  xlab("")+ylab("Median Intensity Caspase (log2)")+
+  ggtitle("Median Intensity Caspase per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(l3$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2), colour="blue", alpha=.5)
+print(p)
+
+```
 <br>
 
 
@@ -265,7 +294,7 @@ l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
 #Remove failed QA wells
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
-l4F <- createl4(l3F,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Fibrillarin"))
+l4F <- createl4(l3F,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Fibrillarin","Caspase"))
 
 if (grepl("SS2|SS4",ss)){
   #Add Robust Z Score of the EdU Signal
@@ -277,13 +306,6 @@ if (grepl("SS3|SS4",ss)){
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess)]
   
 }
-
-#Filter for high spot occupancy and good quality DAPI####
-l3HF <- l3F[l3F$Spot_PA_SpotCellCount > HFSCCThresh]
-l3HF <- l3HF[!l3HF$QA_LowDAPIQuality]
-l3HF <- l3HF[!l3HF$QA_LowRegionCellCount]
-l4HF <- createl4(l3HF, seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Fibrillarin"))
-l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
 #Make k parameter visible
 k <- unique(l3$k)
@@ -301,7 +323,7 @@ k <- unique(l3$k)
 The following figures show the raw and then normalized spot cell count values organized first by barcode and then by ligand. The barcode is replaced by the label "Multiple" when the values come from replicates that are in more than one plate.  
 
 
-```{r SCC_responseFull, fig.width=8,  fig.height=10, echo=FALSE, eval=TRUE}
+```{r SCC_responseFull, fig.width=8,  fig.height=10, echo=FALSE, eval=any(grepl("Spot_PA_SpotCellCountLog2RUVLoess",colnames(l4F)))}
 
 dt <- l4F
 dt <- l4F[,list(Barcode,Ligand,Spot_PA_SpotCellCount, Spot_PA_SpotCellCountLog2RUVLoess )]
@@ -331,30 +353,38 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
-dt <- l4F
-
-p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUVLoess, FUN=median), y = Spot_PA_SpotCellCountLog2RUVLoess))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
 ```{r SCC_response, fig.width=8,  fig.height=6, echo=FALSE, eval=TRUE}
 setkey(l4F,"Ligand")
-p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUVLoess, FUN=median), y = Spot_PA_SpotCellCountLog2RUVLoess, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Spot Cell Count by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+
+if (any(grepl("Spot_PA_SpotCellCountLog2RUVLoess",colnames(l4F)))){
+  p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2RUVLoess, FUN=median), y = Spot_PA_SpotCellCountLog2RUVLoess, colour = Barcode))+geom_boxplot()+
+    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by Ligand"))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+} else {
+  p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCountLog2, FUN=median), y = Spot_PA_SpotCellCountLog2, colour = Barcode))+
+    geom_boxplot()+
+    ggtitle(paste("\n\nMEP Raw Spot Cell Count by Ligand"))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+}
 suppressWarnings(print(p))
 ```
 
+
 ```{r, fig.width=8,  fig.height=3.5, echo=FALSE, eval=TRUE}
-p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUVLoess, FUN=median), y = Spot_PA_SpotCellCountLog2RUVLoess))+geom_boxplot()+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+dt <- l4F
+if (any(grepl("Spot_PA_SpotCellCountLog2RUVLoess",colnames(l4F)))){
+  p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2RUVLoess, FUN=median), y = Spot_PA_SpotCellCountLog2RUVLoess))+geom_boxplot()+
+    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein"))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+} else {
+  p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountLog2, FUN=median), y = Spot_PA_SpotCellCountLog2))+geom_boxplot()+
+    ggtitle(paste("\n\nMEP Raw Spot Cell Count by ECM Protein"))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+}
 suppressWarnings(print(p))
 
 ```
@@ -393,6 +423,38 @@ suppressWarnings(print(p))
 ```
 
 
+```{r CaspaseHistogram, eval=grepl("SSD",ss)}
+
+setkey(l4,"Ligand")
+p <- ggplot(l4, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess))+geom_histogram(binwidth = .01)+
+  #geom_vline(xintercept = c(-2,2), colour = "blue")+
+  ggtitle(paste("\n\n","MEP Normalized, Caspase Intensity Distribution"))+
+  ylab("Count")+xlab("Raw, Caspase Intensity")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+```
+
+```{r CaspaseByLigand, eval=grepl("SS1",ss)}
+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("MEP Normalized Caspase Intensity by Ligand"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+```{r CaspaseByECMp, eval=grepl("SS1",ss)}
+
+p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess))+geom_boxplot()+
+  ggtitle(paste("MEP Normalized Caspase Intensity by ECM Protein"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
+```
+
+
 ```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4|SS6",ss)}
 ```
 
@@ -408,8 +470,19 @@ p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess
 suppressWarnings(print(p))
 ```
 
+```{r ProliferationRawHistogram, eval=grepl("SSD",ss)}
 
-```{r ProliferationByLigandFull, eval=grepl("SS2|SS4|SS6",ss)}
+dt <- l4F
+
+p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+geom_histogram(binwidth = .001)+
+  ggtitle(paste("MEP EdU+ Proportion Distribution"))+
+  ylab("Count")+xlab("EdU+ Proportion (Normalized)")+
+  theme(strip.text = element_text(size = 5))
+suppressWarnings(print(p))
+```
+
+
+```{r ProliferationByLigandFull, eval=grepl("SS2|SS4|SS6|SSD",ss)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand"))+
@@ -419,7 +492,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByECMpFull,eval=grepl("SS2|SS4|SS6",ss)}
+```{r ProliferationByECMpFull,eval=grepl("SS2|SS4|SS6|SSD",ss)}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein"))+
@@ -482,7 +555,7 @@ suppressWarnings(print(p))
 ###PCA Analysis
 A Principal Component Analysis can be used to evaluate the normalization process for plate and well effects.  
 
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 ###PCA Unbiased Analysis  
 PCFVNames <- grep("Norm|Loess",colnames(l4F),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
@@ -505,7 +578,7 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
 
-```{r, fig.height=3, fig.width=4, eval=TRUE}
+```{r, fig.height=3, fig.width=4, eval=FALSE}
 
 var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
@@ -611,7 +684,7 @@ if(grepl("SS1",ss)){
 }
 ```
 
-```{r PCADatatable, cache=FALSE}
+```{r PCADatatable, cache=FALSE, eval=FALSE}
 datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5))
 #Extract the selectedPCs of each MEP into a matrix
 
@@ -770,13 +843,13 @@ for (barcode in barcodes){
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
   }
-
+  
   if (grepl("SS2",ss)){   
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   }
-    if (grepl("SS2|SS4",ss)){   
-
+  if (grepl("SS2|SS4",ss)){   
+    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
     
@@ -790,7 +863,7 @@ for (barcode in barcodes){
     suppressWarnings(print(p))
   }
   
-    if (grepl("SS3",ss)){
+  if (grepl("SS3",ss)){
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
     
@@ -805,6 +878,31 @@ for (barcode in barcodes){
     suppressWarnings(print(p))
     
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
+    suppressWarnings(print(p))
+    
+  }
+  
+  if (grepl("SSD",ss)){
+    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_IntegratedIntensity_Caspase", prDisplay = unique(DT$Endpoint488))
+    suppressWarnings(print(p))
+    
+    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
+    suppressWarnings(print(p))
+    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
+    suppressWarnings(print(p))
+    
+  }
+  if (grepl("SSE",ss)){
+    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_IntegratedIntensity_Nestin", prDisplay = unique(DT$Endpoint488))
+    suppressWarnings(print(p))
+    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
+    suppressWarnings(print(p))
+    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Mu5AC",prDisplay = unique(DT$Endpoint750))
     suppressWarnings(print(p))
     
   }
@@ -836,7 +934,7 @@ print(p)
 ```
 
 
-```{r, eval=grepl("SS6",ss)}
+```{r, eval=grepl("SS6|SSD|SSE",ss)}
 
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_EdU, colour=Well))+
@@ -851,7 +949,7 @@ print(p)
 
 ```
 
-```{r, , fig.height=10, eval=grepl("SS2|SS4|SS6",ss)}
+```{r, , fig.height=10, eval=grepl("SS2|SS4|SS6|SSD|SSE",ss)}
 
 
 if(exists("l3$Nuclei_PA_Gated_EdUPositiveProportion")){

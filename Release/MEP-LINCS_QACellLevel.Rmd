@@ -43,7 +43,7 @@ l1 <- fread(paste0("../AnnotatedData/",cellLine,"_",ss,"_Level1.txt"), showProgr
 ```{r}
 set.seed(42)
 
-l1S <- l1[sample(1:nrow(l1),sampleProportion*nrow(l1),replace=FALSE),grep("Barcode|Well|Ligand|ECMp|TotalDNANormed|DNAThresh|Ligand|Nuclei_CP_Intensity_IntegratedIntensity_Dapi|Nuclei_PA_Cycle_State|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Nuclei_CP_Intensity_MedianIntensity_EdU|Nuclei_PA_Gated_EdUPositive|Cytoplasm_CP_Intensity_MedianIntensity_KRT|LineageRatio|Cytoplasm_PA_Gated_KRTClass|Cytoplasm_PA_Gated_KRT19Positive|Cells_PA_Gated",colnames(l1)), with=FALSE]
+l1S <- l1[sample(1:nrow(l1),sampleProportion*nrow(l1),replace=FALSE),grep("Barcode|Well|Ligand|ECMp|TotalDNANormed|DNAThresh|Ligand|Nuclei_CP_Intensity_IntegratedIntensity_Dapi|Nuclei_PA_Cycle_State|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Nuclei_CP_Intensity_MedianIntensity_EdU|Nuclei_PA_Gated_EdUPositive|Cytoplasm_CP_Intensity_MedianIntensity_KRT|Cytoplasm_CP_Intensity_MedianIntensity_Caspase|LineageRatio|Cytoplasm_PA_Gated_KRTClass|Cytoplasm_PA_Gated_KRT19Positive|Cells_PA_Gated",colnames(l1)), with=FALSE]
 l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
 l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
@@ -142,6 +142,22 @@ for (barcode in barcodes){
 }
 ```
 
+```{r rawCaspaseHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SSD",ss)}
+binwidth=.001
+for (barcode in barcodes){
+  setkey(l1S, Barcode)
+  dtb <- l1S[barcode]
+  dtb <- dtb[dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2 > quantile(dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, probs=.01, na.rm=TRUE) & dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2 < quantile(dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2,probs=.98, na.rm=TRUE)]
+  p <- ggplot(dtb, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2)))+
+    geom_histogram(binwidth = binwidth)+
+    facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+    ggtitle(paste("Caspase Intensity,",barcode))+
+    ylab("Count")+xlab("Median Intensity Caspase\nLog2")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.7)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = rel(.5)))
+  suppressWarnings(print(p))
+}
+```
+
 ```{r rawCOL1Histograms, fig.width=10,fig.height=10, eval=exists("l1")&grepl("SS1",ss)&FALSE}
 #Display histograms for one COl1 spot of each ligand
 p <- ggplot(l1[l1$PrintSpot==193,], aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
@@ -163,12 +179,12 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6",ss)}
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6|SSE",ss)}
 ```
 
 <br>
 
-```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS4|SS6",ss)}
+```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS4|SS6|SSD|SSE",ss)}
 
 for (barcode in barcodes){
   setkey(l1S,Barcode)
@@ -297,7 +313,7 @@ for (barcode in barcodes){
 ```
 
 
-```{r gatedKRTLigandboxplots, fig.width=10,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
+```{r gatedKRT5Ligandboxplots, fig.width=10,fig.height=4, eval=exists("l1")&grepl("SS3|SS4",ss)}
 
   p <- ggplot(l1S, aes(x=factor(Ligand),y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2, colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
     geom_boxplot(outlier.colour = NA)+
@@ -385,7 +401,7 @@ suppressWarnings(print(p))
 
 #Supplemental Material
 
-```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS4|SS6",ss)}
+```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS4|SS6|SSD|SSE",ss)}
 binwidth=.04
 for (barcode in barcodes){
   setkey(l1S, Barcode)

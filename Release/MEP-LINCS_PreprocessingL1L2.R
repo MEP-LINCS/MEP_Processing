@@ -179,12 +179,12 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     splits <- strsplit2(split = "_",plateDataFiles)
     wells <- unique(splits[,dim(splits)[2]-1])
     wellDataList <- lapply(wells,function(well){
-      if(verbose) cat(paste("Reading and annotating well data for",well)," \n")
+      if(verbose) cat(paste("Reading and annotating well data for",well,"of plate",barcode)," \n")
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
                              ignore.case = TRUE)
-      if (ss %in% c("SS1","SS3","SS4", "SS6")){
+      if (ss %in% c("SS1","SS3","SS4", "SS6", "SSD")){
         cellsDataFile <- grep("Cell",wellDataFiles,value=TRUE,
                               ignore.case = TRUE)
         cytoplasmDataFile <- grep("Cytoplasm",wellDataFiles,value=TRUE,
@@ -197,7 +197,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       nuclei <- nuclei[,grep("Euler",colnames(nuclei),invert=TRUE), with=FALSE]
       nuclei <- nuclei[,grep("AreaShape|Intensity|Number",colnames(nuclei)), with=FALSE]
       setkey(nuclei,CP_ImageNumber,CP_ObjectNumber)
-      if (ss %in% c("SS1","SS3","SS4", "SS6")){
+      if (ss %in% c("SS1","SS3","SS4", "SS6", "SSD")){
         cells <- convertColumnNames(fread(cellsDataFile))
         if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
         #Remove selected columns
@@ -214,13 +214,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       
       #Add the data location as a prefix in the column names
       setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
-      if (ss %in% c("SS1","SS3","SS4","SS6")){
+      if (ss %in% c("SS1","SS3","SS4","SS6", "SSD")){
         setnames(cells,paste0("Cells_",colnames(cells)))
         setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
       }
       
       #Merge the cells, cytoplasm and nuclei data
-      if (ss %in% c("SS1","SS3","SS4","SS6")){
+      if (ss %in% c("SS1","SS3","SS4","SS6","SSD")){
         setkey(cells,Cells_CP_ImageNumber,Cells_CP_ObjectNumber)
         setkey(cytoplasm,Cytoplasm_CP_ImageNumber,Cytoplasm_CP_ObjectNumber)
         setkey(nuclei,Nuclei_CP_ImageNumber,Nuclei_CP_ObjectNumber)
@@ -372,7 +372,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     
     #Create staining set specific derived parameters
-    if (grepl("SS2|SS4|SS6",ss)){
+    if (grepl("SS2|SS4|SS6|SSD",ss)){
       #Use the entire plate to set the autogate threshold if there's no control well
       if(grepl("FBS",unique(pcDT$Ligand))){
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
@@ -485,7 +485,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       
     }
     ##Remove nuclear objects that dont'have cell and cytoplasm data
-    if(any(grepl("SS1|SS3|SS6",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
+    if(any(grepl("SS1|SS3|SS6|SSD",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
     return(pcDT)
     #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
   })
@@ -494,10 +494,10 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   gc()
   
   #Add the pin diameter metadata in microns
-  if(grepl("HMEC|MCF10A",cellLine)){
-    cDT$PinDiameter <- 350
-  } else {
+  if(grepl("MCF7|PC3|YAPC",cellLine)){
     cDT$PinDiameter <- 180
+  } else {
+    cDT$PinDiameter <- 350
   }
 
   # The cell level raw data and metadata is saved as Level 1 data. 
@@ -701,8 +701,38 @@ colabs <- data.frame(datasetName=c("Bornstein"),
                         mergeOmeroIDs = FALSE,
                         useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
+
+Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
+                     cellLine=c("LCSC-311"),
+                     ss=c("SSE"),
+                     drug=c("none"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(8),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
+                     cellLine=c("Baylor1", "Baylor2"),
+                     ss=c("SSD"),
+                     drug=c("unknown"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(5),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
+
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(colabs, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(Baylor, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

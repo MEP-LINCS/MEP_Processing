@@ -19,7 +19,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   mergeOmeroIDs<-as.logical(ssDataset[["mergeOmeroIDs"]])
   calcAdjacency<-as.logical(ssDataset[["calcAdjacency"]])
   writeFiles<-as.logical(ssDataset[["writeFiles"]])
-  useJSONMetadata<-as.logical(ssDataset[["useJSONMetadata"]])
+  useAnnotMetadata<-as.logical(ssDataset[["useAnnotMetadata"]])
   
   seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
   
@@ -159,7 +159,7 @@ PC3df <- data.frame(datasetName=c("PC3_SS1","PC3_SS2","PC3_SS3","PC3_SS2noH3"),
                     calcAdjacency=TRUE,
                     writeFiles = TRUE,
                     mergeOmeroIDs = TRUE,
-                    useJSONMetadata=TRUE,
+                    useAnnotMetadata=TRUE,
                     stringsAsFactors=FALSE)
 
 MCF7df <- data.frame(datasetName=c("MCF7_SS1","MCF7_SS2","MCF7_SS3"),
@@ -173,7 +173,7 @@ MCF7df <- data.frame(datasetName=c("MCF7_SS1","MCF7_SS2","MCF7_SS3"),
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
-                     useJSONMetadata=TRUE,
+                     useAnnotMetadata=TRUE,
                      stringsAsFactors=FALSE)
 
 YAPCdf <- data.frame(datasetName=c("YAPC_SS1","YAPC_SS2","YAPC_SS3"),
@@ -187,7 +187,7 @@ YAPCdf <- data.frame(datasetName=c("YAPC_SS1","YAPC_SS2","YAPC_SS3"),
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = TRUE,
-                     useJSONMetadata=TRUE,
+                     useAnnotMetadata=TRUE,
                      stringsAsFactors=FALSE)
 
 MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
@@ -201,7 +201,7 @@ MCF10Adf <- data.frame(datasetName=c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3"),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
-                       useJSONMetadata=TRUE,
+                       useAnnotMetadata=TRUE,
                        stringsAsFactors=FALSE)
 
 watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU565_DMSO","AU565_Lapatinib"),
@@ -215,7 +215,7 @@ watsonMEMAs <- data.frame(datasetName=c("HCC1954_DMSO","HCC1954_Lapatinib","AU56
                           calcAdjacency=TRUE,
                           writeFiles = TRUE,
                           mergeOmeroIDs = TRUE,
-                          useJSONMetadata=FALSE,
+                          useAnnotMetadata=FALSE,
                           stringsAsFactors=FALSE)
 
 qualPlates <- data.frame(datasetName="MCF10A_Qual",
@@ -229,7 +229,7 @@ qualPlates <- data.frame(datasetName="MCF10A_Qual",
                          calcAdjacency=FALSE,
                          writeFiles = TRUE,
                          mergeOmeroIDs = TRUE,
-                         useJSONMetadata=FALSE,
+                         useAnnotMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
 ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
@@ -243,7 +243,7 @@ ctrlPlates <- data.frame(datasetName="HMEC_Ctrl",
                          calcAdjacency=FALSE,
                          writeFiles = TRUE,
                          mergeOmeroIDs = TRUE,
-                         useJSONMetadata=FALSE,
+                         useAnnotMetadata=FALSE,
                          stringsAsFactors=FALSE)
 
 HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
@@ -257,7 +257,7 @@ HMEC240L <- data.frame(datasetName=c("HMEC240L_SS1","HMEC240L_SS4"),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
-                       useJSONMetadata=TRUE,
+                       useAnnotMetadata=TRUE,
                        stringsAsFactors=FALSE)
 
 HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
@@ -271,7 +271,7 @@ HMEC122L <- data.frame(datasetName=c("HMEC122L_SS1","HMEC122L_SS4"),
                        calcAdjacency=TRUE,
                        writeFiles = TRUE,
                        mergeOmeroIDs = TRUE,
-                       useJSONMetadata=TRUE,
+                       useAnnotMetadata=TRUE,
                        stringsAsFactors=FALSE)
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPlates, HMEC240L, HMEC122L)
 
@@ -286,7 +286,7 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         calcAdjacency=TRUE,
                         writeFiles = TRUE,
                         mergeOmeroIDs = TRUE,
-                        useJSONMetadata=FALSE,
+                        useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
 colabs <- data.frame(datasetName=c("Bornstein"),
@@ -300,11 +300,39 @@ colabs <- data.frame(datasetName=c("Bornstein"),
                      calcAdjacency=FALSE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = FALSE,
-                     useJSONMetadata=FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
+Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
+                     cellLine=c("LCSC-311"),
+                     ss=c("SSE"),
+                     drug=c("none"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(8),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
+                     cellLine=c("Baylor1", "Baylor2"),
+                     ss=c("SSD"),
+                     drug=c("unknown"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(5),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(colabs, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(Baylor, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 
