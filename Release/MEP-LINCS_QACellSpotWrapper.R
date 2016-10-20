@@ -142,7 +142,7 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         stringsAsFactors=FALSE)
 
 Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("unknown"),
+                     cellLine=c("Baylor1", "Baylor2"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
@@ -155,9 +155,23 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MPDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
+Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
+                     cellLine=c("LCSC-311"),
+                     ss=c("SSE"),
+                     drug=c("none"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(8),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
+
+MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
                         cellLine=c("MCF10A"),
-                        ss=c("SS4"),
+                        ss=c("SSF"),
                         drug=c("none"),
                         analysisVersion="av1.7",
                         rawDataVersion="v2",
@@ -170,6 +184,7 @@ MPDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
                         stringsAsFactors=FALSE)
 
 renderQASpotMEPReports <- function(x){
+  datasetName <- x[["datasetName"]]
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
   drug<-x[["drug"]]
@@ -182,6 +197,7 @@ renderQASpotMEPReports <- function(x){
 }
 
 renderQACellReports <- function(x){
+  datasetName <- x[["datasetName"]]
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
   drug<-x[["drug"]]
@@ -193,6 +209,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Baylor[1,], 1, renderQACellReports)
-tmp <- apply(Baylor, 1, renderQASpotMEPReports)
+tmp <- apply(MLDDataSet, 1, renderQACellReports)
+tmp <- apply(MLDDataSet, 1, renderQASpotMEPReports)
 

@@ -17,7 +17,7 @@ processan2omero <- function (fileNames) {
   rbindlist(mclapply(fileNames, function(fn){
     #Process each file separately
     dt <- fread(fn)
-
+    
     #Rename to preprocessing pipeline variable names
     setnames(dt,"OSpot","Spot")
     setnames(dt,"PlateID","Barcode")
@@ -132,7 +132,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   ##Summary
   # This script prepares cell-level data and metadata for the MEP LINCs Analysis Pipeline. 
   # 
-  # In the code, the variable ss determines which staining set (SS1, SS2 or SS3) to merge and the variable cellLine determines the cell line (PC3,MCF7, etc).
+  # In the code, the variable ss determines which staining set (SS1, SS2, SS3 and others) to merge and the variable cellLine determines the cell line (PC3,MCF7, etc).
   # 
   # The merging assumes that the actual, physical B row wells (B01-B04) have been printed upside-down. That is, rotated 180 degrees resulting in the spot 1, 1 being in the lower right corner instead of the upper left corner. The metadata is matched to the actual printed orientation.
   
@@ -184,7 +184,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
       nucleiDataFile <- grep("Nuclei",wellDataFiles,value=TRUE,
                              ignore.case = TRUE)
-      if (ss %in% c("SS1","SS3","SS4", "SS6", "SSD")){
+      if (ss %in% c("SS1","SS3","SS4", "SS6", "SSD","SSF")){
         cellsDataFile <- grep("Cell",wellDataFiles,value=TRUE,
                               ignore.case = TRUE)
         cytoplasmDataFile <- grep("Cytoplasm",wellDataFiles,value=TRUE,
@@ -197,7 +197,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       nuclei <- nuclei[,grep("Euler",colnames(nuclei),invert=TRUE), with=FALSE]
       nuclei <- nuclei[,grep("AreaShape|Intensity|Number",colnames(nuclei)), with=FALSE]
       setkey(nuclei,CP_ImageNumber,CP_ObjectNumber)
-      if (ss %in% c("SS1","SS3","SS4", "SS6", "SSD")){
+      if (ss %in% c("SS1","SS3","SS4", "SS6", "SSD","SSF")){
         cells <- convertColumnNames(fread(cellsDataFile))
         if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
         #Remove selected columns
@@ -214,13 +214,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       
       #Add the data location as a prefix in the column names
       setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
-      if (ss %in% c("SS1","SS3","SS4","SS6", "SSD")){
+      if (ss %in% c("SS1","SS3","SS4","SS6", "SSD","SSF")){
         setnames(cells,paste0("Cells_",colnames(cells)))
         setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
       }
       
       #Merge the cells, cytoplasm and nuclei data
-      if (ss %in% c("SS1","SS3","SS4","SS6","SSD")){
+      if (ss %in% c("SS1","SS3","SS4","SS6","SSD","SSF")){
         setkey(cells,Cells_CP_ImageNumber,Cells_CP_ObjectNumber)
         setkey(cytoplasm,Cytoplasm_CP_ImageNumber,Cytoplasm_CP_ObjectNumber)
         setkey(nuclei,Nuclei_CP_ImageNumber,Nuclei_CP_ObjectNumber)
@@ -356,10 +356,10 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     if(!useAnnotMetadata){
       #Create short display names, then replace where not unique
       #Use entire AnnotID for ligands with same uniprot IDs
-      pcDT$Ligand[grepl("NRG1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = pcDT$Ligand[grepl("NRG1",pcDT$Ligand)])
-      pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)])
-      pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)])
-      pcDT$Ligand[grepl("IGF1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = pcDT$Ligand[grepl("IGF1",pcDT$Ligand)])
+      # pcDT$Ligand[grepl("NRG1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = pcDT$Ligand[grepl("NRG1",pcDT$Ligand)])
+      # pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)])
+      # pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)])
+      # pcDT$Ligand[grepl("IGF1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = pcDT$Ligand[grepl("IGF1",pcDT$Ligand)])
     }
     #Add MEP and convenience labels for wells and ligands
     pcDT <- pcDT[,MEP:=paste(ECMp,Ligand,sep = "_")]
@@ -372,14 +372,14 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     
     #Create staining set specific derived parameters
-    if (grepl("SS2|SS4|SS6|SSD",ss)){
+    if (grepl("SS2|SS4|SS6|SSD|SSF",ss)){
       #Use the entire plate to set the autogate threshold if there's no control well
       if(grepl("FBS",unique(pcDT$Ligand))){
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
       } else {
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "."), by="Barcode"]
       }
-
+      
       #Modify the gate threshold to be 3 sigma from the EdU- median
       EdUDT <- pcDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
       EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
@@ -451,7 +451,24 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT14]
       pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
     }
-    
+    if (grepl("SSF",ss)){
+      #Determine the class of each cell based on KRT5 and EdU class
+      #0 double negative
+      #1 KRT5+, EdU-
+      #2 KRT5-, EdU+
+      #3 KRT5+, EdU+
+      pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUKRT5Class := Cytoplasm_PA_Gated_KRT5Positive+2*Nuclei_PA_Gated_EdUPositive]
+      #Calculate gating proportions for EdU and KRT19
+      pcDT <- pcDT[,Cells_PA_Gated_EdUKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5NegativeProportion)]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT5NegativeProportion)]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT5PositiveProportion)]
+      pcDT <- pcDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      pcDT <-pcDT[,Cells_PA_Gated_EdUKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
+    }
     #Move adjacency processing to within parallel code
     if(calcAdjacency){
       if(verbose){
@@ -485,7 +502,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       
     }
     ##Remove nuclear objects that dont'have cell and cytoplasm data
-    if(any(grepl("SS1|SS3|SS6|SSD",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
+    if(any(grepl("SS1|SS3|SS6|SSD|SSF",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
     return(pcDT)
     #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
   })
@@ -499,7 +516,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   } else {
     cDT$PinDiameter <- 350
   }
-
+  
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
@@ -507,7 +524,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
     
-    fwrite(data.table(format(cDT[,level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(cDT$CellLine),"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(cDT[,level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -516,7 +533,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     slDT <- createl3(cDT, lthresh, seNames = seNames)
     rm(cDT)
     gc()
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -542,7 +559,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       lowReplicateCount =lowReplicateCount,
       lthresh = lthresh
     ),
-    paste0("MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
+    paste0("MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-startTime, "\n")
 }
@@ -689,18 +706,18 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         stringsAsFactors=FALSE)
 
 colabs <- data.frame(datasetName=c("Bornstein"),
-                        cellLine=c("cellLineName"),
-                        ss=c("SS2"),
-                        drug=c("none"),
-                        analysisVersion="av1.7",
-                        rawDataVersion="v2",
-                        limitBarcodes=c(4),
-                        k=c(64),
-                        calcAdjacency=FALSE,
-                        writeFiles = TRUE,
-                        mergeOmeroIDs = FALSE,
-                        useAnnotMetadata=FALSE,
-                        stringsAsFactors=FALSE)
+                     cellLine=c("cellLineName"),
+                     ss=c("SS2"),
+                     drug=c("none"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     limitBarcodes=c(4),
+                     k=c(64),
+                     calcAdjacency=FALSE,
+                     writeFiles = TRUE,
+                     mergeOmeroIDs = FALSE,
+                     useAnnotMetadata=FALSE,
+                     stringsAsFactors=FALSE)
 
 Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      cellLine=c("LCSC-311"),
@@ -730,9 +747,24 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
+MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib","MCF10ADMSO"),
+                         cellLine=c("MCF10A"),
+                         ss=c("SSF"),
+                         drug=c("Neratinib","DMSO"),
+                         analysisVersion="av1.7",
+                         rawDataVersion="v2",
+                         limitBarcodes=c(8),
+                         k=c(64),
+                         calcAdjacency=TRUE,
+                         writeFiles = TRUE,
+                         mergeOmeroIDs = TRUE,
+                         useAnnotMetadata=TRUE,
+                         stringsAsFactors=FALSE)
+
+
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Baylor, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(MLDDataSet[1,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

@@ -32,8 +32,8 @@ library(readxl)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-l3 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE)
-l4 <- fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_Level4.txt"), showProgress = FALSE)
+l3 <- fread(paste0("../AnnotatedData/",datasetName, "_",ss,"_Level3.txt"), showProgress = FALSE)
+l4 <- fread(paste0("../AnnotatedData/",datasetName, "_",ss,"_Level4.txt"), showProgress = FALSE)
 barcodes <- sort(unique(l3$Barcode))
 
 #Set a threshold for filtering wells on their QA score
@@ -61,7 +61,7 @@ if(!analysisVersion=="v1"){
 ```
 
 
-#MEP-LINCS `r cellLine` `r ss` Analysis  
+#MEP-LINCS `r datasetName` `r ss` Analysis  
 ####date: `r Sys.Date()`
 
 <br>
@@ -104,7 +104,7 @@ l4F <- summarizeFBS(l4F)
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCountLog2RUVLoess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUVLoess)]
 
-if (grepl("SS2|SS4",ss)){
+if (grepl("SS2|SS4|SSF",ss)){
   #Add Robust Z Score of the EdU Signal
   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUVLoess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
 }
@@ -177,6 +177,12 @@ if(any(grepl("SS1",ss))){
 } else if (any(grepl("SS2|SS4|SS6",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
+} else if (any(grepl("SSD",ss))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Nuclei_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Caspase")
+} else if (any(grepl("SSF",ss))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed KRT5")
 } else if (any(grepl("SS3|SS4",ss))){
   if (cellLine=="MCF10A"){
     colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess", "Spot_PA_ReplicateCount")
@@ -284,7 +290,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6",ss), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6|SSF",ss), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -300,11 +306,11 @@ ggplotly(p)
 
 
 
-```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4",ss)}
+```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4|SSF",ss)}
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
+```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSF",ss)}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess")
@@ -318,7 +324,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6",ss)}
+```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSF",ss)}
 
 p <- ggplot(l4F, aes(x=Ligand, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+

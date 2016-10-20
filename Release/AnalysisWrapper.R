@@ -52,7 +52,24 @@ HMEC122L <- data.frame(cellLine=c("HMEC122L"),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, HMEC240L, HMEC122L)
 
+
+Baylor <- data.frame(cellLine=c("Baylor1","Baylor2"),
+                       ss=c("SSD"),
+                       drug=c("none"),
+                       analysisVersion="av1.7",
+                       rawDataVersion="v2",
+                       stringsAsFactors=FALSE)
+
+MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
+                         cellLine=c("MCF10A"),
+                         ss=c("SSF"),
+                         drug=c("none"),
+                         analysisVersion="av1.7",
+                         rawDataVersion="v2",
+                         stringsAsFactors=FALSE)
+
 renderAnalysisReports <- function(x){
+  datasetName <- x[["datasetName"]]
   cellLine <- x[["cellLine"]]
   ss <- x[["ss"]]
   drug <- x[["drug"]]
@@ -60,10 +77,10 @@ renderAnalysisReports <- function(x){
   analysisVersion <- x[["analysisVersion"]]
   render("./MEP_LINCS/Release/MEP-LINCS_Analysis.Rmd",
          output_file = paste0("../AnalysisReports/MEP-LINCS_Analysis_",
-                              x[["cellLine"]],"_",x[["ss"]],"_",".html"),
+                              x[["datasetName"]],"_",x[["ss"]],"_",".html"),
          output_format = "html_document")
 }
 
-tmp <- apply(ssDatasets[c(11),], 1, renderAnalysisReports)
+tmp <- apply(MLDDataSet, 1, renderAnalysisReports)
 
 

@@ -68,7 +68,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   fileNames <- rbindlist(apply(datasetBarcodes[datasetBarcodes$DatasetName==datasetName,], 1, getMEMADataFileNames))
   
-  slDT <- fread(paste0( "MEP_LINCS/AnnotatedData/", cellLine,"_",ss,"_","SpotLevel.txt"))
+  slDT <- fread(paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","SpotLevel.txt"))
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
@@ -139,10 +139,10 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
     
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level3.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level3.txt"), sep = "\t", quote=FALSE)
     
     if(verbose) cat("Writing level 4 file to disk\n")
-    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE)
     
   }
   cat("Elapsed time:", Sys.time()-startTime)
@@ -318,7 +318,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      stringsAsFactors=FALSE)
 
 Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("Baylor1", "Baylor2"),
+                     cellLine=c("SUM149", "LM2"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
@@ -331,8 +331,21 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
+MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib","MCF10ADMSO"),
+                         cellLine=c("MCF10A"),
+                         ss=c("SSF"),
+                         drug=c("Neratinib","DMSO"),
+                         analysisVersion="av1.7",
+                         rawDataVersion="v2",
+                         limitBarcodes=c(8),
+                         k=c(64),
+                         calcAdjacency=TRUE,
+                         writeFiles = TRUE,
+                         mergeOmeroIDs = TRUE,
+                         useAnnotMetadata=TRUE,
+                         stringsAsFactors=FALSE)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Baylor, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(MLDDataSet[1,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 

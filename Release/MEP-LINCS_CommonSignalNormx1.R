@@ -51,8 +51,17 @@ HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,HMEC240L,HMEC122L)
 
+
+MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
+                         cellLine=c("MCF10A"),
+                         ss=c("SSF"),
+                         drug=c("Neratinib"),
+                         analysisVersion="av1.7",
+                         rawDataVersion="v2",
+                         stringsAsFactors=FALSE)
 startTime <- Sys.time()
-x <- ssDatasets[grepl("MCF10A",ssDatasets$cellLine),]
+x <- MLDDataSet
+datasetName <- x[["datasetName"]]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])
 k <- unique(x[["k"]])
