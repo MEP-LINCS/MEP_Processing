@@ -372,7 +372,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     
     #Create staining set specific derived parameters
-    if (grepl("SS2|SS4|SS6|SSD|SSF",ss)){
+    if (grepl("SS2|SS4|SS6|SSD|SSE|SSF",ss)){
       #Use the entire plate to set the autogate threshold if there's no control well
       if(grepl("FBS",unique(pcDT$Ligand))){
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
@@ -727,7 +727,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      rawDataVersion="v2",
                      limitBarcodes=c(8),
                      k=c(64),
-                     calcAdjacency=FALSE,
+                     calcAdjacency=TRUE,
                      writeFiles = TRUE,
                      mergeOmeroIDs = FALSE,
                      useAnnotMetadata=FALSE,
@@ -766,5 +766,5 @@ MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib","MCF10ADMSO"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[1,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(Vertex, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

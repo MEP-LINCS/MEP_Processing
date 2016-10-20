@@ -313,7 +313,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      k=c(64),
                      calcAdjacency=FALSE,
                      writeFiles = TRUE,
-                     mergeOmeroIDs = FALSE,
+                     mergeOmeroIDs = TRUE,
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
@@ -347,5 +347,5 @@ MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib","MCF10ADMSO"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[1,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(Vertex, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 

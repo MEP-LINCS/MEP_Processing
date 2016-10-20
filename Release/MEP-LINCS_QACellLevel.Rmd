@@ -78,7 +78,7 @@ HFRepThresh <- 3
 This report covers the cell-level data for the `r cellLine` `r ss` dataset. There are additional reports for the spot and MEP QA and the analysis of this staining set. 
 
 ##Introduction
-The LINCS `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set includes, DAPI, `r unique(l1$Endpoint488)`, `r unique(l1$Endpoint555)` and `r unique(l1$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r rawDataVersion` performed the segmentation and the analysis pipeline is `r analysisVersion`.
+The LINCS `r cellLine` `r ss` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r ss` staining set channels are `r  combine_words(gsub("Endpoint","",grep("Endpoint",colnames(l1),value=TRUE)))`. The endpoints are `r combine_words(unique(l1[,grep("Endpoint",colnames(l1),value=TRUE), with=FALSE]))`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r rawDataVersion` performed the segmentation and the analysis pipeline is `r analysisVersion`.
 
 Most of the histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset (sample proportion = `r sampleProportion`).
 

@@ -163,9 +163,9 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      rawDataVersion="v2",
                      limitBarcodes=c(8),
                      k=c(64),
-                     calcAdjacency=FALSE,
+                     calcAdjacency=TRUE,
                      writeFiles = TRUE,
-                     mergeOmeroIDs = FALSE,
+                     mergeOmeroIDs = TRUE,
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
@@ -192,7 +192,7 @@ renderQASpotMEPReports <- function(x){
   analysisVersion <- x[["analysisVersion"]]
   render("MEP_LINCS/Release/MEP-LINCS_QASpotMEPLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_SpotMEP_",
-                              x[["cellLine"]],"_",x[["ss"]],".html"),
+                              x[["datasetName"]],"_",x[["ss"]],".html"),
          output_format = "html_document")
 }
 
@@ -205,10 +205,10 @@ renderQACellReports <- function(x){
   analysisVersion <- x[["analysisVersion"]]
   render("MEP_LINCS/Release/MEP-LINCS_QACellLevel.Rmd",
          output_file = paste0("../QAReports/MEP-LINCS_QA_Cell_",
-                              x[["cellLine"]],"_",x[["ss"]],".html"),
+                              x[["datasetName"]],"_",x[["ss"]],".html"),
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet, 1, renderQACellReports)
-tmp <- apply(MLDDataSet, 1, renderQASpotMEPReports)
+tmp <- apply(Vertex, 1, renderQACellReports)
+tmp <- apply(Vertex, 1, renderQASpotMEPReports)
 
