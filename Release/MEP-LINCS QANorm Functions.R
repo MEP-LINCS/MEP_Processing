@@ -32,7 +32,7 @@ plotLEHmap <- function(dt, hclustfun = NULL, fill, titleExpression, limits, xAxi
   } else {
     hmcols<-colorRampPalette(c("blue","white","red"))(16)
     #Cast to get ligands into columns
-    df <- dcast(data.frame(dt[,c("ECMp","Ligand",fill), with=FALSE]),ECMp~Ligand, value.var = fill)
+    df <- data.table::dcast(data.frame(dt[,c("ECMp","Ligand",fill), with=FALSE]),ECMp~Ligand, value.var = fill, fun.aggregate=median)
     
     rownames(df) <- df$ECMp
     df <- df[,!grepl("ECMp",names(df))]

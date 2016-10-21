@@ -1,5 +1,5 @@
 ---
-title: MEP-LINCS `r cellLine` Cell Line Analysis 
+title: MEP-LINCS `r datasetName` Cell Line Analysis 
 output: 
   flexdashboard::flex_dashboard:
     storyboard: true
@@ -610,7 +610,7 @@ l4CU <- cbind(l4CU,data_tsne$Y)
 
 ```
 
-###tSNE plot of all MEP Signals
+###tSNE plot of all MEP Signals by Ligand
 
 ```{r plottSNELigandFBSU,fig.width=8, fig.height=5, eval=TRUE}
 
@@ -625,6 +625,20 @@ ggplotly(p)
 ***
 The scatterplot shows the 2 tSNE components of all MEP signals colored by ligand. Hovering over a spot shows its ligand and ECM protein. The signals are the same as those used in the MEP PCA model.
 
+###tSNE plot of all MEP Signals by ECM Protein
+
+```{r plottSNEECMpFBSU,fig.width=8, fig.height=5, eval=TRUE}
+
+p <- ggplot(l4CU, aes(x=V1, y=V2, colour=ECMp, text=paste("ECMp:",ECMp)))+
+  geom_point(size=rel(.3), alpha=.5)+
+  ggtitle(paste("tSNE plot of", cellLine,"MEPs with FBS Coloured by ECm Protein"))+
+  guides(colour = FALSE)
+ggplotly(p)
+
+```
+
+***
+The scatterplot shows the 2 tSNE components of all MEP signals colored by ligand. Hovering over a spot shows its ligand and ECM protein. The signals are the same as those used in the MEP PCA model.
 
 ```{r tSNEData,fig.width=8, fig.height=5, eval=FALSE}
 data_matrix <- scale(as.matrix(l4C[,RUVLoessMEPNames, with=FALSE]))

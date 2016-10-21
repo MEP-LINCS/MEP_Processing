@@ -1,7 +1,8 @@
 library("rmarkdown")
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
-PC3df <- data.frame(cellLine=rep(c("PC3"), 3),
+PC3df <- data.frame(datasetName="PC3",
+                    cellLine=rep(c("PC3"), 3),
                     k=135L,
                     ss=c("SS1", "SS2","SS3"),
                     drug="none",
@@ -9,7 +10,8 @@ PC3df <- data.frame(cellLine=rep(c("PC3"), 3),
                     rawDataVersion=c("v2","v2.1","v2.1"),
                     stringsAsFactors=FALSE)
 
-MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
+MCF7df <- data.frame(datasetName="MCF7",
+                     cellLine=rep(c("MCF7"), 3),
                      k=135L,
                      ss=c("SS1", "SS2","SS3"),
                      drug="none",
@@ -17,7 +19,8 @@ MCF7df <- data.frame(cellLine=rep(c("MCF7"), 3),
                      rawDataVersion=c("v2","v2","v2"),
                      stringsAsFactors=FALSE)
 
-YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
+YAPCdf <- data.frame(datasetName="YAPC",
+                     cellLine=rep(c("YAPC"), 3),
                      k=135L,
                      ss=c("SS1", "SS2","SS3"),
                      drug="none",
@@ -25,7 +28,8 @@ YAPCdf <- data.frame(cellLine=rep(c("YAPC"), 3),
                      rawDataVersion=c("v2","v2","v2"),
                      stringsAsFactors=FALSE)
 
-MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 3),
+MCF10Adf <- data.frame(datasetName="MCF10A",
+                       cellLine=rep(c("MCF10A"), 3),
                        k=135L,
                        ss=c("SS1","SS2","SS3"),
                        drug="none",
@@ -33,7 +37,8 @@ MCF10Adf <- data.frame(cellLine=rep(c("MCF10A"), 3),
                        rawDataVersion=c("v2","v2","v2"),
                        stringsAsFactors=FALSE)
 
-HMEC240L <- data.frame(cellLine=rep(c("HMEC240L"), 2),
+HMEC240L <- data.frame(datasetName="HMEC240L",
+                       cellLine=rep(c("HMEC240L"), 2),
                        k=135L,
                        ss=c("SS1","SS4"),
                        drug="none",
@@ -41,7 +46,8 @@ HMEC240L <- data.frame(cellLine=rep(c("HMEC240L"), 2),
                        rawDataVersion=c("v2","v2"),
                        stringsAsFactors=FALSE)
 
-HMEC122L <- data.frame(cellLine=rep(c("HMEC122L"), 2),
+HMEC122L <- data.frame(datasetName="HMEC122L",
+                       cellLine=rep(c("HMEC122L"), 2),
                        k=135L,
                        ss=c("SS1","SS4"),
                        drug="none",
@@ -60,7 +66,7 @@ MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
                          rawDataVersion="v2",
                          stringsAsFactors=FALSE)
 startTime <- Sys.time()
-x <- MLDDataSet
+x <- ssDatasets[10:12,]
 datasetName <- x[["datasetName"]]
 cellLine <- unique(x[["cellLine"]])
 analysisVersion <- unique(x[["analysisVersion"]])

@@ -729,7 +729,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      k=c(64),
                      calcAdjacency=TRUE,
                      writeFiles = TRUE,
-                     mergeOmeroIDs = FALSE,
+                     mergeOmeroIDs = TRUE,
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 

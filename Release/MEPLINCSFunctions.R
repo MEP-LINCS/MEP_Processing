@@ -463,7 +463,7 @@ preprocessCommonSignals1x <- function(x, k=128L, verbose=FALSE){
   }
   
   #Remove normalized and spot level signals
-  l3c <- l3c[,grep("Loess|RUV|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
+  l3c <- l3c[,grep("Loess|RUV|_SE|Spot_PA_Perimeter|Spot_PA_ReplicateCount|BWL|SERC|^k$|NormMethod|SignalType|nmLx",colnames(l3c),invert=TRUE, value=TRUE), with=FALSE]
   
   #Remove blank spot data
   l3c <- l3c[!grepl("PBS|blank|Blank",l3c$ECMp)]
