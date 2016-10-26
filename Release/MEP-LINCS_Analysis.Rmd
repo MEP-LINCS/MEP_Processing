@@ -104,7 +104,7 @@ l4F <- summarizeFBS(l4F)
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCountLog2RUVLoess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUVLoess)]
 
-if (grepl("SS2|SS4|SSF",ss)){
+if (grepl("SS2|SS4|SSA|SSF",ss)){
   #Add Robust Z Score of the EdU Signal
   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUVLoess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
 }
@@ -174,7 +174,7 @@ A useful mining method to use the first table to identify a MEP of interest as t
 if(any(grepl("SS1",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
-} else if (any(grepl("SS2|SS4|SS6",ss))){
+} else if (any(grepl("SS2|SS4|SS6|SSA",ss))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
 } else if (any(grepl("SSD",ss))){
@@ -285,12 +285,12 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4",ss)}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4|SSA",ss)}
 ```
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6|SSF",ss), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6|SSA|SSF",ss), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -306,11 +306,11 @@ ggplotly(p)
 
 
 
-```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4|SSF",ss)}
+```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4|SSA|SSF",ss)}
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSF",ss)}
+```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSF",ss)}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess")
@@ -324,7 +324,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSF",ss)}
+```{r EdUBoxplotsFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSF",ss)}
 
 p <- ggplot(l4F, aes(x=Ligand, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
@@ -411,7 +411,7 @@ Clicking and dragging will zoom in on a section. Double clicking on the zoomed i
 
 <br> 
 
-```{r}
+```{r, eval=FALSE}
 
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
 fvDT <- filterl4RUV(l4, lowQALigands)
@@ -432,7 +432,7 @@ fvDT <- fvDT[,!(names(fvDT) %in% c("MEP"))]
 ```
 
 
-```{r, fig.height=8, fig.width=7, eval = TRUE}
+```{r, fig.height=8, fig.width=7, eval = FALSE}
 fvDTC <- apply(fvDT,2,fvZoom, min=.02, max=.98)
 try(d3heatmap(fvDTC, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE), TRUE)
 

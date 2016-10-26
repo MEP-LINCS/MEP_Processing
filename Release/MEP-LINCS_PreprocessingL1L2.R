@@ -372,7 +372,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     
     
     #Create staining set specific derived parameters
-    if (grepl("SS2|SS4|SS6|SSD|SSE|SSF",ss)){
+    if (grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)){
       #Use the entire plate to set the autogate threshold if there's no control well
       if(grepl("FBS",unique(pcDT$Ligand))){
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
@@ -705,17 +705,17 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
-colabs <- data.frame(datasetName=c("Bornstein"),
-                     cellLine=c("cellLineName"),
-                     ss=c("SS2"),
-                     drug=c("none"),
+Bornstein <- data.frame(datasetName=c("BornsteinOSC","BornsteinCal27"),
+                     cellLine=c("OSC","Cal27"),
+                     ss=c("SSA"),
+                     drug=c("radiation"),
                      analysisVersion="av1.7",
                      rawDataVersion="v2",
-                     limitBarcodes=c(4),
+                     limitBarcodes=c(2),
                      k=c(64),
-                     calcAdjacency=FALSE,
+                     calcAdjacency=TRUE,
                      writeFiles = TRUE,
-                     mergeOmeroIDs = FALSE,
+                     mergeOmeroIDs = TRUE,
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
@@ -766,5 +766,5 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(Bornstein, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

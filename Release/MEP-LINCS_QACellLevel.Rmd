@@ -179,12 +179,12 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6|SSE|SSF",ss)}
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",ss)}
 ```
 
 <br>
 
-```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS4|SS6|SSD|SSE|SSF",ss)}
+```{r rawEdUHistograms, fig.width=3.7,fig.height=4, eval=exists("l1")&grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)}
 
 for (barcode in barcodes){
   setkey(l1S,Barcode)
@@ -430,7 +430,7 @@ suppressWarnings(print(p))
 
 #Supplemental Material
 
-```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS4|SS6|SSD|SSE|SSF",ss)}
+```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=exists("l1")&grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)}
 binwidth=.04
 for (barcode in barcodes){
   setkey(l1S, Barcode)

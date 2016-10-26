@@ -52,6 +52,14 @@ HMEC122L <- data.frame(cellLine=c("HMEC122L"),
 
 ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs, HMEC240L, HMEC122L)
 
+Bornstein <- data.frame(datasetName=c("BornsteinOSC","BornsteinCal27"),
+                        cellLine=c("OSC","Cal27"),
+                        ss=c("SSA"),
+                        drug=c("radiation"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        useAnnotMetadata=FALSE,
+                        stringsAsFactors=FALSE)
 
 Baylor <- data.frame(cellLine=c("Baylor1","Baylor2"),
                        ss=c("SSD"),
@@ -81,6 +89,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet[2,], 1, renderAnalysisReports)
+tmp <- apply(Bornstein, 1, renderAnalysisReports)
 
 

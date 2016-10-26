@@ -289,19 +289,19 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
-colabs <- data.frame(datasetName=c("Bornstein"),
-                     cellLine=c("cellLineName"),
-                     ss=c("SS2"),
-                     drug=c("none"),
-                     analysisVersion="av1.7",
-                     rawDataVersion="v2",
-                     limitBarcodes=c(4),
-                     k=c(0),
-                     calcAdjacency=FALSE,
-                     writeFiles = TRUE,
-                     mergeOmeroIDs = FALSE,
-                     useAnnotMetadata=FALSE,
-                     stringsAsFactors=FALSE)
+Bornstein <- data.frame(datasetName=c("BornsteinOSC","BornsteinCal27"),
+                        cellLine=c("OSC","Cal27"),
+                        ss=c("SSA"),
+                        drug=c("radiation"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        limitBarcodes=c(2),
+                        k=c(64),
+                        calcAdjacency=TRUE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = TRUE,
+                        useAnnotMetadata=FALSE,
+                        stringsAsFactors=FALSE)
 
 Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      cellLine=c("LCSC-311"),
@@ -347,5 +347,5 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(Bornstein, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 

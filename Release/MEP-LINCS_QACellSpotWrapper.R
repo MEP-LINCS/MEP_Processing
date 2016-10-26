@@ -141,6 +141,20 @@ tcDataSet <- data.frame(datasetName=c("MCF10A_TC"),
                         useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
+Bornstein <- data.frame(datasetName=c("BornsteinOSC","BornsteinCal27"),
+                        cellLine=c("OSC","Cal27"),
+                        ss=c("SSA"),
+                        drug=c("radiation"),
+                        analysisVersion="av1.7",
+                        rawDataVersion="v2",
+                        limitBarcodes=c(2),
+                        k=c(64),
+                        calcAdjacency=TRUE,
+                        writeFiles = TRUE,
+                        mergeOmeroIDs = TRUE,
+                        useAnnotMetadata=FALSE,
+                        stringsAsFactors=FALSE)
+
 Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
                      cellLine=c("Baylor1", "Baylor2"),
                      ss=c("SSD"),
@@ -209,6 +223,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet[2,], 1, renderQACellReports)
-tmp <- apply(MLDDataSet[2,], 1, renderQASpotMEPReports)
+tmp <- apply(Bornstein, 1, renderQACellReports)
+tmp <- apply(Bornstein, 1, renderQASpotMEPReports)
 
