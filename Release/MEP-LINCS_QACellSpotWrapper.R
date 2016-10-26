@@ -169,7 +169,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
                         cellLine=c("MCF10A"),
                         ss=c("SSF"),
                         drug=c("none"),
@@ -180,7 +180,7 @@ MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
                         calcAdjacency=TRUE,
                         writeFiles = TRUE,
                         mergeOmeroIDs = TRUE,
-                        useAnnotMetadata=FALSE,
+                        useAnnotMetadata=TRUE,
                         stringsAsFactors=FALSE)
 
 renderQASpotMEPReports <- function(x){
@@ -209,6 +209,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Vertex, 1, renderQACellReports)
-tmp <- apply(Vertex, 1, renderQASpotMEPReports)
+tmp <- apply(MLDDataSet[2,], 1, renderQACellReports)
+tmp <- apply(MLDDataSet[2,], 1, renderQASpotMEPReports)
 

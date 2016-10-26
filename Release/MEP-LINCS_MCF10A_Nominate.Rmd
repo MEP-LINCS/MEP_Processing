@@ -239,20 +239,20 @@ for(i in 1:24){
   l4$Ligand[grepl(suffixes[i],l4$Ligand)] <- sub(suffixes[i],replacements[i],l4$Ligand[grepl(suffixes[i],l4$Ligand)])
 }
 
-l3SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
+l3SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_Level3.txt")), showProgress = FALSE)))
 
-l3SS2 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS2_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
+l3SS2 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS2_Level3.txt")), showProgress = FALSE)))
 
-l3SS3 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS3_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level3.txt")), showProgress = FALSE)))
+l3SS3 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS3_Level3.txt")), showProgress = FALSE)))
 
 l3SS3 <- l3SS3[!grepl("CSF2",l3SS3$Ligand),]
 
-l4SS1 <- addLigandPlate(addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE))))
+l4SS1 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS1_Level4.txt")), showProgress = FALSE)))
 
 
-l4SS2 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS2_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
+l4SS2 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS2_Level4.txt")), showProgress = FALSE)))
 
-l4SS3 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS3_",x[["drug"]], "_",x[["rawDataVersion"]], "_", x[["analysisVersion"]],"_Level4.txt")), showProgress = FALSE)))
+l4SS3 <- addOmeroIDs(shortenHA(fread(unique(paste0("../AnnotatedData/",x[["cellLine"]], "_SS3_Level4.txt")), showProgress = FALSE)))
 
 l4SS3 <- l4SS3[!grepl("CSF2",l4SS3$Ligand),]
 
@@ -292,7 +292,7 @@ l4Merge <- merge(l4Merge, l4nMean[!grepl("FBS",l4nMean$MEP),], by="MEP")
 l4MergeFBS <- merge(l4MergeFBS, l4nMean, by="MEP")
 
 #Read in ligand metadata
-ligandMetadata <- readWorksheetFromFile("../Ligand-cellsource&effects_v1.xlsx", sheet="Sheet1",startRow=1, header=TRUE)
+ligandMetadata <- readWorksheetFromFile("../Ligand-cellsource_effects_v1.xlsx", sheet="Sheet1",startRow=1, header=TRUE)
 ligandMetadataDT <- convertColumnNames(data.table(ligandMetadata))
 ligandMetadataDT$Ligand <- sub("_[[:alnum:]]*$","",ligandMetadataDT$protein)
 ligandMetadataDT$Growth <- grepl("Growth",ligandMetadataDT$Effect, ignore.case = TRUE)
@@ -382,12 +382,12 @@ dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
 dt$gsColours <- factor(dt$gsColours,levels=c("Samples","Selected","NegCtrl"),ordered=TRUE)
-textOrdered <- levels(reorder(dt$Ligand, dt$Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3Loess, FUN=median))
+textOrdered <- levels(reorder(dt$Ligand, dt$Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median))
 textColourVec <- rep("black",length.out=length(textOrdered))
 textColourVec[grepl("BMP",textOrdered)] <- "gold"
 textColourVec[grepl("FBS",textOrdered)] <- "blue"
 
-p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed, fill=gsColours))+
+p <- ggplot(dt, aes(x=reorder(Ligand,btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), FUN=median), y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), fill=gsColours))+
   geom_boxplot(outlier.colour = NA, alpha=.5)+
   scale_fill_manual(values = c("transparent", "gold", "blue",muted("red")))+
   guides(fill=FALSE, colour=FALSE)+
@@ -788,9 +788,9 @@ Based on review of the EdU and PCA responses, ligands BMP6, BMP7 and BMP4 are in
 dt <- l4Merge[!grepl("NID1|ELN",l4Merge$ECMp),]
 dt <- dt[grepl("BMP4|BMP6|BMP7",dt$Ligand),]
 
-dt <- dt[,ECMpRank := rank(Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed), by=Ligand]
+dt <- dt[,ECMpRank := rank(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), by=Ligand]
 
-p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed, FUN=median), y=Nuclei_PA_Gated_EdUPositiveProportionLogitRUV3LoessBacktransformed))+
+p <- ggplot(dt, aes(x=reorder(Ligand,btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), FUN=median), y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+
   geom_boxplot(outlier.colour = NA, alpha=.5)+
   guides(fill=FALSE, colour=FALSE)+
   #coord_cartesian(ylim = c(-6,-1.5))+
@@ -800,7 +800,9 @@ p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogit
 
 p <- p + geom_jitter( aes(colour=ECMp),size=rel(.5),alpha=.5)
 
-p <- p+geom_text(data=dt[grepl("^1$|^45$",ECMpRank)|grepl("COL1",ECMp),],aes(label=ECMp),nudge_x = 0.2, colour="blue")
+p <- p+geom_text(data=dt[grepl("FN|ITGA6B4|ITGAVB6",ECMp)&grepl("BMP6",Ligand),],aes(label=ECMp), colour="blue")
+
+p <- p+geom_text(data=dt[grepl("POSTN|THBS1|ITGA10B1",ECMp)&grepl("BMP4",Ligand),],aes(label=ECMp), colour="blue")
 
 p <- p+geom_text(data=dt[grepl("^2$|^46$",ECMpRank),],aes(label=ECMp),nudge_x = -0.2, colour="blue")
 print(p)

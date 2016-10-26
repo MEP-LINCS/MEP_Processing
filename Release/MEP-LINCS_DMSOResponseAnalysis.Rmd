@@ -1,5 +1,5 @@
 ---
-title: MEP-LINCS `r datasetName` Cell Line Analysis 
+title: MEP-LINCS MCF10A DMSO Analysis 
 output: 
   flexdashboard::flex_dashboard:
     storyboard: true
@@ -219,6 +219,9 @@ library(ruv)
 library(Rtsne)
 library(XLConnect)
 
+#Items to be generalized
+datasetName <- "MCF10ADMSO"
+cellLine <- "MCF10A"
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -228,34 +231,27 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
 #Read in the data.table that holds every spot in the cell line
 #and can be used to index to the images
-l3C <- fread(unique(paste0("../AnnotatedData/",datasetName, "_SSC","_Level3.txt")), showProgress = FALSE)
+l3C <- fread(unique(paste0("../AnnotatedData/",datasetName, "_SSF","_Level3.txt")), showProgress = FALSE)
 #Add backtransformed values for some logit transformed signals
-l3C <- l3C[,Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed:= btLogit(Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoess)]
+l3C <- l3C[,Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed:= btLogit(Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess)]
 l3C <- l3C[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransformed:= btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
-
+l3C <- addOmeroIDs(l3C)
 #Read in the MEP-Level datasset for the cell line
-l4C <- fread(unique(paste0("../AnnotatedData/",datasetName, "_SSC","_Level4.txt")), showProgress = FALSE)
+l4C <- fread(unique(paste0("../AnnotatedData/",datasetName, "_SSF","_Level4.txt")), showProgress = FALSE)
 
 #Add backtransformed values for some logit transformed signals
-l4C <- l4C[,Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed:= btLogit(Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoess)]
+l4C <- l4C[,Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed:= btLogit(Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess)]
 l4C <- l4C[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransformed:= btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
-
-cellLine <- datasetName
-
-PCAOnly <- TRUE
-if(cellLine=="MCF10A"){
-  ssNr <- 3
-} else {
-  ssNr <- 2
-}
 
 
 ```
 
+
+
 ###Introduction
 This analysis is of the MEP-LINCS `r cellLine`  MEMA experiments performed in eight well plates. The data is collected at the cell level from images captured on an automated Nikon microscope. The cell level data is summarized for each MEMA spot, RUV and loess normalized, then replicate spots are summarized to the MEP level.  
 
-The MEP-level dataset is stored and manipulated as a matrix where each of the `r dim(l4C)[1]` rows are a unique MEP and each of the `r dim(l4C)[2]` columns are signals or metadata. Some signals are based on the DAPI staining that is present in all wells. This creates `r ssNr` replicate ligand wells which each have ~fourteen replicates of spotted ECM proteins. The rest of the signals are based on unique stains and the ~fourteen replicate spots are all in the same well. It's important to note that the MEP level data comes from `r ssNr` different experiments run over several weeks.
+The MEP-level dataset is stored and manipulated as a matrix where each of the `r dim(l4C)[1]` rows are a unique MEP and each of the `r dim(l4C)[2]` columns are signals or metadata.
 
 The Spot-level dataset is a matrix where each of the `r dim(l3C)[1]` rows is a spot and each of the `r dim(l3C)[2]` columns are signals or metadata. The spot level data is a sparse matrix where the each row has values from one staining set and NA values for the other.
 
@@ -269,18 +265,18 @@ dt$gsColours <- "Samples"
 dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
 dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
 dt$gsColours <- factor(dt$gsColours,levels=c("Samples","Selected","NegCtrl"),ordered=TRUE)
-textOrdered <- levels(reorder(dt$Ligand, dt$Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed, FUN=median))
+textOrdered <- levels(reorder(dt$Ligand, dt$Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed, FUN=median))
 textColourVec <- rep("black",length.out=length(textOrdered))
 textColourVec[grepl("BMP",textOrdered)] <- "gold"
 textColourVec[grepl("FBS",textOrdered)] <- "blue"
 
-p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed, FUN=median), y=Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed, fill=gsColours))+
+p <- ggplot(dt, aes(x=reorder(Ligand, Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed, FUN=median), y=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed, fill=gsColours))+
   geom_boxplot(outlier.colour = NA, alpha=.5)+
   scale_fill_manual(values = c("transparent", "gold", "blue",muted("red")))+
   guides(fill=FALSE, colour=FALSE)+
   #coord_cartesian(ylim = c(-3,0))+
-  xlab("Ligand")+ylab("Normalized DNA4N")+
-  ggtitle("MEP DNA4N Response by Ligand")+
+  xlab("Ligand")+ylab("Normalized DNA 2n")+
+  ggtitle("MEP DNA 2n Response by Ligand")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
 p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
@@ -288,7 +284,7 @@ print(p)
 ```
 
 ***
-This data is RUV and loess normalized and then summarized across all staining sets where each ligand has `r ssNr` replicates and there are 16 control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
+This data is RUV and loess normalized and then summarized. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
 
 ###Proliferation Boxplots
 
@@ -352,15 +348,15 @@ print(p)
 ```
 
 ***
-This data is RUV and loess normalized and then summarized across all staining sets where each ligand has `r ssNr` replicates and there are `r ssNr*8` control wells. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
+This data is RUV and loess normalized and then summarized. The NID1 and ELN data are filtered due to low cell counts that create extreme values.  
 
 ###MEP Level interactive datatable displays data filtered on keywords and sorted by values.
 
 
 ```{r datatable}
 
-colNames <- c("MEP","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransformed", "Spot_PA_SpotCellCountLog2RUVLoess", "Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess")
-colNamesDisplay <- c("MEP","Normed EdU+ Prop.","Normed SCC (log2)","Normed DNA 4N Prop.", "Normed KRT5", "Normed MitoTracker")
+colNames <- c("MEP","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransformed", "Spot_PA_SpotCellCountLog2RUVLoess", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess")
+colNamesDisplay <- c("MEP","Normed EdU+ Prop.","Normed SCC (log2)","Normed DNA 4N Prop.", "Normed KRT5")
 
 dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoessBacktransformed)
 datatable(format(dt[, colNames, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
@@ -407,58 +403,8 @@ print(p)
 ```
 
 ***
-The boxplots show the RUV and loess normalized MEP level data for the KRT5 and KRT19 cytoplasmic median intensity signal stratifed by the ligands.  
+The boxplots show the RUV and loess normalized MEP level data for the KRT5 cytoplasmic median intensity signal stratifed by the ligands.  
 
-###KRT19 Intensity Lineage Boxplots
-
-
-```{r KRT19BoxplotsFull, fig.width=20, fig.height=8}
-
-textOrdered <- levels(reorder(dt$Ligand, dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess, FUN=median))
-textColourVec <- rep("black",length.out=length(textOrdered))
-textColourVec[grepl("BMP",textOrdered)] <- "gold"
-textColourVec[grepl("FBS",textOrdered)] <- "blue"
-
-p <- ggplot(dt, aes(x=reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess, FUN=median), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess, fill=gsColours))+
-  geom_boxplot(outlier.colour = NA, alpha=.5)+
-  scale_fill_manual(values = c("transparent", "gold", "blue",muted("red")))+
-  guides(fill=FALSE, colour=FALSE)+
-  #coord_cartesian(ylim = c(7,13))+
-  xlab("Ligand")+ylab("Normalized KRT19 Intensity\n(Log2)")+
-  ggtitle("Cytoplasmic KRT19 Intensity by Ligand")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
-print(p)
-```
-
-###KRT19 Gated Proportions Boxplots
-
-```{r gatedKRT19Boxplots, fig.width=20, fig.height=8}
-dt$gsColours <- "Samples"
-dt$gsColours[grepl("BMP",dt$Ligand)] <- "Selected"
-dt$gsColours[grepl("FBS",dt$Ligand)] <- "NegCtrl"
-dt$gsColours <- factor(dt$gsColours,levels=c("Samples","Selected","NegCtrl"),ordered=TRUE)
-textOrdered <- levels(reorder(dt$Ligand, dt$Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess, FUN=median))
-textColourVec <- rep("black",length.out=length(textOrdered))
-textColourVec[grepl("BMP",textOrdered)] <- "gold"
-textColourVec[grepl("FBS",textOrdered)] <- "blue"
-
-p <- ggplot(dt, aes(x=reorder(Ligand, btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess), FUN=median), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess), fill=gsColours))+
-  geom_boxplot(outlier.colour = NA, alpha=.5)+
-  scale_fill_manual(values = c("transparent", "gold", "blue",muted("red")))+
-  guides(fill=FALSE, colour=FALSE)+
-  #coord_cartesian(ylim = c(7,13))+
-  xlab("Ligand")+ylab("Normalized KRT19 Proportion")+
-  ggtitle("Proportion of KRT19 High by Ligand")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7), colour=textColourVec), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-p <- p +  geom_jitter(aes(colour=ECMp),size=rel(.3),alpha=.5)
-print(p)
-
-
-```
-
-***
-The KRT19 Gated Proportion signal is the porportion of cells in each spot that were in the KRT19 high gate. The gate threshold is automatically determined by kmeans clustering (k=2) the median KRT19 intensity of all cells in each plate.  
 
 ###Proliferation vs Spot Cell Count Scatterplot
 
@@ -466,7 +412,7 @@ The KRT19 Gated Proportion signal is the porportion of cells in each spot that w
 ```{r, fig.width=20, fig.height=8}
 
 dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
-p <- ggplot(dt, aes(x=Spot_PA_SpotCellCountLog2, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), colour=Ligand, text=paste("ECMp:",ECMp)))+
+p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), colour=Ligand, text=paste("ECMp:",ECMp)))+
   geom_point(size=.7, alpha=.4)+
   guides(colour=FALSE, size=FALSE)+
   #coord_cartesian(ylim = c(7,13))+
@@ -483,62 +429,28 @@ ggplotly(p)
 These figure shows the proportion of cells in S phase during the last hour of the experiment vs the raw cell count.
 
 
-###Lineage vs. Proliferation Scatterplot
+###KRT5 vs. Proliferation Scatterplot
 
 
 ```{r, fig.width=10, fig.height=7, eval=TRUE}
 
 dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
-p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess), colour=Ligand, text=paste("ECMp:",ECMp)))+
+p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, colour=Ligand, text=paste("ECMp:",ECMp)))+
   geom_point(size=.7, alpha=.4)+
   guides(colour=FALSE, size=FALSE)+
   #coord_cartesian(ylim = c(7,13))+
-  xlab("Normalized EdU+")+ylab("Normalized KRT19+")+
-  ggtitle("MEP KRT19 vs Proliferation")+
+  xlab("Normalized EdU+")+ylab("Normalized KRT5+")+
+  ggtitle("MEP KRT5 vs Proliferation")+
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 ggplotly(p)
 
 ```
 
 ***
-This scatter plot shows the normalized KRT19+ proportion vs. the normalized EdU+ measured proliferation. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
-
-###KRT19 vs. KRT5 Scatterplot
+This scatter plot shows the normalized KRT5+ proportion vs. the normalized EdU+ measured proliferation. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
 
 
-```{r, fig.width=10, fig.height=7, eval=TRUE}
-
-dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess, colour=Ligand, text=paste("ECMp:",ECMp)))+
-  geom_point(size=.7, alpha=.4)+
-  guides(colour=FALSE, size=FALSE)+
-  #coord_cartesian(ylim = c(7,13))+
-  xlab("Normalized KRT5")+ylab("Normalized KRT19")+
-  ggtitle("MEP KRT19 vs KRT5")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-ggplotly(p)
-
-```
-
-***
-This scatter plot shows the normalized KRT19 intensity vs normalized KRT5 intensity. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
-
-```{r, fig.width=10, fig.height=7, eval=FALSE}
-
-dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
-p <- ggplot(dt, aes(x=factor(ECMp), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, colour=Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess< (-.5), size=Spot_PA_SpotCellCountLog2, text=paste("ECMp:",ECMp)))+
-  geom_boxplot()+
-  guides(colour=FALSE, size=FALSE)+
-  #coord_cartesian(ylim = c(7,13))+
-  xlab("ECMp")+ylab("Normalized KRT5 Intensity")+
-  ggtitle("MEP KRT19 vs Proliferation")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-print(p)
-
-```
-
-
-```{r PCAData}
+```{r PCAData, eval=FALSE}
 ###PCA Unbiased Analysis  
 
 #Get a PCA model from the raw data
@@ -562,16 +474,15 @@ RUVLoessMEPFBSPCAModel <- createPCAModel(dt=l4C, fvNames = RUVLoessMEPNames)
 
 ```
 
-###PCA of All MEP Signals
 
 
-```{r, fig.height=2, fig.width=3}
+```{r, fig.height=2, fig.width=3, eval=FALSE}
 xlim<-c(-15,15)
 ylim<-c(-10,10)
 dt <- cbind(data.table(RUVLoessMEPFBSPCAModel$x),Ligand=l4C$Ligand, MEP=l4C$MEP, ECMp=l4C$ECMp)
 
-p12 <- ggplot(dt, aes(x = PC1, y = PC2, colour = Ligand, text=paste("ECMp:",ECMp))) +
-      geom_point(size = rel(.8), alpha = .6) +
+p12 <- ggplot(dt, aes(x = PC1, y = PC2, colour = Ligand)) +
+      geom_point(size = rel(.6), alpha = .4) +
       labs(colour = "Ligand")+
       ggtitle("PCA of All MEP Signals")+
       coord_cartesian(xlim=xlim, ylim=ylim)+
@@ -581,26 +492,10 @@ ggplotly(p12)
 
 ```
 
-***
-The scatterplot shows the first 2 principal components of all MEP signals, colored by ligand. Hovering over a spot shows its ligand and ECM protein. Below are the signals used in the MEP PCA model. 
-
-`r RUVLoessMEPNames ` 
-
-
-###MEP PCA Datatable enables sorting MEPs by their principal component values.
-
-```{r MEPPCADatatable}
-
-colNames <- c("MEP","PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9")
-colNamesDisplay <- c("MEP","PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9")
-
-dt <- setorder(dt,PC1)
-datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
-
-```
 
 
 ```{r tSNEFBS_Data}
+RUVLoessMEPNames <- grep("LoessRUV",grep("Log2RUVLoess$|LogitRUVLoess$",colnames(l4C), value=TRUE), value=TRUE, invert=TRUE)
 #Need to remove FBS entries that are duplicated after normalization
 l4C$Ligand <- sub("FBS.*","FBS",l4C$Ligand)
 l4C$MEP <- sub("FBS.*","FBS",l4C$MEP)
@@ -613,12 +508,12 @@ l4CU <- cbind(l4CU,data_tsne$Y)
 
 ```
 
-###tSNE plot of all MEP Signals by Ligand
+###tSNE plot of all MEP Signals
 
 ```{r plottSNELigandFBSU,fig.width=8, fig.height=5, eval=TRUE}
 
 p <- ggplot(l4CU, aes(x=V1, y=V2, colour=Ligand, text=paste("ECMp:",ECMp)))+
-      geom_point(size = rel(.8), alpha = .6) +
+  geom_point(size=rel(.3), alpha=.5)+
   ggtitle(paste("tSNE plot of", cellLine,"MEPs with FBS Coloured by Ligand"))+
   guides(colour = FALSE)
 ggplotly(p)
@@ -628,21 +523,14 @@ ggplotly(p)
 ***
 The scatterplot shows the 2 tSNE components of all MEP signals colored by ligand. Hovering over a spot shows its ligand and ECM protein. The signals are the same as those used in the MEP PCA model.
 
-###tSNE plot of all MEP Signals by ECM Protein
 
-```{r plottSNEECMpFBSU,fig.width=8, fig.height=5, eval=TRUE}
+```{r tSNEData,fig.width=8, fig.height=5, eval=FALSE}
+data_matrix <- scale(as.matrix(l4C[,RUVLoessMEPNames, with=FALSE]))
 
-p <- ggplot(l4CU, aes(x=V1, y=V2, colour=ECMp, text=paste("Ligand:",Ligand)))+
-      geom_point(size = rel(.8), alpha = .6) +
-  ggtitle(paste("tSNE plot of", cellLine,"MEPs with FBS Coloured by ECM Protein"))+
-  guides(colour = FALSE)
-ggplotly(p)
-
+set.seed(1234)
+data_tsne <- Rtsne(data_matrix, perplexity = 15)
+l4C <- cbind(l4C,data_tsne$Y)
 ```
-
-***
-The scatterplot shows the 2 tSNE components of all MEP signals colored by ligand. Hovering over a spot shows its ligand and ECM protein. The signals are the same as those used in the MEP PCA model.
-
 
 ###Spot Level Proliferation Responses
 
@@ -671,17 +559,17 @@ These boxplots show the proliferation values for the replicate ECM protein spots
 
 
 
-###Spot Level KRT19 Responses
+###Spot Level KRT5 Responses
 
 ```{r, fig.width=20, fig.height=8}
 dt <- l3C[grepl("BMP",Ligand),]
 
-p <- ggplot(dt, aes(x=reorder(ECMp, btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess), FUN=median), y=btLogit(Cytoplasm_PA_Gated_KRT19PositiveProportionLogitRUVLoess)))+
+p <- ggplot(dt, aes(x=reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, FUN=median), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess))+
   geom_boxplot(outlier.colour = NA, alpha=.5)+
   guides(fill=FALSE, colour=FALSE)+
   #coord_cartesian(ylim = c(-8,0))+
-  xlab("ECMp")+ylab("Normalized KRT19+")+
-  ggtitle("Spot level KRT19+ by ECMp")+
+  xlab("ECMp")+ylab("Normalized KRT5")+
+  ggtitle("Spot level KRT5 by ECMp")+
   facet_wrap(~Ligand, ncol=3)+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
@@ -693,19 +581,19 @@ print(p)
 
 ***
 
-These boxplots show the gated KRT19 high proportion values for the replicate ECM protein spots paired with the BMP family of ligands.
+These boxplots show the gated KRT5  intensity values for the replicate ECM protein spots paired with the BMP family of ligands.
 
 ###DAPI DNA Cell Cycle
 
 ```{r, fig.width=20, fig.height=8}
 dt <- l3C[grepl("BMP",Ligand),]
 
-p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed, FUN=median), y=Nuclei_PA_Cycle_DNA4NProportionLogitRUVLoessBacktransformed))+
+p <- ggplot(dt, aes(x=reorder(ECMp, Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed, FUN=median), y=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoessBacktransformed))+
   geom_boxplot(outlier.colour = NA, alpha=.5)+
   guides(colour=FALSE)+
   #coord_cartesian(ylim = c(-8,0))+
-  xlab("ECMp")+ylab("Normalized DNA4N\n(Logit)")+
-  ggtitle("Spot level DNA4N Response by ECMp")+
+  xlab("ECMp")+ylab("Normalized DNA 2n")+
+  ggtitle("Spot level DNA 2n Response by ECMp")+
   facet_wrap(~Ligand, ncol=3)+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
@@ -727,8 +615,8 @@ These boxplots show the cell cycle proportions as measured by total DAPI for the
 ```{r medianHeatMaps2, fig.width=9, fig.height=5.5}
 
 limits=c(.05, .95)
-titleExpression <-"Raw Spot Cell Count (log2)"
-plotLEHmap(l4C,  hclustfun = "hclust",fill="Spot_PA_SpotCellCountLog2", titleExpression=titleExpression, limits=limits)
+titleExpression <-"Raw Spot Cell Count"
+plotLEHmap(l4C,  hclustfun = "hclust",fill="Spot_PA_SpotCellCount", titleExpression=titleExpression, limits=limits)
 ```
 
 ***
@@ -738,7 +626,7 @@ This heatmap uses unsupervised clustering in the rows and columns using the comp
 
 ```{r}
 limits=c(.05, .95)
-titleExpression <-"Normalized Spot Cell Count (log2)"
+titleExpression <-"Normalized Spot Cell Count"
 plotLEHmap(l4C, hclustfun = "hclust", fill="Spot_PA_SpotCellCountLog2RUVLoess", titleExpression=titleExpression, limits=limits)
 
 ```

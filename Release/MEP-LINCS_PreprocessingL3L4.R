@@ -331,7 +331,7 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib","MCF10ADMSO"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
                          drug=c("Neratinib","DMSO"),
@@ -347,5 +347,5 @@ MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib","MCF10ADMSO"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Vertex, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 

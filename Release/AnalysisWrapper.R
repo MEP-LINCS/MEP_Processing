@@ -60,7 +60,7 @@ Baylor <- data.frame(cellLine=c("Baylor1","Baylor2"),
                        rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10A_Neratinib"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
                          drug=c("none"),
@@ -81,6 +81,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet, 1, renderAnalysisReports)
+tmp <- apply(MLDDataSet[2,], 1, renderAnalysisReports)
 
 
