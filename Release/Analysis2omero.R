@@ -8,17 +8,12 @@ f <- read_excel("FeatureDescriptionsOmero.xls")
 #Get a list of barcodes that will get new annotate2omero files
 parentPath <- "/graylab/share/dane/MEP-LINCS/MEP_LINCS/AnnotatedData/"
 l3FileNames <- dir(parentPath, pattern="Level3", full.names = TRUE) %>% 
-  grep("MCF10A|HMEC|MCF7|PC3|YAPC",., value=TRUE)
+  grep("MCF10A|HMEC|MCF7|PC3|YAPC",., value=TRUE) %>%
+  grep("DMSO|Neratinib",., value=TRUE)
 l3FileNames <- l3FileNames[!grepl("SSC|SSR|_CS_",l3FileNames)]
 
-tmpl <- lapply(l3FileNames[8], function(fn){
+tmpl <- lapply(l3FileNames, function(fn){
   l3 <- fread(fn,key = "Barcode")
-  logitNames <- grep("Logit",colnames(l3), value=TRUE)
-  tmp <- l3[,logitNames, with=FALSE]
-  tmp <- tmp[,.SD(lapply)]
-  tmpl <- lapply(logitNames, function(x){
-    
-  })
   barcodes <- unique(l3$Barcode)
   for (barcode in barcodes){
     dt <- l3[barcode,f$Binding[f$Binding %in% colnames(l3)], with=FALSE]
