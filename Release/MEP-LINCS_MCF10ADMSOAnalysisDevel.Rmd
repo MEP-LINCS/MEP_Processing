@@ -323,7 +323,7 @@ print(p)
 ***
 These box plots show the RUV and loess normalized MEP level data for the gated EdU+ proliferation signal stratified by the ECM protein.
 
-###Shiny Example
+###Explore Selected Signals
 
 
 ```{r}
