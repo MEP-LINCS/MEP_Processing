@@ -148,6 +148,20 @@ print(p)
 
 ```
 
+```{r SCCBoxplotsbyLigand, fig.height=5}
+
+p <- ggplot(l3, aes(x=factor(Ligand), y=Spot_PA_SpotCellCount, colour=factor(Barcode)))+
+  geom_boxplot(outlier.size = .5)+
+  #coord_cartesian(ylim = c(0,.2))+
+  #guides(colour=FALSE)+
+  xlab("")+ylab("Spot Cell Count")+
+  ggtitle("Spot Cell Count by Ligand and Barcode ")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(l3$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
+print(p)
+
+```
+
 ###DAPI Boxplots
 
 DAPI stains the DNA of each nucleus and is used to idenitify the nuclear regions and quantify the amount of DNA. Boxplots of the DAPI intensities show the values stratified by plate and well. Each boxplot summarizes data from ~700 spots.  
@@ -210,6 +224,31 @@ p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensit
   ggtitle("Median Intensity EdU per Spot by Well and Barcode ")+
   theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
 p <- p + geom_hline(yintercept = log2(median(l3$Nuclei_CP_Intensity_MedianIntensity_EdU)), colour="blue", alpha=.5)
+print(p)
+
+```
+
+```{r rawEdUBoxplotsbyWell, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)}
+
+p <- ggplot(l3, aes(x=factor(Well), y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Barcode)))+
+  geom_boxplot(outlier.size = .5)+
+  xlab("")+ylab("Median Intensity EdU (log2)")+
+  ggtitle("Median Intensity EdU per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = log2(median(l3$Nuclei_CP_Intensity_MedianIntensity_EdU)), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+```{r rawEdUBoxplotsbyLigand, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)}
+
+p <- ggplot(l3, aes(x=factor(Ligand), y=Nuclei_PA_Gated_EdUPositiveProportion, colour=factor(Barcode)))+
+  geom_boxplot(outlier.size = .5)+
+  xlab("")+ylab("EdU+ Proportion")+
+  ggtitle("EdU+ Proportion per Spot by Ligand and Barcode ")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(l3$Nuclei_PA_Gated_EdUPositiveProportion), colour="blue", alpha=.5)
 print(p)
 
 ```

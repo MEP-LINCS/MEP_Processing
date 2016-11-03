@@ -747,10 +747,10 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
-                         drug=c("Neratinib","DMSO"),
+                         drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
                          limitBarcodes=c(8),
@@ -766,5 +766,5 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Bornstein, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(MLDDataSet[4:3,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

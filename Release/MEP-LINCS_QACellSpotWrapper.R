@@ -183,19 +183,19 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
-                        cellLine=c("MCF10A"),
-                        ss=c("SSF"),
-                        drug=c("none"),
-                        analysisVersion="av1.7",
-                        rawDataVersion="v2",
-                        limitBarcodes=c(8),
-                        k=c(64),
-                        calcAdjacency=TRUE,
-                        writeFiles = TRUE,
-                        mergeOmeroIDs = TRUE,
-                        useAnnotMetadata=TRUE,
-                        stringsAsFactors=FALSE)
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
+                         cellLine=c("MCF10A"),
+                         ss=c("SSF"),
+                         drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
+                         analysisVersion="av1.7",
+                         rawDataVersion="v2",
+                         limitBarcodes=c(8),
+                         k=c(64),
+                         calcAdjacency=TRUE,
+                         writeFiles = TRUE,
+                         mergeOmeroIDs = TRUE,
+                         useAnnotMetadata=TRUE,
+                         stringsAsFactors=FALSE)
 
 renderQASpotMEPReports <- function(x){
   datasetName <- x[["datasetName"]]
@@ -223,6 +223,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Bornstein, 1, renderQACellReports)
-tmp <- apply(Bornstein, 1, renderQASpotMEPReports)
+tmp <- apply(MLDDataSet[3:4,], 1, renderQACellReports)
+tmp <- apply(MLDDataSet[3:4,], 1, renderQASpotMEPReports)
 

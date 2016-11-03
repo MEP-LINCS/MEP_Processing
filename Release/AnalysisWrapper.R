@@ -61,6 +61,14 @@ Bornstein <- data.frame(datasetName=c("BornsteinOSC","BornsteinCal27"),
                         useAnnotMetadata=FALSE,
                         stringsAsFactors=FALSE)
 
+Vertex <- data.frame(datasetName=c("Vertex1","Vertex2"),
+                     cellLine=c("LCSC-311"),
+                     ss=c("SSE"),
+                     drug=c("none"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     stringsAsFactors=FALSE)
+
 Baylor <- data.frame(cellLine=c("Baylor1","Baylor2"),
                        ss=c("SSD"),
                        drug=c("none"),
@@ -68,10 +76,10 @@ Baylor <- data.frame(cellLine=c("Baylor1","Baylor2"),
                        rawDataVersion="v2",
                        stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
-                         drug=c("none"),
+                         drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
                          stringsAsFactors=FALSE)
@@ -89,6 +97,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Bornstein, 1, renderAnalysisReports)
+tmp <- apply(MLDDataSet, 1, renderAnalysisReports)
 
 
