@@ -10,11 +10,15 @@ library(knit2synapse)
 library(synapseClient)
 synapseLogin()
 
-annotatedFolder <- "syn5706203"
-rawFolder <- "syn5706233"
-reportFolder <- "syn5007815"
+# annotatedFolder <- "syn5706203"
+# rawFolder <- "syn5706233"
+# reportFolder <- "syn5007815"
 
-query <- paste('select id,name,versionNumber,Level,Barcode,CellLine,StainingSet,Location,Well',
+annotatedFolder <- "syn5713302"
+rawFolder <- "syn7525205"
+reportFolder <- "syn4939350"
+
+query <- paste('select id,name,versionNumber,DataType,Level,CellLine,StainingSet',
                'from file where parentId=="%s"')
 
 annotFiles <- synQuery(sprintf(query, annotatedFolder), blockSize = 400)$collectAll()
@@ -28,9 +32,9 @@ allFiles <- allFiles %>%
   # filter(CellLine %in% c("PC3", "MCF7"), StainingSet %in% c("SS2")) %>% 
   mutate(versionNumber=as.numeric(versionNumber)) %>% 
   arrange(Level, CellLine, StainingSet) %>% 
-  select(id,versionNumber,name,Level,Barcode,CellLine,StainingSet,Location,Well)
+  select(id,versionNumber,name,Level,DataType,CellLine,StainingSet)
 
-tableName <- sprintf("Release %s", format(Sys.time(), "%d-%b-%Y %H%M%S"))
+tableName <- sprintf("TEMPORARY Release %s", format(Sys.time(), "%d-%b-%Y %H%M%S"))
 tblCols <- as.tableColumns(allFiles)
 schema <- TableSchema(name=tableName, columns=tblCols$tableColumns, 
                       parent="syn2862345")

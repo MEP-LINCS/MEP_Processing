@@ -30,6 +30,26 @@ The file manifest for this release is available at `r manifestTableId`.
 
 ### Release Notes
 
+This release includes seven datasets along with quality assessment and analysis reports for MCF10A, HMEC122L and HMEC240L [Cell Lines](#!Synapse:syn2862345/wiki/232000). 
+
+The v2 version of a CellProfiler-based${reference?inlineWidget=true&text=Kamentsky%2C L%2E%2C T%2E R%2E Jones%2C A%2E Fraser%2C M%2E%2DA%2E Bray%2C D%2E J%2E Logan%2C K%2E L%2E Madden%2C V%2E Ljosa%2C C%2E Rueden%2C K%2E W%2E Eliceiri%2C and A%2E E%2E Carpenter%2E “Improved Structure%2C Function and Compatibility for CellProfiler%3A Modular High%2DThroughput Image Analysis Software%2E” Bioinformatics 27%2C no%2E 8 %28April 15%2C 2011%29%3A 1179–80%2E doi%3A10%2E1093%2Fbioinformatics%2Fbtr095%2E} pipeline was used to segmented the images. For signals measured in the cytoplasm, the segmentation algorithm uses the plasma membrane stain CellMask to define the cytoplasmic area. Descriptions of the signals in the dataset are in the [CellProfiler manual](http://cellprofiler.org/download.html).
+
+Each signal of the dataset was independently normalized between arrays using the RUV${reference?inlineWidget=true&text=Speed%2C Terence P%2C J%2E A%2E Gagnon%2DBartsch%2C and Laurent Jacob%2E "Removing Unwanted Variation from High Dimensional Data with Negative Controls%2C" December 2%2C 2013%2E http%3A%2F%2Fstatistics%2Eberkeley%2Eedu%2Fsites%2Fdefault%2Ffiles%2Ftech%2Dreports%2Fruv%2Epdf} method with the array as the unit of study and spatial residuals as the negative controls, then normalized within each array using a bivariate loess model of the spatial residuals.The normalization method is detailed in the SpotMEP QA report for each dataset.   
+ &nbsp;
+The metadata for all reagents are traceable to the lot level and have LINCS IDs where they are available. The LINCS IDs have "Lx" suffixes such as ECM1Lx, Ligand1Lx and CellLineLx. There are additional unique IDs with "An" suffixes such as ECM1An, Ligand1An and CellLineAn that can be used to reference additional information on the reagents. The data also include shortened versions of these reagents that remain unique within the dataset and are used to annotate figures. 
+&nbsp;
+The drug, segmentation pipeline version and the analysis pipeline version have been moved from the files names to the file annotations.
+&nbsp;
+The MCF10A data comes from three staining sets (SS1, SS2 and SS3). The HMEC122L and HMEC240L data come from two staining sets (SS1 and SS4). The SS4 staining set has EdU, KRT5 and KRT19 endpoints.
+&nbsp;
+The datasets and reports now include a combined analysis denoted by SSC. This data combines the replicate DAPI signals with the unique signals from the staining sets. The replicates are normalized and summarized then combined with the normalized and summarized unique signals. In the Level 4 SSC datasets, each row is a MEP and each column contains values for one signal or metadata. These are the most appropriate datasets to use for downstream analysis.
+&nbsp;
+There are now separate cell and spot level QA reports. The cell data in the reports are a randomly sampled subset to reduce the loading times. The date files contain the full datasets.
+&nbsp;
+Some tables include links to images stored in an Omero database and an OHSU Omero account is needed to access these images.
+&nbsp;
+Two new ECM proteins (elastin and fibrillin) have been added to the MEMA arrays. The forty-six ECM proteins and fifty-six ligands used in the first dataset remain the same. The FBS serum level has been reduced from 2% to 0.1% which is the level used in the ligand wells. This has made the responses in the FBS wells similar to the ligand wells.
+
 
 ```{r filesquery}
 manifestTableSchemaQuery <- synTableQuery(paste("select * from ", manifestTableId))
@@ -39,18 +59,8 @@ manifestTable <- manifestTableSchemaQuery@values
 ### Annotated Data and Analysis Reports
 ```{r annotateddata}
 manifestTable %>% 
-  filter(Level %in% c(1:4, "QualityAssurance", "Analysis")) %>% 
+  filter(Level %in% c(1:4, "QualityAssurance", "Analysis", "AnalysisSB", "QA_Cell", "QA_SpotMEP")) %>% 
   mutate(id=paste(id, versionNumber, sep=".")) %>%
   dcast(CellLine + StainingSet ~ Level, value.var="id", fill=NA) %>% 
-  knitr::kable(format='markdown')
-```
-
-#### Raw data files
-```{r rawdata, results='asis'}
-manifestTable %>%
-  filter(Level == 0) %>% 
-  mutate(id=paste(id, versionNumber, sep=".")) %>%
-  dcast(Barcode + CellLine + StainingSet + Location ~ Well, value.var="id", fill=NA) %>% 
-  arrange(CellLine, Location, Barcode, StainingSet) %>% 
   knitr::kable(format='markdown')
 ```
