@@ -69,12 +69,13 @@ Vertex <- data.frame(datasetName=c("Vertex1","Vertex2"),
                      rawDataVersion="v2",
                      stringsAsFactors=FALSE)
 
-Baylor <- data.frame(cellLine=c("Baylor1","Baylor2"),
-                       ss=c("SSD"),
-                       drug=c("none"),
-                       analysisVersion="av1.7",
-                       rawDataVersion="v2",
-                       stringsAsFactors=FALSE)
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
+                     cellLine=c("LM2", "SUM159"),
+                     ss=c("SSD"),
+                     drug=c("unknown"),
+                     analysisVersion="av1.7",
+                     rawDataVersion="v2",
+                     stringsAsFactors=FALSE)
 
 MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
@@ -83,6 +84,15 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
                          stringsAsFactors=FALSE)
+
+validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+                          cellLine=c("MCF10A"),
+                          ss=c("SS4"),
+                          drug=c("none"),
+                          analysisVersion="av1.7",
+                          rawDataVersion="v2",
+                          stringsAsFactors=FALSE)
+
 
 renderAnalysisReports <- function(x){
   datasetName <- x[["datasetName"]]
@@ -97,6 +107,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet, 1, renderAnalysisReports)
+tmp <- apply(Baylor, 1, renderAnalysisReports)
 
 

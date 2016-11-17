@@ -734,7 +734,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      stringsAsFactors=FALSE)
 
 Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("Baylor1", "Baylor2"),
+                     cellLine=c("LM2", "SUM159"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
@@ -761,10 +761,24 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          useAnnotMetadata=TRUE,
                          stringsAsFactors=FALSE)
 
+validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+                                        cellLine=c("MCF10A"),
+                                        ss=c("SS4"),
+                                        drug=c("none"),
+                                        analysisVersion="av1.7",
+                                        rawDataVersion="v2",
+                                        limitBarcodes=c(4),
+                                        k=c(64),
+                                        calcAdjacency=TRUE,
+                                        writeFiles = TRUE,
+                                        mergeOmeroIDs = TRUE,
+                                        useAnnotMetadata=FALSE,
+                                        stringsAsFactors=FALSE)
+
 
 
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[4:3,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(Baylor, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

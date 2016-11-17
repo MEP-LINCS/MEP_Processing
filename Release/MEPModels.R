@@ -33,10 +33,10 @@ dt <- l3C[,.(Barcode,MEP,Ligand,ECMp,Well,ImageID,Spot_PA_SpotCellCount,Spot_PA_
 dtc1 <- dt[grepl("COL1",ECMp),]
 #remove lowest cell count spots due to high variance
 dtc1f <- dtc1[dtc1$Spot_PA_SpotCellCount>2^5,]
-#Use FBS replicate wells
-dtc1fr <- dtc1f[grepl("FBS",dtc1f$Ligand),]
+#Use ligand  wells
+dtc1fr <- dtc1f[grepl("BMP6",dtc1f$Ligand),]
 #Model proliferation vs cell count
-dtc1frM <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,2)+Barcode, data=dtc1fr)
+dtc1frM <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4), data=dtc1fr)
 summary(dtc1frM)
 plot(predict(dtc1frM,newdata = data.frame(Spot_PA_SpotCellCountLog2=dtc1fr$Spot_PA_SpotCellCountLog2[order(dtc1fr$Spot_PA_SpotCellCountLog2)])))
 plot(x=dtc1fr$Spot_PA_SpotCellCountLog2,y=dtc1fr$Nuclei_PA_Gated_EdUPositiveProportionLogit)
@@ -49,13 +49,38 @@ dt <- addOmeroIDs(dt)
 #Build models at the MEP,ligand and ECMp level of logit(EdU+ Proportion)~spot cell count
 SCCModel <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4), data=dt)
 summary(SCCModel)
-#MEPModel <- glm(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess~Spot_PA_SpotCellCountLog2+MEP, data=dt)
 
 ligandECMpModel <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4)+Ligand+ECMp, data=dt)
 summary(ligandECMpModel)
 #step(ligandECMpModel)
 ECMpModel <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4)+ECMp, data=dt)
 summary(ECMpModel)
+
+#MEPModel <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4)+MEP, data=dt)
+#summary(MEPModel)
+
+#Make individual models for each ligand, ECMp and MEP
+ligandModels <- lapply(unique(dt$Ligand), function(ligand){
+  dtl <- dt[ligand==dt$Ligand,]
+  dtlm <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4), data=dtl)
+})
+names(ligandModels) <- unique(dt$Ligand)
+
+ECMpModels <- lapply(unique(dt$ECMp), function(ECMp){
+  dtl <- dt[ECMp==dt$ECMp,]
+  dtlm <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4), data=dtl)
+})
+names(ECMpModels) <- unique(dt$ECMp)
+
+# MEPModels <- lapply(unique(dt$MEP), function(MEP){
+#   dtl <- dt[MEP==dt$MEP,]
+#   dtlm <- lm(Nuclei_PA_Gated_EdUPositiveProportionLogit~poly(Spot_PA_SpotCellCountLog2,4), data=dtl)
+# })
+
+tmpL <- lapply(ligandModels,function(model){
+  print(summary(model))
+})
+
 #Plot data and models
 #Evaluate models with R squared or deviance
 #Cluster models and look for outliers

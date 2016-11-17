@@ -156,7 +156,7 @@ Bornstein <- data.frame(datasetName=c("BornsteinOSC","BornsteinCal27"),
                         stringsAsFactors=FALSE)
 
 Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("Baylor1", "Baylor2"),
+                     cellLine=c("LM2", "SUM159"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
@@ -197,6 +197,21 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          useAnnotMetadata=TRUE,
                          stringsAsFactors=FALSE)
 
+
+validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+                          cellLine=c("MCF10A"),
+                          ss=c("SS4"),
+                          drug=c("none"),
+                          analysisVersion="av1.7",
+                          rawDataVersion="v2",
+                          limitBarcodes=c(4),
+                          k=c(0),
+                          calcAdjacency=TRUE,
+                          writeFiles = TRUE,
+                          mergeOmeroIDs = TRUE,
+                          useAnnotMetadata=FALSE,
+                          stringsAsFactors=FALSE)
+
 renderQASpotMEPReports <- function(x){
   datasetName <- x[["datasetName"]]
   cellLine <- x[["cellLine"]]
@@ -223,6 +238,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet[3:4,], 1, renderQACellReports)
-tmp <- apply(MLDDataSet[3:4,], 1, renderQASpotMEPReports)
+#tmp <- apply(Baylor, 1, renderQACellReports)
+tmp <- apply(Baylor, 1, renderQASpotMEPReports)
 

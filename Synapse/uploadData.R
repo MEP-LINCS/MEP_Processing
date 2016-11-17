@@ -3,6 +3,7 @@ library(tidyr)
 library(plyr)
 library(dplyr)
 library(stringr)
+library(magrittr)
 library(githubr)
 library(limma)
 library(data.table)
@@ -21,9 +22,11 @@ uploadToSynapseLevel1 <- function(x, parentId) {
   annots <- toAnnotationList(x)
   obj <- File(x$filename, parentId=parentId)
   synSetAnnotations(obj) <- annots
-  
+  #Get the level 1 synIDs for the provenance
+  synIDs <- synQuery(paste0("select id, name, Level, CellLine, StainingSet from file where parentId=='",  synapseRawDataDir,"'"," AND CellLine=='",x$CellLine,"'"," AND StainingSet=='",x$StainingSet,"'"))
   obj <- synStore(obj, 
                   activityName=activityName,
+                  used=synIDs$file.id,
                   forceVersion=FALSE,
                   executed=scriptLink)
   obj
@@ -73,10 +76,6 @@ uploadToSynapseSSCData <- function(x, used, parentId) {
 }
 
 uploadFileLevel1 <- function(x){
-  dataDir <- paste("../AnnotatedData")
-  # Take file names and turn into basic annotation set
-  # Replace this with a better way to get basic annotations from 
-  # a standardized source
   dataFile <- data.frame(CellLine=x$CellLine,
                          StainingSet=x$StainingSet,
                          Drug=x$Drug,
@@ -154,7 +153,7 @@ uploadFileSSCData <- function(x){
 }
 
 synapseLogin()
-synapseRawDataDir <- "syn6167751"
+synapseRawDataDir <- "syn7525205"
 synapseAnnotatedDataDir <- "syn5713302"
 synapseReportDir <- "syn4939350"
 synapseMetadataDir <- "syn5007108"

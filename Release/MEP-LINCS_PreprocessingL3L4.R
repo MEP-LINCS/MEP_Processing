@@ -76,7 +76,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   rawSignalNames <- paste(grep("_SE",gsub("Log2|Logit","",grep("Log",colnames(slDT),value=TRUE)), value=TRUE,invert=TRUE),collapse="$|^")
   #Save the un-normalized parameters to merge in later
-  mdDT <- slDT[,grep(paste0(rawSignalNames,metadataNames,"|Barcode|Well|^Spot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$", collapse="|"),colnames(slDT),value=TRUE), with = FALSE]
+  mdDT <- slDT[,grep(paste0(rawSignalNames,"|",metadataNames,"|Barcode|Well|^Spot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$", collapse="|"),colnames(slDT),value=TRUE), with = FALSE]
   #Identify parameters to be normalized
   signalsWithMetadata <- grep(metadataNames,grep("Log|Barcode|Well|^Spot$|^PrintSpot$|ArrayRow|ArrayColumn|^ECMp$|^Ligand$",colnames(slDT), value=TRUE),value=TRUE,invert=TRUE)
   #Normalize each feature, pass with location and content metadata
@@ -139,10 +139,10 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
     
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level3.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level3.txt"), sep = "\t", quote=FALSE,showProgress = FALSE)
     
     if(verbose) cat("Writing level 4 file to disk\n")
-    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE,showProgress = FALSE)
     
   }
   cat("Elapsed time:", Sys.time()-startTime)
@@ -318,7 +318,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      stringsAsFactors=FALSE)
 
 Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("SUM149", "LM2"),
+                     cellLine=c("LM2", "SUM159"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
@@ -344,8 +344,22 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          mergeOmeroIDs = TRUE,
                          useAnnotMetadata=TRUE,
                          stringsAsFactors=FALSE)
+
+validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+                          cellLine=c("MCF10A"),
+                          ss=c("SS4"),
+                          drug=c("none"),
+                          analysisVersion="av1.7",
+                          rawDataVersion="v2",
+                          limitBarcodes=c(4),
+                          k=c(0),
+                          calcAdjacency=TRUE,
+                          writeFiles = TRUE,
+                          mergeOmeroIDs = TRUE,
+                          useAnnotMetadata=FALSE,
+                          stringsAsFactors=FALSE)
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[3:4,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(Baylor, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 
