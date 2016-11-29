@@ -26,216 +26,28 @@ library(ggplot2)
 source("MEPLINCSFunctions.R")
 source("MEP-LINCS QANorm Functions.R")
 
-createPCAModel <- function(dt,fvNames){
-  #delete any non-varying signals that cannot be scaled to unit variance
-  stdDevs <- apply(dt[,fvNames, with=FALSE], 2, sd)
-  if(any(stdDevs==0))  cat(paste("Deleting",fvNames[stdDevs==0], "due to 0 variance\n"))
-  fvNames <- fvNames[!stdDevs==0]
-  PCAModel <- prcomp(as.formula(paste(" ~ ", paste(fvNames, collapse = "+"))), data = dt, scale.= TRUE)
-  rownames(PCAModel$x)<-paste(dt$MEP,gsub("LI8X00","",dt$Barcode), sep="_")
-  return(PCAModel)
-}
-
-plotPCs <- function(m, PCs, colour, title, legendTitle, xlim=NULL, ylim=NULL, colorByCtrls=TRUE, highlightName=NULL){
-  if(!(length(PCs)==3&class(m)=="prcomp")) stop("PCs must have a length of 3 and m must be of class prcomp")
-  
-  if(is.null(highlightName)){
-    p12 <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[2], colour = colour)) +
-      geom_point(size = rel(.5), alpha = .5) +
-      labs(colour = legendTitle)+
-      ggtitle(title)+
-      guides(colour=FALSE)+
-      coord_cartesian(xlim=xlim, ylim=ylim)+
-      theme(legend.text=element_text(size = 6),
-            plot.title=element_text(size = rel(.7)))
-    
-    p23 <- ggplot(data.frame(m$x), aes_string(x = PCs[2], y = PCs[3], colour = colour)) +
-      geom_point(size = rel(.5), alpha = .5) +
-      labs(colour = legendTitle)+
-      ggtitle(title)+
-      guides(colour=FALSE)+
-      coord_cartesian(xlim=xlim, ylim=ylim)+
-      theme(legend.text=element_text(size = 6),
-            plot.title=element_text(size = rel(.7)))
-    
-    p13 <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[3], colour = colour)) +
-      geom_point(size = rel(.5), alpha = .5) +
-      labs(colour = legendTitle)+
-      ggtitle(title)+
-      guides(colour=FALSE)+
-      coord_cartesian(xlim=xlim, ylim=ylim)+
-      theme(legend.text=element_text(size = 6),
-            plot.title=element_text(size = rel(.7)))
-    
-  } else {
-    #Dim out all MEPs except the selected
-    dimColour<-"cornflowerblue"
-    p12 <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[2])) +
-      geom_point(size = rel(.5), alpha = .5, colour = dimColour) +
-      labs(colour = legendTitle)+
-      ggtitle(paste(title, "with",highlightName, "highlighted"))+
-      guides(colour=FALSE)+
-      coord_cartesian(xlim=xlim, ylim=ylim)+
-      theme(legend.text=element_text(size = 6),
-            plot.title=element_text(size = rel(.7)))
-    
-    p23 <- ggplot(data.frame(m$x), aes_string(x = PCs[2], y = PCs[3])) +
-      geom_point(size = rel(.5), alpha = .5, colour = dimColour) +
-      labs(colour = legendTitle)+
-      ggtitle(paste(title, "with",highlightName, "highlighted"))+
-      guides(colour=FALSE)+
-      coord_cartesian(xlim=xlim, ylim=ylim)+
-      theme(legend.text=element_text(size = 6),
-            plot.title=element_text(size = rel(.7)))
-    
-    p13 <- ggplot(data.frame(m$x), aes_string(x = PCs[1], y = PCs[3])) +
-      geom_point(size = rel(.5), alpha = .5, colour = dimColour) +
-      labs(colour = legendTitle)+
-      ggtitle(paste(title, "with",highlightName, "highlighted"))+
-      guides(colour=FALSE)+
-      coord_cartesian(xlim=xlim, ylim=ylim)+
-      theme(legend.text=element_text(size = 6),
-            plot.title=element_text(size = rel(.7)))
-  }
-  
-  if(colorByCtrls){
-    p12 <- p12 + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.5), alpha = .4)
-    p12 <- p12 + geom_point(data=data.frame(m$x[grepl("NID1",rownames(m$x)),]),colour="chocolate",size = rel(.5), alpha = .4)
-    p23 <- p23 + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.5), alpha = .4)
-    p23 <- p23 + geom_point(data=data.frame(m$x[grepl("NID1",rownames(m$x)),]),colour="chocolate",size = rel(.5), alpha = .4)
-    p13 <- p13 + geom_point(data=data.frame(m$x[grepl("FBS",rownames(m$x)),]),colour="black",size = rel(.5), alpha = .4)
-    p13 <- p13 + geom_point(data=data.frame(m$x[grepl("NID1",rownames(m$x)),]),colour="chocolate",size = rel(.5), alpha = .4)
-  }
-  
-  if(!is.null(highlightName)){
-    p12 <- p12 + geom_point(data=data.frame(m$x[grepl(highlightName,rownames(m$x)),]),colour="gold",size = rel(.5), alpha = .8)
-    p23 <- p23 + geom_point(data=data.frame(m$x[grepl(highlightName,rownames(m$x)),]),colour="gold",size = rel(.5), alpha = .8)
-    p13 <- p13 + geom_point(data=data.frame(m$x[grepl(highlightName,rownames(m$x)),]),colour="gold",size = rel(.5), alpha = .8)
-  }
-  
-  print(p12)
-  print(p23)
-  print(p13)
-  
-}
-
-plotScree <- function(m,nrPCs=9,main  = paste("PCA Scree Plot for",cellLine,ss)){
-  var <- m$sd[1:nrPCs]^2
-  var.percent <- var/sum(var) * 100
-  barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main=main)
-}
-
-shortenHA <- function(x){
-  x$ECMp <- gsub("hyaluronicacid","HA",x$ECMp)
-  x$ECMp <- gsub("lessthan","<",x$ECMp)
-  x$ECMp <- gsub("greaterthan",">",x$ECMp)
-  x$MEP <- paste(x$ECMp,x$Ligand,sep = "_")
-  return(x)
-}
-#Add an index for the plate in the ligand set
-addLigandPlate <- function(dt){
-  
-}
-addOmeroIDs <- function(dt){
-  if(any(grepl("^ImageID$",colnames(dt)))){
-    dt <- dt[,OmeroDetailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',ImageID,'/"',' target="_blank">Omero</a>')]
-    dt <- dt[,OmeroThumbnailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',ImageID,'/"',' target="_blank">Omero</a>')]
-    dt <- dt[,OmeroImageURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',ImageID,'/"',' target="_blank">Omero</a>')]
-  }
-  return(dt)
-}
-
-create8WellPseudoImage <- function(DT, pr, prDisplay,highThresh = .99, lowThresh = .01, highThreshValue=NULL, lowThreshValue=NULL){
-  #find high and low values
-  if(is.null(highThreshValue)) highThreshValue<-quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)
-  if(is.null(lowThreshValue)) lowThreshValue<-quantile(DT[[pr]],probs = lowThresh,na.rm=TRUE)
-  p <- ggplot(DT, aes_string(x="ArrayColumn", y="ArrayRow",colour=pr))+
-    geom_point(size=rel(.25))+
-    scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
-    scale_colour_gradient(low = "white", high = "red", limits=c(lowThreshValue, highThreshValue), oob=squish)+
-    guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
-    ggtitle(paste("\n\n",prDisplay,"for",unique(DT$CellLine), "cells \nin plate",unique(DT$Barcode)))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
-          axis.title.x = element_text(size=rel(.5)),
-          plot.title = element_text(size = rel(.8)),
-          strip.text = element_text(size = rel(.5)),
-          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
-    facet_wrap(~Well_Ligand, ncol=4)
-}
-medianSummarizel4 <- function(dt){
-  #median summarize the MEP replicates in a datatable
-  #Select all signal names and the minimal metadata
-  dtNames <- grep("^Ligand$|^ECMp$|MEP|^Well$|_CP_|_PA_",x = names(dt), value = TRUE)
-  
-  #Create a datatable of the signals and minimal metadata
-  dtKeep <- dt[, dtNames, with = FALSE]
-  dtMedians <- dtKeep[, lapply(.SD, numericMedian), keyby = "Ligand,ECMp,MEP,Well"]
-  return(dtMedians)
-}
-
-meanSummarizel4 <- function(dt){
-  #median summarize the MEP replicates in a datatable
-  #Select all signal names and the minimal metadata
-  dtNames <- grep("^Ligand$|^ECMp$|MEP|^Well$|_CP_|_PA_",x = names(dt), value = TRUE)
-  
-  #Create a datatable of the signals and minimal metadata
-  dtKeep <- dt[, dtNames, with = FALSE]
-  dtMeans <- dtKeep[, lapply(.SD, numericMean), keyby = "Ligand,ECMp,MEP,Well"]
-  return(dtMeans)
-}
-
-meanSummarizel3 <- function(dt){
-  #median summarize the Spot replicates in a datatable
-  #Select all signal names and the minimal metadata
-  dtNames <- grep("^Ligand$|^ECMp$|MEP|^Well$|PrintSpot|_CP_|_PA_",x = names(dt), value = TRUE)
-  
-  #Create a datatable of the signals and minimal metadata
-  dtKeep <- dt[, dtNames, with = FALSE]
-  dtMeans <- dtKeep[, lapply(.SD, numericMean), keyby = "Ligand,ECMp,MEP,Well,PrintSpot"]
-  return(dtMeans)
-}
-
-numericMean <- function(x){
-  as.numeric(mean(x, na.rm=TRUE))
-}
-
 btLogit <- function(x){
   2^x/(1+2^x)
 }
 ```
 
 
-
 ```{r setup}
 
 library("ggplot2")
-library(scales)
 library("data.table")
-library("MEMA")
-library("grid")
+library(scales)
 library("knitr")
 library("gplots")
-library("RColorBrewer")
 library(DT)
 library(d3heatmap)
 library(plotly)
-#library(corrplot)
-library(RUVnormalize)
-library(ruv)
 library(Rtsne)
-library(XLConnect)
 library(readxl)
 
 #Items to be generalized
 datasetName <- "MCF10ADMSO"
 cellLine <- "MCF10A"
-
-#Setup colors for Barcode and text in all heatmaps
-selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
-plateCol <- selDark2(8)
-hmcols<-colorRampPalette(c("blue","white","red"))(16)
-
 
 #Read in the data.table that holds every spot in the cell line
 #and can be used to index to the images
@@ -338,19 +150,23 @@ fillRow(height = "100%", flex = c(NA, 1),
           selectInput("xaxis", "X Axis:", choices = dtSignals$Name, selected="Spot Cell Count"),
           selectInput("yaxis", "Y Axis:", choices = dtSignals$Name, "EdU+ Proportion (normalized)"),
           selectInput("colour", "Colour by:", choices = dtSignals$Name, "Ligand"),
+          selectInput("ligands","Filter on Ligands", choices=unique(l4C$Ligand), multiple=TRUE, selectize=TRUE),
+          selectInput("ECMps","Filter on ECM Proteins", choices=unique(l4C$ECMp), multiple=TRUE, selectize=TRUE),
           numericInput("SCCThreshold","Spot Cell Count Threshold",value = 0),
           plotOutput("scatterPlot", height = "100%")),
         
         output$scatterPlot <- renderPlotly({
           dt <- dt[dt$Spot_PA_SpotCellCount>=input$SCCThreshold,]
+          if (!is.null(input$ligands)) dt <- dt[Ligand %in% input$ligands,]
+          if (!is.null(input$ECMps)) dt <- dt[ECMp %in% input$ECMps,]
           xaxisBinding <- dtSignals$Binding[dtSignals$Name==input$xaxis]
           yaxisBinding <- dtSignals$Binding[dtSignals$Name==input$yaxis]
           colourBinding <- dtSignals$Binding[dtSignals$Name==input$colour]
           
           p <- ggplot(dt, aes_string(x=xaxisBinding, y= yaxisBinding, colour=colourBinding))+
             geom_point()+
-            stat_smooth(span = 1,se = FALSE)+
             labs(x=input$xaxis, y=input$yaxis)
+          if (is.null(input$ECMps)|(!length(input$ECMps)==1)) p <- p+stat_smooth(span=1,se=FALSE)
           ggplotly(p)
         })
 )
