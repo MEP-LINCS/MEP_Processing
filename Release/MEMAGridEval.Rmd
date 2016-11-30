@@ -74,10 +74,10 @@ create8WellPseudoImageTriColor <- function(DT, pr, prDisplay,highThresh = .99, l
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-cellLine<-"HMEC240L"
+cellLine<-"HMEC122L"
 ss<-"SS1"
 verbose<-TRUE
-devel<- FALSE
+devel<- TRUE
 
 slDT <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE))
 slDT$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
@@ -138,6 +138,8 @@ for(barcode in barcodes){
 
 ###Leave One Out Cross Validation
 Create and evaluate several types of models for each signal in each well. For each model type, create a set of models that leaves out one of the spots. Then use the model to predict the value of the missing spot. Calculate the Mean Squared Error (MSE) for each model and signal type by comparing the predicted and actual values. 
+
+
 
 ```{r LOO-CV}
 #The dimensions of the data are model, model parameters, signal, array
@@ -203,8 +205,8 @@ addRFPredictions<-function(dt){
       dtbw<-dtb[well,]
       dtbw[[paste0("PredictedRFValue")]]<-rfLOO(dtbw)
       #Add predictions from the full grid
-    m <- randomForest(value~PrintRow+PrintColumn,dtbw)
-    dtbw$PredictedGridRFValue <- predict(m,dtbw)
+      m <- randomForest(value~PrintRow+PrintColumn,dtbw)
+      dtbw$PredictedGridRFValue <- predict(m,dtbw)
       return(dtbw)
     }))
   }))
@@ -225,7 +227,8 @@ addknnPredictions<-function(dt){
   }))
 }
 
-#Add the full grid predictions
+#Create models of each array using all of the COL1 grid spots
+#Add the full grid predictions to the dataset
 addFGLoessPredictions<-function(dt, span=1){
   DT <- rbindlist(lapply(barcodes,function(barcode){
     setkey(dt,Barcode)
@@ -234,8 +237,9 @@ addFGLoessPredictions<-function(dt, span=1){
       setkey(dtb,Well)
       dtbw<-dtb[well,]
       #Add predictions from the full grid
-      m <- loess(value~PrintRow+PrintColumn,dtbw, span=span)
-          dtbw[[paste0("PredictedFGLoess",span,"Value")]] <- predict(m,dtbw)
+      setkey(dtbw,ECMp)
+      m <- loess(value~PrintRow+PrintColumn,dtbw["COL1",], span=span)
+      dtbw[[paste0("PredictedFGLoess",span,"Value")]] <- predict(m,dtbw)
       return(dtbw)
     }))
   }))
@@ -273,7 +277,7 @@ addFGknnPredictions<-function(dt){
   }))
 }
 
-#load the modeled data instead of recalcualting it
+#load the LOO modeled data instead of recalculating it
 if(!devel){
   load("preds.RData")
 } else {
@@ -284,11 +288,14 @@ if(!devel){
   preds <- preds[,PredictedRFValueError:=value-PredictedRFValue]
   preds <- preds[,PredictedknnValueError:=value-PredictedknnValue]
   save(preds,file="preds.RData")
-  setnames(slDT, "Spot_PA_SpotCellCount","value")
-  slDT$PrintRow <- slDT$ArrayRow
-  slDT$PrintColumn <- slDT$ArrayColumn
-  tmp <- addFGRFPredictions(slDT)
 }
+setnames(slDT, "Spot_PA_SpotCellCount","value")
+slDT$PrintRow <- slDT$ArrayRow
+slDT$PrintColumn <- slDT$ArrayColumn
+slDT <- addFGLoessPredictions(slDT,span = 0.5)
+slDT <- addFGLoessPredictions(slDT, span = 1)
+slDT <- addFGRFPredictions(slDT)
+
 
 ```
 
@@ -371,10 +378,10 @@ p <- ggplot(predsLong, aes(x=Model, y=MSE)) +
   geom_jitter(alpha=.5, size=rel(.8))+
   ggtitle("Array MSE Values by Model")+ 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
-          axis.title.x = element_text(size=rel(1)),
-          plot.title = element_text(size = rel(.8)),
-          strip.text = element_text(size = rel(.5)),
-          legend.text=element_text(size = rel(.4)),
+        axis.title.x = element_text(size=rel(1)),
+        plot.title = element_text(size = rel(.8)),
+        strip.text = element_text(size = rel(.5)),
+        legend.text=element_text(size = rel(.4)),
         legend.title=element_text(size = rel(.3)))
 p
 
@@ -397,9 +404,10 @@ The median MSE values for each model are:
 
 ```{r}
 slDT <- merge(slDT,unique(select(preds,Barcode,Well,Spot_PA_SpotCellCountGridMean)),by = c("Barcode","Well"), all=TRUE)
-slDT <- slDT[,Spot_PA_SpotCellCountGridRes := Spot_PA_SpotCellCount-Spot_PA_SpotCellCountGridMean]
+slDT <- slDT[,Spot_PA_SpotCellCountGridRes := value-Spot_PA_SpotCellCountGridMean]
 
 ```
+
 ###Boxplots of Grid Residuals
 
 Each boxplots contains values from all spots with the named ECM protein.
@@ -408,13 +416,144 @@ Each boxplots contains values from all spots with the named ECM protein.
 p <- ggplot(slDT, aes(x=factor(ECMp), Spot_PA_SpotCellCountGridRes))+
   geom_boxplot()+
   ggtitle("Spot Cell Count - Grid Mean by ECM Protein")+
-  labs(x="ECM Protein", y="Spot Cell Count")+
+  labs(x="ECM Protein", y="Spot Cell Count - Grid Mean")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
-          axis.title.x = element_text(size=rel(1)),
-          plot.title = element_text(size = rel(.8)),
-          strip.text = element_text(size = rel(.5)),
-          legend.text=element_text(size = rel(.4)),
+        axis.title.x = element_text(size=rel(1)),
+        plot.title = element_text(size = rel(.8)),
+        strip.text = element_text(size = rel(.5)),
+        legend.text=element_text(size = rel(.4)),
         legend.title=element_text(size = rel(.3)))
 p
 
 ```
+
+
+```{r, fig.height=20}
+p <- ggplot(slDT, aes(x=factor(ECMp), Spot_PA_SpotCellCountGridRes))+
+  geom_boxplot()+
+  ggtitle("Spot Cell Count - Grid Mean by ECM Protein")+
+  labs(x="ECM Protein", y="Spot Cell Count - Grid Mean")+
+  facet_wrap(~Well_Ligand, ncol = 4)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.4)),
+        axis.title.x = element_text(size=rel(1)),
+        plot.title = element_text(size = rel(.8)),
+        strip.text = element_text(size = rel(.5)),
+        legend.text=element_text(size = rel(.4)),
+        legend.title=element_text(size = rel(.3)))
+p
+
+```
+
+###Residuals from Predictions
+
+For the loess and random forest models (based on the COL1 grids), subtract the predicted spot cell count from the actual spot cell count and summarize the residuals by ECM protein. These box plots summarize the ECM protein effects by removing the ligand effects and correct for spatial variations within each array.  
+
+```{r}
+
+p <- ggplot(slDT, aes(x=factor(ECMp), value-PredictedFGLoess0.5Value))+
+  geom_boxplot()+
+  coord_cartesian(ylim = c(-100,100))+
+  ggtitle("Spot Cell Count - Loess(span=0.5) Prediction by ECM Protein")+
+  labs(x="ECM Protein", y="Spot Cell Count - Prediction")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+        axis.title.x = element_text(size=rel(1)),
+        plot.title = element_text(size = rel(.8)),
+        strip.text = element_text(size = rel(.5)),
+        legend.text=element_text(size = rel(.4)),
+        legend.title=element_text(size = rel(.3)))
+p
+
+p <- ggplot(slDT, aes(x=factor(ECMp), value-PredictedFGLoess1Value))+
+  geom_boxplot()+
+  coord_cartesian(ylim = c(-100,100))+
+  ggtitle("Spot Cell Count - Loess(span=1) Prediction by ECM Protein")+
+  labs(x="ECM Protein", y="Spot Cell Count - Prediction")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+        axis.title.x = element_text(size=rel(1)),
+        plot.title = element_text(size = rel(.8)),
+        strip.text = element_text(size = rel(.5)),
+        legend.text=element_text(size = rel(.4)),
+        legend.title=element_text(size = rel(.3)))
+p
+
+p <- ggplot(slDT, aes(x=factor(ECMp), value-PredictedFGRFValue))+
+  geom_boxplot()+
+  coord_cartesian(ylim = c(-100,100))+
+  ggtitle("Spot Cell Count - Random Forest Prediction by ECM Protein")+
+  labs(x="ECM Protein", y="Spot Cell Count - Prediction")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+        axis.title.x = element_text(size=rel(1)),
+        plot.title = element_text(size = rel(.8)),
+        strip.text = element_text(size = rel(.5)),
+        legend.text=element_text(size = rel(.4)),
+        legend.title=element_text(size = rel(.3)))
+p
+
+```
+
+###Observed vs Predicted
+
+Compare the observed spot cell counts to the random forest COl1 grid predictions. The predictions are for the cell count if the spot contained only COL1. The differences between the obeserved values for ECM proteins different from COL1 and the predicted values can be interpreted as the biological signal due to the added ECM proteins.
+
+```{r, fig.height=13}
+p <- ggplot(slDT, aes(x=PredictedFGRFValue, y=value))+
+  geom_point(alpha=.2, size=.5)+
+  coord_cartesian(xlim=c(0,200), ylim = c(0,200))+
+  ggtitle("Raw vs Random Forest Predictions Spot Cell Counts by Well")+
+  labs(x="Random Forest Predictions", y="Spot Cell Count Observed")+
+  facet_grid(Barcode~Well)
+
+p
+```
+
+###Observed vs Predicted in the COL1 grid
+
+These figures compare the obeserved vs. predicted values in only the COL1 spots. These show the fit of the loess and random forest models. 
+
+```{r, fig.height=13}
+setkey(slDT,ECMp)
+dt <- slDT["COL1",]
+p <- ggplot(dt, aes(x=PredictedFGLoess0.5Value, y=value))+
+  geom_point(alpha=.2, size=.5)+
+  geom_abline(intercept = 0,slope = 1)+
+  coord_cartesian(xlim=c(0,200), ylim = c(0,200))+
+  ggtitle("Raw vs Loess (span=0.5) Predictions Spot Cell Counts by Well")+
+  labs(x="Loess Predictions", y="Spot Cell Count Observed")+
+  facet_grid(Barcode~Well)
+
+p
+
+```
+
+
+```{r, fig.height=13}
+setkey(slDT,ECMp)
+dt <- slDT["COL1",]
+p <- ggplot(dt, aes(x=PredictedFGLoess1Value, y=value))+
+  geom_point(alpha=.2, size=.5)+
+  geom_abline(intercept = 0,slope = 1)+
+  coord_cartesian(xlim=c(0,200), ylim = c(0,200))+
+  ggtitle("Raw vs Loess (span=1) Predictions Spot Cell Counts by Well")+
+  labs(x="Loess Predictions", y="Spot Cell Count Observed")+
+  facet_grid(Barcode~Well)
+
+p
+
+```
+
+
+```{r, fig.height=13}
+setkey(slDT,ECMp)
+dt <- slDT["COL1",]
+p <- ggplot(dt, aes(x=PredictedFGRFValue, y=value))+
+  geom_point(alpha=.2, size=.5)+
+  geom_abline(intercept = 0,slope = 1)+
+  coord_cartesian(xlim=c(0,200), ylim = c(0,200))+
+  ggtitle("Raw vs Random Forest Predictions Spot Cell Counts by Well")+
+  labs(x="Random Forest Predictions", y="Spot Cell Count Observed")+
+  facet_grid(Barcode~Well)
+
+p
+
+```
+
