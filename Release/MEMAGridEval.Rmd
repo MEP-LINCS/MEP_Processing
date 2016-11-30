@@ -75,7 +75,7 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 cellLine<-"HMEC122L"
-ss<-"SS1"
+ss<-"SS4"
 verbose<-TRUE
 devel<- TRUE
 
