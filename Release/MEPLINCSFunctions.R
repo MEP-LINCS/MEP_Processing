@@ -633,7 +633,7 @@ getMEMADataFileNames <- function(dataset){
   ifnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "imageID"))==0){
       Path <- dir(paste0(path,barcode,"/Analysis"),pattern = "imageID", full.names = TRUE)
-      rdfns <- data.table(Barcode=barcode, Path=Path, Type="imageID", Well=NA, Compartment=NA)
+      rdfns <- data.table(Barcode=barcode, Path=Path, Type="imageID", Well=NA, Location=NA)
       
     }
   }, path)
@@ -641,21 +641,21 @@ getMEMADataFileNames <- function(dataset){
   
   mdfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "json|xlsx|an2omero"))==0){
-      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "xlsx|an2omero", full.names = TRUE), Type="metadata", Well=NA, Compartment=NA)
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "xlsx|an2omero", full.names = TRUE), Type="metadata", Well=NA, Location=NA)
     }
   }, path=path)
   mdns <- rbindlist(mdfnL)
   
   gfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "gal"))==0){
-      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "gal", full.names = TRUE), Type="gal", Well=NA, Compartment=NA)
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "gal", full.names = TRUE), Type="gal", Well=NA, Location=NA)
     }
   }, path=path)
   gfns <- rbindlist(gfnL)
   
   xfnL <- lapply(dataset[grepl("Barcode",names(dataset))], function(barcode, path){
     if(!length(dir(paste0(path,barcode,"/Analysis"),pattern = "xml"))==0){
-      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "xml", full.names = TRUE), Type="xml", Well=NA, Compartment=NA)
+      rdfns <- data.table(Barcode=barcode, Path=dir(paste0(path,barcode,"/Analysis"),pattern = "xml", full.names = TRUE), Type="xml", Well=NA, Location=NA)
     }
   }, path=path)
   xfns <- rbindlist(xfnL)
