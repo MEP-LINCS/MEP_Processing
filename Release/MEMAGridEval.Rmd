@@ -1,7 +1,7 @@
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, root.dir="/data/share/dane/MEP-LINCS/MEP_LINCS/Release")
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
 
 ```
 
@@ -22,6 +22,7 @@ library("RColorBrewer")
 library(DT)
 library(d3heatmap)
 library(plotly)
+library(tidyr)
 source("MEPLINCSFunctions.R")
 ```
 
@@ -75,13 +76,10 @@ plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 cellLine<-"HMEC240L"
 ss<-"SS1"
-drug<-"none"
-rawDataVersion<-"v2"
-analysisVersion<-"av1.6"
 verbose<-TRUE
-devel<- TRUE
+devel<- FALSE
 
-slDT <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_SpotLevel.txt"), showProgress = FALSE))
+slDT <- shortenHA(fread(paste0("../AnnotatedData/",cellLine, "_",ss,"_Level3.txt"), showProgress = FALSE))
 slDT$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
 slDT$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
 slDT$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',slDT$ImageID,'/"',' target="_blank">Omero</a>')
@@ -143,24 +141,17 @@ Create and evaluate several types of models for each signal in each well. For ea
 
 ```{r LOO-CV}
 #The dimensions of the data are model, model parameters, signal, array
-#Use lapply/mclapply to enable parallel processing
 #Keep the data in lists for efficiency
 
 #Start with model type
-modelTypes<-list(list(name="loess",span=c(.2,.5,1)),list(name="randomForest"),list(name="1NN"))[[1]]
+modelTypes<-list(list(name="loess",span=c(.2,.5,1)),list(name="randomForest"),list(name="1NN"))
 #Start with only SpotCellCount signal
 signals <- grep("SpotCellCount$",colnames(gslDT), value=TRUE)
+gslDT <- gslDT[,.(Barcode,Well,Ligand,ECMp,MEP,ArrayRow,ArrayColumn,Spot_PA_SpotCellCount,Well_Ligand)]
+setnames(gslDT, "Spot_PA_SpotCellCount","value")
+gslDT$PrintRow <- gslDT$ArrayRow
+gslDT$PrintColumn <- gslDT$ArrayColumn
 
-####
-dt <- gslDT[,.(Barcode,Well,ArrayRow,ArrayColumn,Spot_PA_SpotCellCount,Well_Ligand)]
-setnames(dt, "Spot_PA_SpotCellCount","value")
-dt$PrintRow <- dt$ArrayRow
-dt$PrintColumn <- dt$ArrayColumn
-
-#set.seed(42)
-#dt <- dt[sample(1:nrow(dt),.2*nrow(dt), replace=FALSE),]
-barcodes <- unique(dt$Barcode)
-###
 #Create a wrapper function for modeling with loess
 #Return the predicted values from models that leave out each value, one at a time
 loessLOO <- function(dt, span=1){
@@ -211,10 +202,14 @@ addRFPredictions<-function(dt){
       setkey(dtb,Well)
       dtbw<-dtb[well,]
       dtbw[[paste0("PredictedRFValue")]]<-rfLOO(dtbw)
+      #Add predictions from the full grid
+    m <- randomForest(value~PrintRow+PrintColumn,dtbw)
+    dtbw$PredictedGridRFValue <- predict(m,dtbw)
       return(dtbw)
     }))
   }))
 }
+
 
 #Add the loo knn results
 addknnPredictions<-function(dt){
@@ -229,36 +224,197 @@ addknnPredictions<-function(dt){
     }))
   }))
 }
-#load the modeled data instead of recalcualting it
-if(devel){
-  load("dtPreds.RData")
-} else {
-  dtl1 <- addLoessPredictions(dt,span=.5)
-dtl2 <- addLoessPredictions(dt, span=1)
-dtrf1 <- addRFPredictions(dt)
-dt1nn <- addknnPredictions(dt)
-dtPreds <- merge(merge(merge(dtl1, dtl2),dtrf1),dt1nn)
-dtPreds <- dtPreds[,PredictedLoessValue_0.5Res:=calcResidual(PredictedLoessValue_0.5),by="Barcode,Well,ECMp"]
-dtPreds <- dtPreds[,PredictedLoessValue_1Res:=calcResidual(PredictedLoessValue_1),by="Barcode,Well,ECMp"]
-dtPreds <- dtPreds[,PredictedRFValue:=calcResidual(PredictedRFValue),by="Barcode,Well,ECMp"]
-dtPreds <- dtPreds[,PredictedknnValue:=calcResidual(PredictedknnValue),by="Barcode,Well,ECMp"]
+
+#Add the full grid predictions
+addFGLoessPredictions<-function(dt, span=1){
+  DT <- rbindlist(lapply(barcodes,function(barcode){
+    setkey(dt,Barcode)
+    dtb<-dt[barcode,]
+    wellDT<-rbindlist(lapply(unique(dtb$Well),function(well){
+      setkey(dtb,Well)
+      dtbw<-dtb[well,]
+      #Add predictions from the full grid
+      m <- loess(value~PrintRow+PrintColumn,dtbw, span=span)
+          dtbw[[paste0("PredictedFGLoess",span,"Value")]] <- predict(m,dtbw)
+      return(dtbw)
+    }))
+  }))
 }
 
+addFGRFPredictions<-function(dt){
+  rfDT <- rbindlist(lapply(barcodes,function(barcode){
+    setkey(dt,Barcode)
+    dtb<-dt[barcode,]
+    wellDT<-rbindlist(lapply(unique(dtb$Well),function(well){
+      setkey(dtb,Well)
+      dtbw<-dtb[well,]
+      #Add predictions from the full grid
+      setkey(dtbw,ECMp)
+      m <- randomForest(value~PrintRow+PrintColumn,dtbw["COL1",])
+      dtbw$PredictedFGRFValue <- predict(m,dtbw)
+      return(dtbw)
+    }))
+  }))
+}
+
+addFGknnPredictions<-function(dt){
+  rfDT <- rbindlist(lapply(barcodes,function(barcode){
+    setkey(dt,Barcode)
+    dtb<-dt[barcode,]
+    wellDT<-rbindlist(lapply(unique(dtb$Well),function(well){
+      setkey(dtb,Well)
+      dtbw<-dtb[well,]
+      #Add predictions from the full grid
+      as.integer(knn(train=dtbw[,.(PrintRow,PrintColumn)], cl=factor(dtbw[,value])))
+      m <- randomForest(value~PrintRow+PrintColumn,dtbw)
+      dtbw$PredictedFGRFValue <- predict(m,dtbw)
+      return(dtbw)
+    }))
+  }))
+}
+
+#load the modeled data instead of recalcualting it
+if(!devel){
+  load("preds.RData")
+} else {
+  preds <- merge(merge(merge(addLoessPredictions(gslDT,span=.5), addLoessPredictions(gslDT, span=1)),addRFPredictions(gslDT)),addknnPredictions(gslDT))
+  #Add error values for each prediction
+  preds <- preds[,PredictedLoessValue_0.5Error:=value-PredictedLoessValue_0.5]
+  preds <- preds[,PredictedLoessValue_1Error:=value-PredictedLoessValue_1]
+  preds <- preds[,PredictedRFValueError:=value-PredictedRFValue]
+  preds <- preds[,PredictedknnValueError:=value-PredictedknnValue]
+  save(preds,file="preds.RData")
+  setnames(slDT, "Spot_PA_SpotCellCount","value")
+  slDT$PrintRow <- slDT$ArrayRow
+  slDT$PrintColumn <- slDT$ArrayColumn
+  tmp <- addFGRFPredictions(slDT)
+}
 
 ```
 
 
 ```{r SCCPredictedResidualArrays, fig.width=3.7,fig.height=4, eval=TRUE}
-setkey(dtPreds,Barcode)
-lowThreshValue <- quantile(dtPreds$PredictedLoessValue_0.5,probs=.02,na.rm=TRUE)
-highThreshValue <- quantile(dtPreds$PredictedLoessValue_0.5,probs=.98,na.rm=TRUE)
+setkey(preds,Barcode)
+lowThreshValue <- quantile(preds$PredictedLoessValue_0.5,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(preds$PredictedLoessValue_0.5,probs=.98,na.rm=TRUE)
 
-for(barcode in barcodes[1]){
-  DT <- dtPreds[barcode,]
+for(barcode in barcodes){
+  DT <- preds[barcode,]
   p <- create8WellPseudoImageTriColor(DT, pr = "PredictedLoessValue_0.5",prDisplay = "Predicted Loess Values, span=.5",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
   suppressWarnings(print(p))
 }
 
 ```
+
+```{r, fig.width=3.7,fig.height=4, eval=TRUE}
+setkey(preds,Barcode)
+lowThreshValue <- quantile(preds$PredictedLoessValue_1,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(preds$PredictedLoessValue_1,probs=.98,na.rm=TRUE)
+
+for(barcode in barcodes){
+  DT <- preds[barcode,]
+  p <- create8WellPseudoImageTriColor(DT, pr = "PredictedLoessValue_1",prDisplay = "Predicted Loess Values, span=1",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r, fig.width=3.7,fig.height=4, eval=TRUE}
+setkey(preds,Barcode)
+lowThreshValue <- quantile(preds$PredictedRFValue_1,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(preds$PredictedRFValue_1,probs=.98,na.rm=TRUE)
+
+for(barcode in barcodes){
+  DT <- preds[barcode,]
+  p <- create8WellPseudoImageTriColor(DT, pr = "PredictedRFValue",prDisplay = "Predicted Random Forest Values",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
+  suppressWarnings(print(p))
+}
+
+```
+
+
+```{r, fig.width=3.7,fig.height=4, eval=TRUE}
+setkey(preds,Barcode)
+lowThreshValue <- quantile(preds$PredictedknnValue_1,probs=.02,na.rm=TRUE)
+highThreshValue <- quantile(preds$PredictedknnValue_1,probs=.98,na.rm=TRUE)
+
+for(barcode in barcodes){
+  DT <- preds[barcode,]
+  p <- create8WellPseudoImageTriColor(DT, pr = "PredictedknnValue",prDisplay = "Predicted knn Values",lowThreshValue = lowThreshValue, highThreshValue = highThreshValue)
+  suppressWarnings(print(p))
+}
+
+```
+
+```{r MSECalcs}
+#Calculate the MSE of each array for each model
+preds <- preds[,ArrayMSELoess0.5 := (1/.N)*sum(PredictedLoessValue_0.5Error^2), by="Barcode,Well"]
+preds <- preds[,ArrayMSELoess1 := (1/.N)*sum(PredictedLoessValue_1Error^2), by="Barcode,Well"]
+preds <- preds[,ArrayMSERF := (1/.N)*sum(PredictedRFValueError^2), by="Barcode,Well"]
+preds <- preds[,ArrayMSEknn := (1/.N)*sum(PredictedknnValueError^2), by="Barcode,Well"]
+preds <- preds[,Spot_PA_SpotCellCountGridMean := mean(value, na.rm=TRUE), by="Barcode,Well"]
+
+```
+
+###Model fits using MSE
+
+
+```{r MSEFigure, fig.height=4, fig.width=4}
+
+predsLong  <- gather(preds,"Model","MSE", ArrayMSELoess0.5, ArrayMSELoess1, ArrayMSERF, ArrayMSEknn, factor_key = TRUE) %>%
+  select(Model,MSE, Barcode, Well_Ligand) %>%
+  unique()
+
+p <- ggplot(predsLong, aes(x=Model, y=MSE)) +
+  geom_boxplot(outlier.colour = NA)+
+  geom_jitter(alpha=.5, size=rel(.8))+
+  ggtitle("Array MSE Values by Model")+ 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(1)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),
+        legend.title=element_text(size = rel(.3)))
+p
+
+```
+
+The mean MSE values for each model are:  
+* Loess Span 0.5: `r sprintf("%1.0f", mean(filter(predsLong, Model=="ArrayMSELoess0.5")$MSE))`  
+* Loess Span 1.0: `r sprintf("%1.0f",mean(filter(predsLong, Model=="ArrayMSELoess1")$MSE))`  
+* Random Forest: `r sprintf("%1.0f",mean(filter(predsLong, Model=="ArrayMSERF")$MSE))`  
+* 1-nn: `r sprintf("%1.0f",mean(filter(predsLong, Model=="ArrayMSEknn")$MSE))`  
+
+
+The median MSE values for each model are:  
+* Loess Span 0.5: `r sprintf("%1.0f", median(filter(predsLong, Model=="ArrayMSELoess0.5")$MSE))`  
+* Loess Span 1.0: `r sprintf("%1.0f",median(filter(predsLong, Model=="ArrayMSELoess1")$MSE))`  
+* Random Forest: `r sprintf("%1.0f",median(filter(predsLong, Model=="ArrayMSERF")$MSE))`  
+* 1-nn: `r sprintf("%1.0f",median(filter(predsLong, Model=="ArrayMSEknn")$MSE))`  
+
+
+
+```{r}
+slDT <- merge(slDT,unique(select(preds,Barcode,Well,Spot_PA_SpotCellCountGridMean)),by = c("Barcode","Well"), all=TRUE)
+slDT <- slDT[,Spot_PA_SpotCellCountGridRes := Spot_PA_SpotCellCount-Spot_PA_SpotCellCountGridMean]
+
+```
+###Boxplots of Grid Residuals
+
+Each boxplots contains values from all spots with the named ECM protein.
+
+```{r}
+p <- ggplot(slDT, aes(x=factor(ECMp), Spot_PA_SpotCellCountGridRes))+
+  geom_boxplot()+
+  ggtitle("Spot Cell Count - Grid Mean by ECM Protein")+
+  labs(x="ECM Protein", y="Spot Cell Count")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(1)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),
+        legend.title=element_text(size = rel(.3)))
+p
 
 ```
