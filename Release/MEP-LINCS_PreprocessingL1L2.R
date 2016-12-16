@@ -76,8 +76,6 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
   library(parallel)#use multiple cores for faster processing
-  library(RUVnormalize)
-  library(ruv)
   library("jsonlite")#Reading in json files
   library(stringr)
   
@@ -374,7 +372,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     #Create staining set specific derived parameters
     if (grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)){
       #Use the entire plate to set the autogate threshold if there's no control well
-      if(grepl("FBS",unique(pcDT$Ligand))){
+      if(any(grepl("FBS",unique(pcDT$Ligand)))){
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
       } else {
         pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "."), by="Barcode"]
@@ -733,13 +731,13 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("LM2", "SUM159"),
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Baylor5", "Baylor6"),
+                     cellLine=c("LM2", "LM2","LM2","SUM159","SUM159","SUM159"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
                      rawDataVersion="v2",
-                     limitBarcodes=c(5),
+                     limitBarcodes=c(2,2,1,2,2,1),
                      k=c(64),
                      calcAdjacency=FALSE,
                      writeFiles = TRUE,
@@ -761,7 +759,7 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          useAnnotMetadata=TRUE,
                          stringsAsFactors=FALSE)
 
-validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+validations <- data.frame(datasetName=c("MCF10AHighRep1","MCF10AHighRep3"),
                                         cellLine=c("MCF10A"),
                                         ss=c("SS4"),
                                         drug=c("none"),
@@ -780,5 +778,5 @@ validations <- data.frame(datasetName=c("MCF10AHighRep1"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Baylor, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(Bornstein, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 

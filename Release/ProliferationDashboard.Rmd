@@ -1,0 +1,155 @@
+---
+title: "MCF10A Proliferation"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(readr)
+library(ggplot2)
+library(plotly)
+library(reshape2)
+library(d3heatmap)
+
+dfZoom <- function(x, min=.02, max=1){
+  minMax <- quantile(unlist(x), probs=c(min,max), na.rm=TRUE)
+  cl <- t(apply(x,1, function(c){
+    c[c<minMax[1]] <- minMax[1]
+    c[c>minMax[2]] <- minMax[2]
+    return(c)
+  }))
+  return(data.frame(cl))
+}
+
+df <- read_tsv("./Data/MCF10A_SS2_Level4.txt")
+df <- df[grep("EdUPositiveProportionLogitRUVLoess$|SpotCellCount$|MEP|ECMp$|^Ligand$",colnames(df), value=TRUE)]
+df$Nuclei_PA_Gated_EdUPositiveProportionRUVLoess <- plogis(df$Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)
+
+hmcols<-colorRampPalette(c("blue","white","red"))(16)
+
+```
+
+
+```{r}
+# Reactive that returns the whole dataset if there is no brush
+selectedData <- reactive({
+  data <- brushedPoints(df, input$profHist_brush, yvar="Nuclei_PA_Gated_EdUPositiveProportionRUVLoess",allRows = TRUE)
+  if(!input$include) data <- data[!data$selected_,]
+  else   data <- data[data$selected_,]
+  if (nrow(data) == 0)
+    data <- df
+  data
+})
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+###  {data-width=450}
+
+
+```{r, fig.height=1}
+checkboxInput("include", "Include Selected", value = TRUE)
+```
+
+
+### Proliferation Histogram {data-width=450}
+
+```{r}
+
+plotOutput("profHist", brush = brushOpts(id = "profHist_brush"))
+output$profHist <- renderPlot({
+  ggplot(df, aes( Nuclei_PA_Gated_EdUPositiveProportionRUVLoess)) + geom_histogram(binwidth = .001)+
+    labs(x="Proliferation Proportion")+
+   theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(1)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))
+})
+```
+
+
+### Proliferation and Ligands {data-width=450}
+
+```{r}
+renderPlot({
+  ggplot(selectedData(), aes(factor(Ligand), Nuclei_PA_Gated_EdUPositiveProportionRUVLoess))  + geom_boxplot()+
+      labs(x="Ligand", y="Proliferation\nProportion")+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(1)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))
+
+})
+```
+
+
+
+### Proliferation and ECM Proteins {data-width=450}
+
+```{r}
+renderPlot({
+  ggplot(selectedData(), aes(factor(ECMp), Nuclei_PA_Gated_EdUPositiveProportionRUVLoess))  + geom_boxplot()+
+      labs(x="ECM Protein", y="Proliferation\nProportion")+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(1)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))
+
+})
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+
+### Proliferation vs. Spot Cell Count {data-width=450}
+
+```{r}
+renderPlotly({
+  ggplot(selectedData(), aes(Spot_PA_SpotCellCount, Nuclei_PA_Gated_EdUPositiveProportionRUVLoess, text=MEP))  + geom_point()+
+    labs(x="Cells per Spot", y="Proliferation")+
+   theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(.8)),
+          axis.title.y = element_text(size=rel(.7)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))
+})
+```
+
+
+### Proliferation Heat Map {data-width=450}
+
+```{r EdUHeatmapFull}
+# renderPlot({
+#   ggplot(selectedData(), aes(factor(Ligand), Nuclei_PA_Gated_EdUPositiveProportionRUVLoess))  + geom_boxplot()+
+#       labs(x="Ligand", y="Proliferation\nProportion")+
+#    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),
+#           axis.title.x = element_text(size=rel(1)),
+#           plot.title = element_text(size = rel(.8)),
+#           strip.text = element_text(size = rel(.5)),
+#           legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))
+# 
+# })
+# 
+renderD3heatmap({
+#Cast to get ligands into columns
+dfc <- dcast(selectedData()[c("ECMp","Ligand","Nuclei_PA_Gated_EdUPositiveProportionRUVLoess")],ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionRUVLoess")
+
+rownames(dfc) <- dfc$ECMp
+dfc <- dfc[,!grepl("ECMp",names(dfc))]
+d3heatmap(dfZoom(dfc, .05, .95), xaxis_font_size="5pt", colors=hmcols, yaxis_font_size="4pt",Rowv = FALSE, Colv=FALSE)
+
+})
+
+```
+

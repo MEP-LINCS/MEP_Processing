@@ -34,6 +34,7 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
 l3 <- shortenHA(fread(paste0("../AnnotatedData/",datasetName, "_",ss,"_Level3.txt"), showProgress = FALSE))
 l4 <- shortenHA(fread(paste0("../AnnotatedData/",datasetName, "_",ss,"_Level4.txt"), showProgress = FALSE))
+l4$Spot_PA_SpotCellCountLog2 <- boundedLog2(l4$Spot_PA_SpotCellCount)
 
 barcodes <- sort(unique(l3$Barcode))
 
@@ -334,13 +335,15 @@ l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
 l4F <- createl4(l3F,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Fibrillarin","Caspase"))
+l4F$Spot_PA_SpotCellCountLog2 <- boundedLog2(l4F$Spot_PA_SpotCellCount)
 
-if (grepl("SS2|SS4|SSA",ss)){
+
+if (any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(l4F)))){
   #Add Robust Z Score of the EdU Signal
   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
 }
 
-if (grepl("SS3|SS4",ss)){
+if (any(grepl("Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess",colnames(l4F)))){
   #Add Robust Z Scores of the normalized lineage ratios
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess)]
   
@@ -498,7 +501,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r ProliferationHistogramFull, eval=grepl("SS2|SS4|SS6|SSA",ss)}
+```{r ProliferationHistogramFull, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(l4F)))}
 
 dt <- l4F
 
@@ -509,7 +512,7 @@ p <- ggplot(dt, aes(x=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationRawHistogram, eval=grepl("SSD",ss)}
+```{r ProliferationRawHistogram, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(l4F)))}
 
 dt <- l4F
 
@@ -521,7 +524,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r ProliferationByLigandFull, eval=grepl("SS2|SS4|SS6|SSA|SSD",ss)}
+```{r ProliferationByLigandFull, , eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand"))+
@@ -531,7 +534,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByECMpFull,eval=grepl("SS2|SS4|SS6|SSA|SSD",ss)}
+```{r ProliferationByECMpFull, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein"))+
@@ -546,7 +549,7 @@ suppressWarnings(print(p))
 ```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3|SS4",ss)}
 ```
 
-```{r lineageRatioHistogram,eval=grepl("SS3|SS4",ss)}
+```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess))+geom_histogram(binwidth = .02)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
@@ -556,7 +559,8 @@ p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess))+geom_his
 suppressWarnings(print(p))
 ```
 
-```{r LineageRatioByLigand,eval=grepl("SS3|SS4",ss)}
+```{r LineageRatioByLigand, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess",colnames(dt)))}
+
 p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
@@ -565,7 +569,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r lineageRatioByECMp,eval=grepl("SS3|SS4",ss)}
+```{r lineageRatioByECMp, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged LineageRatio by ECM Protein"))+
@@ -576,7 +580,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r KRT5ByECMp,eval=grepl("SSF",ss)}
+```{r KRT5ByECMp, eval=any(grepl("Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, Logged KRT5 by ECM Protein"))+

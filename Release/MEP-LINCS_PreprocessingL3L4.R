@@ -139,10 +139,10 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
     
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level3.txt"), sep = "\t", quote=FALSE,showProgress = FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level3.txt"), sep = "\t", quote=FALSE)
     
     if(verbose) cat("Writing level 4 file to disk\n")
-    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE,showProgress = FALSE)
+    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE)
     
   }
   cat("Elapsed time:", Sys.time()-startTime)
@@ -317,13 +317,13 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("LM2", "SUM159"),
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Baylor5", "Baylor6"),
+                     cellLine=c("LM2", "LM2","LM2","SUM159","SUM159","SUM159"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
                      rawDataVersion="v2",
-                     limitBarcodes=c(5),
+                     limitBarcodes=c(2,2,1,2,2,1),
                      k=c(64),
                      calcAdjacency=FALSE,
                      writeFiles = TRUE,
@@ -345,7 +345,7 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          useAnnotMetadata=TRUE,
                          stringsAsFactors=FALSE)
 
-validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+validations <- data.frame(datasetName=c("MCF10AHighRep1","MCF10AHighRep3"),
                           cellLine=c("MCF10A"),
                           ss=c("SS4"),
                           drug=c("none"),
@@ -361,5 +361,5 @@ validations <- data.frame(datasetName=c("MCF10AHighRep1"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Baylor, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(Bornstein, 1, preprocessMEPLINCSL3L4, verbose=FALSE)
 

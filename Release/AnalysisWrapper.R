@@ -69,8 +69,8 @@ Vertex <- data.frame(datasetName=c("Vertex1","Vertex2"),
                      rawDataVersion="v2",
                      stringsAsFactors=FALSE)
 
-Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2"),
-                     cellLine=c("LM2", "SUM159"),
+Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Baylor5", "Baylor6"),
+                     cellLine=c("LM2", "LM2","LM2","SUM159","SUM159","SUM159"),
                      ss=c("SSD"),
                      drug=c("unknown"),
                      analysisVersion="av1.7",
@@ -85,7 +85,7 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVor
                          rawDataVersion="v2",
                          stringsAsFactors=FALSE)
 
-validations <- data.frame(datasetName=c("MCF10AHighRep1"),
+validations <- data.frame(datasetName=c("MCF10AHighRep1", "MCF10AHighRep3"),
                           cellLine=c("MCF10A"),
                           ss=c("SS4"),
                           drug=c("none"),
@@ -107,6 +107,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Baylor, 1, renderAnalysisReports)
+tmp <- apply(Bornstein, 1, renderAnalysisReports)
 
 

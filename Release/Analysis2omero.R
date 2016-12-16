@@ -11,7 +11,7 @@ dsm <- read_excel("~/GrayLabData/dane/MEP-LINCS/DatasetManifest.xlsx")
 #Get a list of dataset file names that will get new analysis2omero files
 parentPath <- "/graylab/share/dane/MEP-LINCS/MEP_LINCS/AnnotatedData/"
 l3FileNames <- dir(parentPath, pattern="Level3", full.names = TRUE) %>% 
-  grep("Trametinib",., value=TRUE)
+  grep("HighRep3",., value=TRUE)
 l3FileNames <- l3FileNames[!grepl("SSC|SSR|_CS_",l3FileNames)]
 
 tmpl <- lapply(l3FileNames, function(fn){
