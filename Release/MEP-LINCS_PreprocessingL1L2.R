@@ -14,9 +14,9 @@ source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 
 processan2omero <- function (fileNames) {
-  rbindlist(mclapply(fileNames, function(fn){
+  rbindlist(lapply(fileNames, function(fn){
     #Process each file separately
-    dt <- fread(fn)
+    dt <- fread(fn,header = TRUE)
     
     #Rename to preprocessing pipeline variable names
     setnames(dt,"OSpot","Spot")
@@ -42,7 +42,9 @@ processan2omero <- function (fileNames) {
     nrArrayColumns <- max(dt$ArrayColumn)
     dt$PrintSpot[grepl("B", dt$Well)] <- (nrArrayRows*nrArrayColumns+1)-dt$PrintSpot[grepl("B", dt$Well)]
     return(dt)
-  }, mc.cores=max(4, detectCores())))
+#  }, mc.cores=max(4, detectCores())))
+}))
+    
 }
 
 spotNorm <- function(x){
@@ -139,7 +141,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   if(useAnnotMetadata){
     #readJSONMetadata
     fns <- fileNames$Path[fileNames$Type=="metadata"&grepl("an2omero",fileNames$Path)]
-    metadata <- rbindlist(mclapply(fns[1:limitBarcodes], processan2omero, mc.cores = detectCores()))
+    metadata <- rbindlist(lapply(fns[1:limitBarcodes], processan2omero))
   } else {
     # Read and clean spotmetadata
     
@@ -521,8 +523,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     level1Names <- grep("Norm|RUV|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    
-    fwrite(data.table(format(cDT[,level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    set.seed(42)
+    fwrite(data.table(format(cDT[sample(x = 1:nrow(cDT),size = .1*nrow(cDT),replace = FALSE),level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -745,13 +747,13 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Ba
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
                          drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
-                         limitBarcodes=c(8),
+                         limitBarcodes=c(2),
                          k=c(64),
                          calcAdjacency=TRUE,
                          writeFiles = TRUE,
@@ -778,5 +780,5 @@ validations <- data.frame(datasetName=c("MCF10AHighRep1","MCF10AHighRep3"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Bornstein, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
