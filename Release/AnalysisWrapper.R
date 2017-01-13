@@ -77,7 +77,7 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Ba
                      rawDataVersion="v2",
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
                          drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
@@ -107,6 +107,6 @@ renderAnalysisReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Bornstein, 1, renderAnalysisReports)
+tmp <- apply(MLDDataSet[1:2,], 1, renderAnalysisReports)
 
 

@@ -183,7 +183,7 @@ Vertex <- data.frame(datasetName=c("Vertex1", "Vertex2"),
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
                          drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
@@ -238,6 +238,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(Bornstein, 1, renderQACellReports)
-tmp <- apply(Bornstein, 1, renderQASpotMEPReports)
+tmp <- apply(MLDDataSet[2,], 1, renderQACellReports)
+tmp <- apply(MLDDataSet[2,], 1, renderQASpotMEPReports)
 

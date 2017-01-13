@@ -176,7 +176,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
                                        grepl("Raw",fileNames$Type)]
     splits <- strsplit2(split = "_",plateDataFiles)
     wells <- unique(splits[,dim(splits)[2]-1])
-    wellDataList <- lapply(wells,function(well){
+    wellDataList <- mclapply(wells,function(well){
       if(verbose) cat(paste("Reading and annotating well data for",well,"of plate",barcode)," \n")
       
       wellDataFiles <- grep(well,plateDataFiles,value = TRUE)
@@ -247,8 +247,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
                      B = merge(DT,spotMetadata180,all.x=TRUE))
       }
       return(DT)
-    })#Revert to apply when debugging
-    #})
+    #})#Revert to apply when debugging
+    },mc.cores=detectCores())
     #Create the cell data.table with spot metadata for the plate 
     pcDT <- rbindlist(wellDataList, fill = TRUE)
     rm(wellDataList)
@@ -499,10 +499,11 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       pcDT$Spot_PA_Perimeter[is.na(pcDT$Spot_PA_Perimeter)] <- FALSE
       
     }
-    ##Remove nuclear objects that dont'have cell and cytoplasm data
+    ##Remove nuclear objects that don't have cell and cytoplasm data
     if(any(grepl("SS1|SS3|SS6|SSD|SSF",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
+    if(verbose) cat(barcode, "data has been processed in ", Sys.time()-startTime,"\n")
     return(pcDT)
-    #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
+    #}, mc.cores=detectCores())#Revert to apply when debugging
   })
   cDT <- rbindlist(expDTList, fill = TRUE)
   rm(expDTList)
@@ -521,8 +522,8 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     level1Names <- grep("Norm|RUV|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    
-    fwrite(data.table(format(cDT[,level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    set.seed(42)
+    fwrite(data.table(format(cDT[sample(1:nrow(cDT),.1*nrow(cDT),replace = FALSE),level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -745,10 +746,10 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Ba
                      useAnnotMetadata=FALSE,
                      stringsAsFactors=FALSE)
 
-MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib","MCF10ADMSO","MCF10AVorinostat","MCF10ATrametinib"),
+MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
-                         drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
+                         drug=c("Neratinib","DMSO","Vorinostat","Trametinib"),
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
                          limitBarcodes=c(8),
@@ -778,5 +779,5 @@ validations <- data.frame(datasetName=c("MCF10AHighRep1","MCF10AHighRep3"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(Bornstein, 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
 
