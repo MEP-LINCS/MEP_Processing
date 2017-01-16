@@ -300,6 +300,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     } else {
       dtm$PinDiameter <- 350
     }
+    #names(dtm) <- dataBWI
     return(dtm)
   }, mc.cores=detectCores())
   #Add names to the data.tables in the list
@@ -307,225 +308,219 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   cat("converting list to datatable")
   cDT <- rbindlist(expDTList)
   Sys.time()-startTime
-#   
-#   if(!useAnnotMetadata){
-#     #Read the well metadata from a multi-sheet Excel file
-#     #wellMetadata <- data.table(readMetadata(paste0(filePath,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
-#     #Debug reDAPI plates with new file structure
-#     wellMetadata <- data.table(readMetadata(fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="metadata"]), key="Well")
-#     #merge well metadata with the data and spot metadata
-#     pcDT <- merge(pcDT,wellMetadata,by = "Well")
-#     #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-#     nrArrayRows <- max(pcDT$ArrayRow)
-#     nrArrayColumns <- max(pcDT$ArrayColumn)
-#     pcDT$PrintSpot <- pcDT$Spot
-#     pcDT$PrintSpot[grepl("B", pcDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-pcDT$PrintSpot[grepl("B", pcDT$Well)]
-#   }
-#   
-  # if(mergeOmeroIDs){
-  #   barcodes <- unique(cDT$Barcodes)
-  #   imageURLFile <- fileNames$Path[grepl(barcode,fileNames$Barcode)&grepl("imageID",fileNames$Type)]
-  #   #Read in and merge the Omero URLs
-  #   omeroIndex <- fread(fileNames$Path[grepl(barcode,fileNames$Barcode)&grepl("imageID",fileNames$Type)])[,list(WellName,Row,Column,ImageID)]
-  #   m <- regexpr("Well[[:digit:]]",omeroIndex$WellName)
-  #   wellNames <- regmatches(omeroIndex$WellName,m)
-  #   omeroIndex$Well <- sapply(gsub("Well","",wellNames,""),FUN=switch,
-  #                             "1"="A01",
-  #                             "2"="A02",
-  #                             "3"="A03",
-  #                             "4"="A04",
-  #                             "5"="B01",
-  #                             "6"="B02",
-  #                             "7"="B03",
-  #                             "8"="B04")
-  #   setnames(omeroIndex,"Row","ArrayRow")
-  #   setnames(omeroIndex,"Column","ArrayColumn")
-  #   omeroIndex <- omeroIndex[,WellName:=NULL]
-  #   pcDT <- merge(pcDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
-  # }
-
-#   #Set 2N and 4N DNA status
-#   pcDT <- pcDT[,Nuclei_PA_Cycle_State := gateOnlocalMinima(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
-#   
-#   pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
-#   pcDT <- pcDT[,Nuclei_PA_Cycle_DNA4NProportion := 1-Nuclei_PA_Cycle_DNA2NProportion]
-#   
-#   #Logit transform DNA Proportions
-#   #logit(p) = log[p/(1-p)]
-#   if(any(grepl("Nuclei_PA_Cycle_DNA2NProportion",colnames(pcDT)))){
-#     pcDT <- pcDT[,Nuclei_PA_Cycle_DNA2NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA2NProportion)]
-#   }
-#   
-#   if(any(grepl("Nuclei_PA_Cycle_DNA4NProportion",colnames(pcDT)))){
-#     pcDT <- pcDT[,Nuclei_PA_Cycle_DNA4NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA4NProportion)]
-#   }
-#   
-#   
-#   if(!useAnnotMetadata){
-#     #Create short display names, then replace where not unique
-#     #Use entire AnnotID for ligands with same uniprot IDs
-#     # pcDT$Ligand[grepl("NRG1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = pcDT$Ligand[grepl("NRG1",pcDT$Ligand)])
-#     # pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = pcDT$Ligand[grepl("TGFB1",pcDT$Ligand)])
-#     # pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = pcDT$Ligand[grepl("CXCL12",pcDT$Ligand)])
-#     # pcDT$Ligand[grepl("IGF1",pcDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = pcDT$Ligand[grepl("IGF1",pcDT$Ligand)])
-#   }
-#   
-#   
-#   #Create staining set specific derived parameters
-#   if (grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)){
-#     #Use the entire plate to set the autogate threshold if there's no control well
-#     if(any(grepl("FBS",unique(pcDT$Ligand)))){
-#       pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
-#     } else {
-#       pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "."), by="Barcode"]
-#     }
-#     
-#     #Modify the gate threshold to be 3 sigma from the EdU- median
-#     EdUDT <- pcDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
-#     EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
-#     pcDT <- merge(pcDT,EdUDT,by=c("Barcode","Well"))
-#     #Overide autogate for AU565 cell line in Lapatinib MEMAs
-#     pcDT$Nuclei_PA_Gated_EdUPositive[pcDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>pcDT$Median3SD]<-1
-#     if(grepl("AU565_Lapatinib|AU565_DMSO",datasetName)){
-#       pcDT$Nuclei_PA_Gated_EdUPositive <- 0
-#       pcDT$Nuclei_PA_Gated_EdUPositive[pcDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>10] <- 1 
-#     }
-#     #Calculate the EdU Positive Percent at each spot
-#     pcDT <- pcDT[,Nuclei_PA_Gated_EdUPositiveProportion := sum(Nuclei_PA_Gated_EdUPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     #Logit transform EdUPositiveProportion
-#     #logit(p) = log[p/(1-p)]
-#     pcDT <-pcDT[,Nuclei_PA_Gated_EdUPositiveProportionLogit:= boundedLogit(Nuclei_PA_Gated_EdUPositiveProportion)]
-#   } 
-#   if (grepl("SS3|SS4",ss)){
-#     #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
-#     pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
-#     pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
-#     #Gate the KRT signals using kmeans clustering and calculate the spot proportions
-#     
-#     if(grepl("HMEC",cellLine)) {
-#       pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
-#     } else {
-#       pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",ctrlLigand = "."), by="Barcode"]
-#     }
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT19Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",ctrlLigand = "."), by="Barcode"]
-#     #Determine the class of each cell based on KRT5 and KRT19 class
-#     #0 double negative
-#     #1 KRT5+, KRT19-
-#     #2 KRT5-, KRT19+
-#     #3 KRT5+, KRT19+
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRTClass := Cytoplasm_PA_Gated_KRT5Positive+2*Cytoplasm_PA_Gated_KRT19Positive]
-#     #Calculate the positive proportion at each spot
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5PositiveProportion := sum(Cytoplasm_PA_Gated_KRT5Positive)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5PositiveProportion)]
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRT19Positive)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT19PositiveProportion)]
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5KRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5KRT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19NegativeProportion)]
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportion)]
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion)]
-#   }
-#   if (grepl("SS4",ss)){
-#     #Determine the class of each cell based on KRT19 and EdU class
-#     #0 double negative
-#     #1 KRT19+, EdU-
-#     #2 KRT19-, EdU+
-#     #3 KRT19+, EdU+
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUKRT19Class := Cytoplasm_PA_Gated_KRT19Positive+2*Nuclei_PA_Gated_EdUPositive]
-#     #Calculate gating proportions for EdU and KRT19
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUKRT19NegativeProportion := sum(Cells_PA_Gated_EdUKRT19Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT19NegativeProportion)]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUPositiveKRT19NegativeProportion := sum(Cells_PA_Gated_EdUKRT19Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUPositiveKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT19NegativeProportion)]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUNegativeKRT19PositiveProportion := sum(Cells_PA_Gated_EdUKRT19Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUNegativeKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT19PositiveProportion)]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUKRT19PositiveProportion := sum(Cells_PA_Gated_EdUKRT19Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT19PositiveProportion)]
-#   }
-#   
-#   if (grepl("SS6",ss)){
-#     #Calculate a lineage ratio of luminal/basal or KRT19/KRT14
-#     pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT14]
-#     pcDT <- pcDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
-#   }
-#   if (grepl("SSF",ss)){
-#     #Determine the class of each cell based on KRT5 and EdU class
-#     #0 double negative
-#     #1 KRT5+, EdU-
-#     #2 KRT5-, EdU+
-#     #3 KRT5+, EdU+
-#     pcDT <- pcDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUKRT5Class := Cytoplasm_PA_Gated_KRT5Positive+2*Nuclei_PA_Gated_EdUPositive]
-#     #Calculate gating proportions for EdU and KRT19
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5NegativeProportion)]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT5NegativeProportion)]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT5PositiveProportion)]
-#     pcDT <- pcDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-#     pcDT <-pcDT[,Cells_PA_Gated_EdUKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
-#   }
-#   
-#   ##Remove nuclear objects that dont'have cell and cytoplasm data
-#   if(any(grepl("SS1|SS3|SS6|SSD|SSF",ss))) pcDT <- pcDT[!is.na(pcDT$Cells_CP_AreaShape_MajorAxisLength),]
-#   return(pcDT)
-#   #}, mc.cores=max(4, detectCores()))#Revert to apply when debugging
-# })
-cDT <- rbindlist(expDTList, fill = TRUE)
-rm(expDTList)
-gc()
-
-
-
-# The cell level raw data and metadata is saved as Level 1 data. 
-if(writeFiles){
-  #Write out cDT without normalized values as level 1 dataset
-  level1Names <- grep("Norm|RUV|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
-  if(verbose) cat("Writing level 1 file to disk\n")
-  writeTime<-Sys.time()
-  set.seed(42)
-  fwrite(data.table(format(cDT[sample(x = 1:nrow(cDT),size = .1*nrow(cDT),replace = FALSE),level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
-  cat("Write time:", Sys.time()-writeTime,"\n")
+  #   
+  #   if(!useAnnotMetadata){
+  #     #Read the well metadata from a multi-sheet Excel file
+  #     #wellMetadata <- data.table(readMetadata(paste0(filePath,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
+  #     #Debug reDAPI plates with new file structure
+  #     wellMetadata <- data.table(readMetadata(fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="metadata"]), key="Well")
+  #     #merge well metadata with the data and spot metadata
+  #     pcDT <- merge(pcDT,wellMetadata,by = "Well")
+  #     #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
+  #     nrArrayRows <- max(pcDT$ArrayRow)
+  #     nrArrayColumns <- max(pcDT$ArrayColumn)
+  #     pcDT$PrintSpot <- pcDT$Spot
+  #     pcDT$PrintSpot[grepl("B", pcDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-pcDT$PrintSpot[grepl("B", pcDT$Well)]
+  #   }
+  #   
+  if(mergeOmeroIDs){
+    barcodes <- unique(cDT$Barcodes)
+    for(barcode in unique(cDT$Barcode)){
+      imageURLFile <- fileNames$Path[grepl(barcode,fileNames$Barcode)&grepl("imageID",fileNames$Type)]
+      #Read in and merge the Omero URLs
+      omeroIndex <- fread(fileNames$Path[grepl(barcode,fileNames$Barcode)&grepl("imageID",fileNames$Type)])[,list(WellName,Row,Column,ImageID)]
+      m <- regexpr("Well[[:digit:]]",omeroIndex$WellName)
+      wellNames <- regmatches(omeroIndex$WellName,m)
+      omeroIndex$Well <- sapply(gsub("Well","",wellNames,""),FUN=switch,
+                                "1"="A01",
+                                "2"="A02",
+                                "3"="A03",
+                                "4"="A04",
+                                "5"="B01",
+                                "6"="B02",
+                                "7"="B03",
+                                "8"="B04")
+      setnames(omeroIndex,"Row","ArrayRow")
+      setnames(omeroIndex,"Column","ArrayColumn")
+      omeroIndex <- omeroIndex[,WellName:=NULL]
+      cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
+    }
+  }
   
-  #### SpotLevel ####
-  #The cell-level data is median summarized to the spot level and saved to disk
-  if(verbose) cat("Creating spot level data\n")
-  slDT <- createl3(cDT, lthresh, seNames = seNames)
-  rm(cDT)
-  gc()
-  fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+  #Set 2N and 4N DNA status
+  cDT <- cDT[,Nuclei_PA_Cycle_State := gateOnlocalMinima(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
   
-  #Write the pipeline parameters to  tab-delimited file
-  write.table(c(
-    ss=ss,
-    cellLine = cellLine,
-    analysisVersion = analysisVersion,
-    rawDataVersion = rawDataVersion,
-    neighborhoodNucleiRadii = neighborhoodNucleiRadii,
-    neighborsThresh = neighborsThresh,
-    wedgeAngs = wedgeAngs,
-    outerThresh = outerThresh,
-    nuclearAreaThresh = nuclearAreaThresh,
-    nuclearAreaHiThresh = nuclearAreaHiThresh,
-    curatedOnly = curatedOnly,
-    curatedCols = curatedCols,
-    writeFiles = writeFiles,
-    limitBarcodes = limitBarcodes,
-    k = k,
-    normToSpot = normToSpot,
-    lowSpotCellCountThreshold = lowSpotCellCountThreshold,
-    lowRegionCellCountThreshold = lowRegionCellCountThreshold,
-    lowWellQAThreshold = lowWellQAThreshold,
-    lowReplicateCount =lowReplicateCount,
-    lthresh = lthresh
-  ),
-  paste0("MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
-}
-cat("Elapsed time:", Sys.time()-startTime, "\n")
+  cDT <- cDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
+  cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportion := 1-Nuclei_PA_Cycle_DNA2NProportion]
+  
+  #Logit transform DNA Proportions
+  #logit(p) = log[p/(1-p)]
+  if(any(grepl("Nuclei_PA_Cycle_DNA2NProportion",colnames(cDT)))){
+    cDT <- cDT[,Nuclei_PA_Cycle_DNA2NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA2NProportion)]
+  }
+  
+  if(any(grepl("Nuclei_PA_Cycle_DNA4NProportion",colnames(cDT)))){
+    cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA4NProportion)]
+  }
+  
+  
+  if(!useAnnotMetadata){
+    #Create short display names, then replace where not unique
+    #Use entire AnnotID for ligands with same uniprot IDs
+    # cDT$Ligand[grepl("NRG1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = cDT$Ligand[grepl("NRG1",cDT$Ligand)])
+    # cDT$Ligand[grepl("TGFB1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = cDT$Ligand[grepl("TGFB1",cDT$Ligand)])
+    # cDT$Ligand[grepl("CXCL12",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = cDT$Ligand[grepl("CXCL12",cDT$Ligand)])
+    # cDT$Ligand[grepl("IGF1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = cDT$Ligand[grepl("IGF1",cDT$Ligand)])
+  }
+  
+  
+  #Create staining set specific derived parameters
+  if (grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",ss)){
+    #Use the entire plate to set the autogate threshold if there's no control well
+    if(any(grepl("FBS",unique(cDT$Ligand)))){
+      cDT <- cDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
+    } else {
+      cDT <- cDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "."), by="Barcode"]
+    }
+    
+    #Modify the gate threshold to be 3 sigma from the EdU- median
+    EdUDT <- cDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
+    EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
+    cDT <- merge(cDT,EdUDT,by=c("Barcode","Well"))
+    #Overide autogate for AU565 cell line in Lapatinib MEMAs
+    cDT$Nuclei_PA_Gated_EdUPositive[cDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>cDT$Median3SD]<-1
+    if(grepl("AU565_Lapatinib|AU565_DMSO",datasetName)){
+      cDT$Nuclei_PA_Gated_EdUPositive <- 0
+      cDT$Nuclei_PA_Gated_EdUPositive[cDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>10] <- 1
+    }
+    #Calculate the EdU Positive Percent at each spot
+    cDT <- cDT[,Nuclei_PA_Gated_EdUPositiveProportion := sum(Nuclei_PA_Gated_EdUPositive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    #Logit transform EdUPositiveProportion
+    #logit(p) = log[p/(1-p)]
+    cDT <-cDT[,Nuclei_PA_Gated_EdUPositiveProportionLogit:= boundedLogit(Nuclei_PA_Gated_EdUPositiveProportion)]
+  }
+  if (grepl("SS3|SS4",ss)){
+    #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
+    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
+    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
+    #Gate the KRT signals using kmeans clustering and calculate the spot proportions
+    
+    if(grepl("HMEC",cellLine)) {
+      cDT <- cDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
+    } else {
+      cDT <- cDT[,Cytoplasm_PA_Gated_KRT5Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",ctrlLigand = "."), by="Barcode"]
+    }
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT19Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",ctrlLigand = "."), by="Barcode"]
+    #Determine the class of each cell based on KRT5 and KRT19 class
+    #0 double negative
+    #1 KRT5+, KRT19-
+    #2 KRT5-, KRT19+
+    #3 KRT5+, KRT19+
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRTClass := Cytoplasm_PA_Gated_KRT5Positive+2*Cytoplasm_PA_Gated_KRT19Positive]
+    #Calculate the positive proportion at each spot
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5PositiveProportion := sum(Cytoplasm_PA_Gated_KRT5Positive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5PositiveProportion)]
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRT19Positive)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cytoplasm_PA_Gated_KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT19PositiveProportion)]
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5KRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5KRT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19NegativeProportion)]
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5PositiveKRT19NegativeProportion)]
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5KRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5KRT19PositiveProportion)]
+  }
+  if (grepl("SS4",ss)){
+    #Determine the class of each cell based on KRT19 and EdU class
+    #0 double negative
+    #1 KRT19+, EdU-
+    #2 KRT19-, EdU+
+    #3 KRT19+, EdU+
+    cDT <- cDT[,Cells_PA_Gated_EdUKRT19Class := Cytoplasm_PA_Gated_KRT19Positive+2*Nuclei_PA_Gated_EdUPositive]
+    #Calculate gating proportions for EdU and KRT19
+    cDT <- cDT[,Cells_PA_Gated_EdUKRT19NegativeProportion := sum(Cells_PA_Gated_EdUKRT19Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT19NegativeProportion)]
+    cDT <- cDT[,Cells_PA_Gated_EdUPositiveKRT19NegativeProportion := sum(Cells_PA_Gated_EdUKRT19Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUPositiveKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT19NegativeProportion)]
+    cDT <- cDT[,Cells_PA_Gated_EdUNegativeKRT19PositiveProportion := sum(Cells_PA_Gated_EdUKRT19Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUNegativeKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT19PositiveProportion)]
+    cDT <- cDT[,Cells_PA_Gated_EdUKRT19PositiveProportion := sum(Cells_PA_Gated_EdUKRT19Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT19PositiveProportion)]
+  }
+  
+  if (grepl("SS6",ss)){
+    #Calculate a lineage ratio of luminal/basal or KRT19/KRT14
+    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT14]
+    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
+  }
+  if (grepl("SSF",ss)){
+    #Determine the class of each cell based on KRT5 and EdU class
+    #0 double negative
+    #1 KRT5+, EdU-
+    #2 KRT5-, EdU+
+    #3 KRT5+, EdU+
+    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
+    cDT <- cDT[,Cells_PA_Gated_EdUKRT5Class := Cytoplasm_PA_Gated_KRT5Positive+2*Nuclei_PA_Gated_EdUPositive]
+    #Calculate gating proportions for EdU and KRT19
+    cDT <- cDT[,Cells_PA_Gated_EdUKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5NegativeProportion)]
+    cDT <- cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT5NegativeProportion)]
+    cDT <- cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT5PositiveProportion)]
+    cDT <- cDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+    cDT <-cDT[,Cells_PA_Gated_EdUKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
+  }
+  
+  ##Remove nuclear objects that dont'have cell and cytoplasm data
+  if(any(grepl("SS1|SS3|SS6|SSD|SSF",ss))) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
+  
+  # The cell level raw data and metadata is saved as Level 1 data. 
+  if(writeFiles){
+    #Write out cDT without normalized values as level 1 dataset
+    level1Names <- grep("Norm|RUV|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
+    if(verbose) cat("Writing level 1 file to disk\n")
+    writeTime<-Sys.time()
+    set.seed(42)
+    fwrite(data.table(format(cDT[sample(x = 1:nrow(cDT),size = .1*nrow(cDT),replace = FALSE),level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    cat("Write time:", Sys.time()-writeTime,"\n")
+    
+    #### SpotLevel ####
+    #The cell-level data is median summarized to the spot level and saved to disk
+    if(verbose) cat("Creating spot level data\n")
+    slDT <- createl3(cDT, lthresh, seNames = seNames)
+    rm(cDT)
+    gc()
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+    
+    #Write the pipeline parameters to  tab-delimited file
+    write.table(c(
+      ss=ss,
+      cellLine = cellLine,
+      analysisVersion = analysisVersion,
+      rawDataVersion = rawDataVersion,
+      neighborhoodNucleiRadii = neighborhoodNucleiRadii,
+      neighborsThresh = neighborsThresh,
+      wedgeAngs = wedgeAngs,
+      outerThresh = outerThresh,
+      nuclearAreaThresh = nuclearAreaThresh,
+      nuclearAreaHiThresh = nuclearAreaHiThresh,
+      curatedOnly = curatedOnly,
+      curatedCols = curatedCols,
+      writeFiles = writeFiles,
+      limitBarcodes = limitBarcodes,
+      k = k,
+      normToSpot = normToSpot,
+      lowSpotCellCountThreshold = lowSpotCellCountThreshold,
+      lowRegionCellCountThreshold = lowRegionCellCountThreshold,
+      lowWellQAThreshold = lowWellQAThreshold,
+      lowReplicateCount =lowReplicateCount,
+      lthresh = lthresh
+    ),
+    paste0("MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
+  }
+  cat("Elapsed time:", Sys.time()-startTime, "\n")
 }
 
 PC3df <- data.frame(datasetName=c("PC3_SS1","PC3_SS2","PC3_SS3","PC3_SS2noH3"),
@@ -720,7 +715,7 @@ MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AV
                          limitBarcodes=c(8),
                          k=c(64),
                          calcAdjacency=TRUE,
-                         writeFiles = FALSE,
+                         writeFiles = TRUE,
                          mergeOmeroIDs = TRUE,
                          useAnnotMetadata=TRUE,
                          stringsAsFactors=FALSE)
