@@ -145,7 +145,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
   
   startTime <- Sys.time()
-  debugLimiter <- 8
+  debugLimiter <- 2
   expDTList <- mclapply(unique(dataBWInfo$Well)[1:debugLimiter], function(well){
     if(verbose) cat(paste("Reading and annotating data for",barcode, well,"\n"))
     nuclei <- convertColumnNames(fread(dataBWInfo$Path[grepl("Nuclei",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
@@ -453,121 +453,23 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       lthresh = lthresh
     ),
     paste0(barcodePath, "/Analysis/", barcode,"_","Level1PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
-  }
-  cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
-}
-
-
-preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
-  barcode <- gsub(".*/","",barcodePath)
-  path <- gsub(barcode,"",barcodePath)
-  if (verbose) cat("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n")
-  functionStartTime<- Sys.time()
-  startTime<- Sys.time()
-  writeFiles<-TRUE
-  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
-  
-  #library(limma)#read GAL file and strsplit2
-  library(MEMA)#merge, annotate and normalize functions
-  library(data.table)#fast file reads, data merges and subsetting
-  library(parallel)#use multiple cores for faster processing
-  library(stringr)
-  
-  #QA flags are used to enable analyses that require minimum cell and
-  #replicate counts
-  
-  #Set a threshold for the lowSpotCellCount flag
-  lowSpotCellCountThreshold <- 5
-  
-  #Set a threshold for the lowRegionCellCount flag
-  lowRegionCellCountThreshold <- .4
-  
-  #Set a threshold for the loess well level QA Scores
-  lthresh <- 0.6
-  
-  #Set a threshold for lowWellQA flag
-  lowWellQAThreshold <- .7
-  
-  #Set a threshold for the lowSpotReplicates flag
-  lowReplicateCount <- 3
-  
-  #Read in the plate's cell level data
-  cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
-  
-  #Calculate the proportions in the gates
-  calcProportion <- function(x){
-    sum(x)/length(x)
-  }
-  
-  #Count the cells at each spot at the cell level as needed by createl3
-  cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
-  cDT <- cDT[,Spot_PA_SpotCellCountLog2 := boundedLog2(Spot_PA_SpotCellCount)]
-  
-  #Calculate proportions for gated signals
-  gatedSignals <- grep("Positive|High",colnames(cDT), value=TRUE)
-  proportions <- cDT[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
-  setnames(proportions,
-           grep("Gated",colnames(proportions),value=TRUE),
-           paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
-  #Calculate logits of proportions
-  proportionSignals <- grep("Proportion",colnames(proportions), value=TRUE)
-  proportionLogits <- proportions[,lapply(.SD, boundedLogit),by="Barcode,Well,Spot", .SDcols=proportionSignals]
-  setnames(proportionLogits,
-           grep("Proportion",colnames(proportionLogits),value=TRUE),
-           paste0(grep("Proportion",colnames(proportionLogits),value=TRUE),"Logit"))
-  proportionsDT <-merge(proportions,proportionLogits)
-  
-  #Create proportions and logits of mutlivariate gates
-  if ("Cytoplasm_PA_Gated_KRTClass" %in% colnames(cDT)){
-    #Determine the class of each cell based on KRT5 and KRT19 class
-    #0 double negative
-    #1 KRT5+, KRT19-
-    #2 KRT5-, KRT19+
-    #3 KRT5+, KRT19+
-    #Calculate gating proportions for EdU and KRT19
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5RT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5RT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5RT19NegativeProportion)]
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
-    cDT <- cDT[,Cells_PA_Gated_KRT5PositiveKRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_KRT5PositiveKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_KRT5PositiveKRT19NegativeProportion)]
-    cDT <- cDT[,Cells_PA_Gated_KRT5PositivedKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_Cells_PA_Gated_KRT5PositivedKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_KRT5PositivedKRT19PositiveProportion)]
-  }
-  
-  if ("Cells_PA_Gated_EdUKRT5Class" %in% colnames(cDT)){
-    #Determine the class of each cell based on KRT5 and EdU class
-    #0 double negative
-    #1 KRT5+, EdU-
-    #2 KRT5-, EdU+
-    #3 KRT5+, EdU+
-    #Calculate gating proportions for EdU and KRT5
-    cDT <- cDT[,Cells_PA_Gated_EdUKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5NegativeProportion)]
-    cDT <- cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT5NegativeProportion)]
-    cDT <- cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT5PositiveProportion)]
-    cDT <- cDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
-  }
-  #median summaerize the rest of the signals
-  signalDT <- createl3(cDT,lthresh, seNames)
-  spotDT <- merge(signalDT,proportionsDT)
-  
-  #Summarize 
-  # The cell level raw data and metadata is saved as Level 1 data. 
-  if(writeFiles){
-    #Write out cDT without normalized values as level 1 dataset
-    if(verbose) cat("Writing spot level data to disk\n")
-    writeTime<-Sys.time()
-    fwrite(data.table(format(spotDT, digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","SpotLevel.tsv"), sep = "\t", quote=FALSE)
-    cat("Write time:", Sys.time()-writeTime,"\n")
+    
+    #Write the File Annotations for Synapse to tab-delimited file
+    write.table(c(
+      CellLine = unique(cDT$CellLine),
+      Preprocess = analysisVersion,
+      DataType = "Quanititative Imaging",
+      Consortia = "MEP-LINCS",
+      Drug = gsub("_.*","",unique(cDT$Drug1)),
+      Segmentation = rawDataVersion,
+      StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+      Level = "1"
+    ),
+    paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
 }
 
 barcodePath <-commandArgs(trailingOnly = TRUE)
 res <- preprocessMEMACell(barcodePath, verbose=TRUE)
-res <- preprocessMEMASpot(barcodePath, verbose=TRUE)
 
