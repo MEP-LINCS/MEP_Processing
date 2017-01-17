@@ -360,5 +360,5 @@ validations <- data.frame(datasetName=c("MCF10AHighRep1","MCF10AHighRep3"),
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(MLDDataSet[1:2,], 1, preprocessMEPLINCSL3L4, verbose=TRUE)
 

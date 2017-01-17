@@ -238,6 +238,6 @@ renderQACellReports <- function(x){
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet[2,], 1, renderQACellReports)
-tmp <- apply(MLDDataSet[2,], 1, renderQASpotMEPReports)
+tmp <- apply(MLDDataSet[1:2,], 1, renderQACellReports)
+tmp <- apply(MLDDataSet[1:2,], 1, renderQASpotMEPReports)
 
