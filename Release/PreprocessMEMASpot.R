@@ -4,12 +4,58 @@
 #author: "Mark Dane"
 # 1/16/17
 
-
-#Debug document this library stucture
-.libPaths(c("/home/users/dane/R/x86_64-pc-linux-gnu-library/3.3","~/R/x86_64-redhat-linux-gnu-library/3.3"))
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-.libPaths(c("~/R/x86_64-redhat-linux-gnu-library/3.3"))
+se <- function(x) sd(x)/sqrt(sum(!is.na(x)))
+#' Summarize cell level data to the spot level
+#' 
+#' Median summarize the cell level normalized values and the most biologically 
+#' interpretable raw data at each spot, calculate the standard errors and add
+#' SE columns for all median summarized data
+#' @param cDT The datatable of cell level data to be summarized
+#' @param lthresh The threshold used in the loess model to define low cell count
+#'  regions
+#'  @return A datatable of spot-level, median summarized data with standard error values and 
+#'  metadata
+#' @export
+summarizeToSpot <- function(cDT, lthresh = lthresh, seNames=NULL){
+  #Summarize cell data to medians of the spot parameters
+  parameterNames<-grep(pattern="(Children|_CP_|_PA_)",x=names(cDT),value=TRUE)
+  
+  #Remove spot-normalized or summarized parameters
+  parameterNames <- grep("SpotNorm|Wedge|Sparse|OuterCell|Center|^Nuclei_PA_Gated_EduPositive$",parameterNames,value=TRUE,invert=TRUE)
+  
+  slDT<-cDT[,lapply(.SD, numericMedian), by="Barcode,Well,Spot", .SDcols=parameterNames]
+  #Use seNames to select the parameters that get SE values
+  if(!is.null(seNames)){
+    seNamesPattern<-paste(seNames,collapse="|")
+    seNames <- grep(seNamesPattern,parameterNames,value=TRUE)
+    slDTse <- cDT[,lapply(.SD,se), by="Barcode,Well,Spot", .SDcols=seNames]
+  } else{
+    slDTse <- cDT[,lapply(.SD,se), by="Barcode,Well,Spot"]
+  }
+  
+  #Add _SE to the standard error column names
+  setnames(slDTse, grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE), paste0(grep("Barcode|^Well$|^Spot$",colnames(slDTse), value = TRUE, invert = TRUE),"_SE"))
+  
+  #Merge back in the spot and well metadata
+  metadataNames <- grep("(Row|Column|PrintOrder|Block|^ID$|Array|CellLine|Ligand|Drug|Endpoint|ECMp|MEP|Well_Ligand|ECM|ImageID|Barcode|^Well$|^PrintSpot$|^Spot$|Pin|Lx)", x=colnames(cDT), value=TRUE)
+  setkey(cDT,Barcode, Well,Spot)
+  mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
+  slDT <- mDT[slDT, mult="first"]
+  #Merge in the standard err values
+  setkey(slDTse, Barcode, Well, Spot)
+  slDT <- slDTse[slDT]
+  #Add a count of replicates
+  slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="Ligand,ECMp"]
+  
+  #Add the loess model of the SpotCellCount on a per well basis
+  slDT <- slDT[,Spot_PA_LoessSCC := loessModel(.SD, value="Spot_PA_SpotCellCount", span=.5), by="Barcode,Well"]
+  
+  #Add well level QA Scores to spot level data
+  slDT <- slDT[,QAScore := calcQAScore(.SD, threshold=lthresh, maxNrSpot = max(cDT$ArrayRow)*max(cDT$ArrayColumn),value="Spot_PA_LoessSCC"),by="Barcode,Well"]
+  return(slDT)
+}
 
 
 preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
@@ -29,7 +75,7 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   
   #Set a threshold for the loess well level QA Scores
   lthresh <- 0.6
-
+  
   #Read in the plate's cell level data and annotations
   cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
   annotations <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1Annotations.tsv"),header = FALSE)
@@ -91,8 +137,9 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
     cDT <- cDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
     cDT <-cDT[,Cells_PA_Gated_EdUKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
   }
-  #median summaerize the rest of the signals
-  signalDT <- createl3(cDT,lthresh, seNames)
+
+  #median summarize the rest of the signals
+  signalDT <- summarizeToSpot(cDT,lthresh, seNames)
   spotDT <- merge(signalDT,proportionsDT)
   
   #Summarize 

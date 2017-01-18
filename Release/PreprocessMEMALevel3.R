@@ -8,7 +8,6 @@ source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   startTime <- Sys.time()
-  limitBarcodes<-2
   writeFiles<-TRUE
   seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
   
@@ -19,6 +18,8 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   library(ruv)
   library(stringr)
   library(googlesheets)
+  library(tidyr)
+  library(readr)
   
   #Set a threshold for the lowSpotCellCount flag
   lowSpotCellCountThreshold <- 5
@@ -36,19 +37,20 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   ptObj <- gs_url("https://docs.google.com/spreadsheets/d/1QefmAsK2B_no3iL-epx198pP_HVJegOlku_nliiy3eg/pubhtml")
   ptData <- gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE) %>%
     read_csv()
-  ptData <- read_csv(gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE))
+  #ptData <- read_csv(gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE))
   barcodes <- str_split(ptData[["Plate IDs"]][ptData[["Expt Name"]]==datasetName], ",") %>%
     unlist()
   
   spotDTL <- mclapply(barcodes, function(barcode, path){
-    sd <- fread(paste0(path,barcode,"/Analysis/",barcode,"_SpotLevel.tsv"))
+    sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_SpotLevel.tsv"))
   }, path=path, mc.cores=detectCores())
-  
   slDT <- rbindlist(spotDTL)
   rm(spotDTL)
   gc()
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
+  #Debug
+  slDT <- slDT[,Cytoplasm_CP_AreaShape_MaximumRadiusLog2 :=NULL]
   
   metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|LigandAnnotID|ECMpPK|LigandPK|MEP|ECM[[:digit:]]|Ligand[[:digit:]]|Set|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore|Lx|PinDiameter"
   
@@ -101,14 +103,23 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   #WriteData
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0(path, "/",datasetName, "/Annotated/", datasetName,"_Level3.tsv"), sep = "\t", quote=FALSE)
     
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0(path, datasetName, "/Annotated/", datasetName,"_Level3.tsv"), sep = "\t", quote=FALSE)
+    #Write the File Annotations for Synapse to tab-delimited file
+    annotations <- fread(paste0(path,"/",barcodes[1],"/Analysis/",barcodes[1],"_SpotLevelAnnotations.tsv"),header = FALSE)
     
-    if(verbose) cat("Writing level 4 file to disk\n")
-    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level4.txt"), sep = "\t", quote=FALSE)
-    
+    write.table(c(
+      CellLine = annotations$V2[annotations$V1=="CellLine"],
+      Preprocess = annotations$V2[annotations$V1=="Preprocess"],
+      DataType = annotations$V2[annotations$V1=="DataType"],
+      Consortia = annotations$V2[annotations$V1=="Consortia"],
+      Drug = annotations$V2[annotations$V1=="Drug"],
+      Segmentation = annotations$V2[annotations$V1=="Segmentation"],
+      StainingSet = annotations$V2[annotations$V1=="StainingSet"],
+      Level = "3"),
+      paste0(path,"/",datasetName, "/Annotated/", datasetName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
-  cat("Elapsed time:", Sys.time()-startTime)
+  cat("Elapsed time:", Sys.time()-startTime, "\n")
 }
 
 path <- commandArgs(trailingOnly = TRUE)[1]

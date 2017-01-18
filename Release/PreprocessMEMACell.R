@@ -145,7 +145,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
   
   startTime <- Sys.time()
-  debugLimiter <- 2
+  debugLimiter <- 8
   expDTList <- mclapply(unique(dataBWInfo$Well)[1:debugLimiter], function(well){
     if(verbose) cat(paste("Reading and annotating data for",barcode, well,"\n"))
     nuclei <- convertColumnNames(fread(dataBWInfo$Path[grepl("Nuclei",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
