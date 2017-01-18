@@ -5,7 +5,7 @@
 # 1/16/17
 
 
-#Debug dcoument this library stucture
+#Debug document this library stucture
 .libPaths(c("/home/users/dane/R/x86_64-pc-linux-gnu-library/3.3","~/R/x86_64-redhat-linux-gnu-library/3.3"))
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
@@ -15,7 +15,6 @@ source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
   path <- gsub(barcode,"",barcodePath)
-  analysisVersion<-"v1.7"
   if (verbose) cat("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n")
   functionStartTime<- Sys.time()
   startTime<- Sys.time()
@@ -28,24 +27,9 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   library(parallel)#use multiple cores for faster processing
   library(stringr)
   
-  #QA flags are used to enable analyses that require minimum cell and
-  #replicate counts
-  
-  #Set a threshold for the lowSpotCellCount flag
-  lowSpotCellCountThreshold <- 5
-  
-  #Set a threshold for the lowRegionCellCount flag
-  lowRegionCellCountThreshold <- .4
-  
   #Set a threshold for the loess well level QA Scores
   lthresh <- 0.6
-  
-  #Set a threshold for lowWellQA flag
-  lowWellQAThreshold <- .7
-  
-  #Set a threshold for the lowSpotReplicates flag
-  lowReplicateCount <- 3
-  
+
   #Read in the plate's cell level data and annotations
   cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
   annotations <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1Annotations.tsv"),header = FALSE)
