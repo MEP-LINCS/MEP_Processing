@@ -7,6 +7,7 @@
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 se <- function(x) sd(x)/sqrt(sum(!is.na(x)))
+
 #' Summarize cell level data to the spot level
 #' 
 #' Median summarize the cell level normalized values and the most biologically 

@@ -11,6 +11,14 @@ library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 .libPaths(c("~/R/x86_64-redhat-linux-gnu-library/3.3"))
 
+compressHA <- function(x){
+  x <- gsub("(hyaluronic_acid_greater_than_500kDa)","HA>500kDa",x)
+  x <- gsub("(hyaluronic_acid_less_than_500kDa)","HA<500kDa",x)
+  x <- gsub("hyaluronicacid","HA",x)
+  x <- gsub("lessthan","<",x)
+  x <- gsub("greaterthan",">",x)
+  return(x)
+}
 
 processan2omero <- function (fileNames) {
   rbindlist(lapply(fileNames, function(fn){
@@ -25,12 +33,21 @@ processan2omero <- function (fileNames) {
     setnames(dt,"555nm","Endpoint555")
     setnames(dt,"640nm","Endpoint647")
     setnames(dt,"750nm","Endpoint750")
-    #Shorten Annot names
+    #Shorten and combine Annot names
     dt$CellLine <- gsub("_.*","",dt$CellLine)
-    dt$ECMp <- dt$ECM1
-    dt <- shortenHA(dt)
-    dt$ECMp <-gsub("_.*","",dt$ECMp)
-    dt$Ligand <-gsub("_.*","",dt$Ligand1)
+    dt$ECM1 <- compressHA(dt$ECM1)
+    dt$ECM2 <- compressHA(dt$ECM2)
+    dt$ECM3 <- compressHA(dt$ECM3)
+    #Chain ECM proteins if the second one is not COL1
+    dt$ECMp <-paste0(gsub("_.*","",dt$ECM1),"_",gsub("_.*","",dt$ECM2),"_",gsub("_.*","",dt$ECM3)) %>%
+      gsub("_NA","",.) %>%
+      gsub("_COL1|_$","",.)
+    #Chain ligands
+    dt$Ligand <-paste0(gsub("_.*","",dt$Ligand1),"_",gsub("_.*","",dt$Ligand2)) %>%
+      gsub("_NA","",.)
+    dt$MEP <- paste0(dt$ECMp,"_",dt$Ligand)
+    dt$Drug <- gsub("_.*","",dt$Drug1)
+    dt$MEP_Drug <-paste0(dt$MEP,"_",dt$Drug)
     dt$EndpointDAPI <-gsub("_.*","",dt$EndpointDAPI)
     dt$Endpoint488 <-gsub("_.*","",dt$Endpoint488)
     dt$Endpoint555 <-gsub("_.*","",dt$Endpoint555)
@@ -70,8 +87,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   calcAdjacency<-TRUE
   writeFiles<-TRUE
   useAnnotMetadata<-TRUE
-  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
-  
+
   #library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
@@ -424,9 +440,8 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
     #Write out cDT without normalized values as level 1 dataset
-    if(verbose) cat("Writing full level 1 file to disk\n")
+    if(verbose) cat("Writing",barcode,"full level 1 file to disk\n")
     writeTime<-Sys.time()
-    set.seed(42)
     fwrite(data.table(format(cDT, digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1.tsv"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
@@ -460,7 +475,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       Preprocess = analysisVersion,
       DataType = "Quanititative Imaging",
       Consortia = "MEP-LINCS",
-      Drug = gsub("_.*","",unique(cDT$Drug1)),
+      Drug = unique(cDT$Drug),
       Segmentation = rawDataVersion,
       StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
       Level = "1"
