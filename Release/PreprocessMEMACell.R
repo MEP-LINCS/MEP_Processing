@@ -309,13 +309,11 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   }, mc.cores=detectCores())
   #Add names to the data.tables in the list
   names(expDTList) <- paste(barcode,unique(dataBWInfo$Well)[1:debugLimiter],sep="_")
-  cat("converting list to datatable\n")
-  startTime <- Sys.time()
   cDT <- rbindlist(expDTList)
   rm(expDTList)
   gc()
-  cat(Sys.time()-startTime)
-  #   
+  cat("Gating cell level data for plate",barcode,"\n")  
+  
   #   if(!useAnnotMetadata){
   #     #Read the well metadata from a multi-sheet Excel file
   #     #wellMetadata <- data.table(readMetadata(paste0(filePath,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
@@ -439,10 +437,14 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
-    #Write out cDT without normalized values as level 1 dataset
-    if(verbose) cat("Writing",barcode,"full level 1 file to disk\n")
+    if(verbose) cat("Writing full",barcode,"level 1 file to disk\n")
     writeTime<-Sys.time()
     fwrite(data.table(format(cDT, digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1.tsv"), sep = "\t", quote=FALSE)
+    cat("Write time:", Sys.time()-writeTime,"\n")
+    if(verbose) cat("Writing subset",barcode,"level 1 file to disk\n")
+    writeTime<-Sys.time()
+    set.seed(42)
+    fwrite(data.table(format(cDT[sample(x=1:nrow(cDT),size = .1*nrow(cDT),replace=FALSE),], digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #Write the pipeline parameters to  tab-delimited file

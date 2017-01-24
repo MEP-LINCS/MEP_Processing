@@ -1,5 +1,3 @@
-#!/bin/bash
-
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
 # 1/16/17
@@ -45,8 +43,9 @@ summarizeToSpot <- function(cDT, lthresh = lthresh, seNames=NULL){
   mDT <- cDT[,metadataNames,keyby="Barcode,Well,Spot", with=FALSE]
   slDT <- mDT[slDT, mult="first"]
   #Merge in the standard err values
+  setkey(slDT, Barcode, Well, Spot)
   setkey(slDTse, Barcode, Well, Spot)
-  slDT <- slDTse[slDT]
+  slDT <- slDT[slDTse]
   #Add a count of replicates
   slDT <- slDT[,Spot_PA_ReplicateCount := .N,by="Ligand,ECMp"]
   
@@ -90,6 +89,12 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
   cDT <- cDT[,Spot_PA_SpotCellCountLog2 := boundedLog2(Spot_PA_SpotCellCount)]
   
+  #Calculate DNA proportions based on cell cycle state
+  cDT <- cDT[,Nuclei_PA_Cycle_DNA2NProportion := calc2NProportion(Nuclei_PA_Cycle_State),by="Barcode,Well,Spot"]
+  cDT <- cDT[,Nuclei_PA_Cycle_DNA2NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA2NProportion)]
+  cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportion := 1-Nuclei_PA_Cycle_DNA2NProportion]
+  cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA4NProportion)]
+
   #Calculate proportions for gated signals
   gatedSignals <- grep("Positive|High",colnames(cDT), value=TRUE)
   proportions <- cDT[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
@@ -167,6 +172,7 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
 }
 
+#Debug purposes:  barcodePath <- "/lincs/share/lincs_user/LI8X00771"
 barcodePath <-commandArgs(trailingOnly = TRUE)
 res <- preprocessMEMASpot(barcodePath, verbose=TRUE)
 

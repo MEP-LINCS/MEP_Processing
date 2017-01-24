@@ -212,32 +212,21 @@ validations <- data.frame(datasetName=c("MCF10AHighRep1","MCF10AHighRep3"),
                           useAnnotMetadata=FALSE,
                           stringsAsFactors=FALSE)
 
-renderQASpotMEPReports <- function(x){
-  datasetName <- x[["datasetName"]]
-  cellLine <- x[["cellLine"]]
-  ss <- x[["ss"]]
-  drug<-x[["drug"]]
-  rawDataVersion <- x[["rawDataVersion"]]
-  analysisVersion <- x[["analysisVersion"]]
-  render("MEP_LINCS/Release/MEP-LINCS_QASpotMEPLevel.Rmd",
-         output_file = paste0("../QAReports/MEP-LINCS_QA_SpotMEP_",
-                              x[["datasetName"]],"_",x[["ss"]],".html"),
-         output_format = "html_document")
-}
 
-renderQACellReports <- function(x){
-  datasetName <- x[["datasetName"]]
-  cellLine <- x[["cellLine"]]
-  ss <- x[["ss"]]
-  drug<-x[["drug"]]
-  rawDataVersion <- x[["rawDataVersion"]]
-  analysisVersion <- x[["analysisVersion"]]
+renderQACellReports <- function(path, datasetName){
   render("MEP_LINCS/Release/MEP-LINCS_QACellLevel.Rmd",
-         output_file = paste0("../QAReports/MEP-LINCS_QA_Cell_",
-                              x[["datasetName"]],"_",x[["ss"]],".html"),
+         output_file = paste0(path,"/",datasetName,"/Reports/MEP-LINCS_QA_Cell_",datasetName,".html"),
          output_format = "html_document")
 }
 
-tmp <- apply(MLDDataSet[1:2,], 1, renderQACellReports)
-tmp <- apply(MLDDataSet[1:2,], 1, renderQASpotMEPReports)
+renderQASpotMEPReports <- function(path, datasetName){
+  render("MEP_LINCS/Release/MEP-LINCS_QASpotMEPLevel.Rmd",
+         output_file = paste0(path,"/",datasetName,"/Reports/MEP-LINCS_QA_SpotMEP_",datasetName,".html"),
+         output_format = "html_document")
+}
+
+path <- "/lincs/share/lincs_user"
+datasetName="MCF10A_DMSO_2"
+tmp <- renderQACellReports(path, datasetName)
+tmp <- renderQASpotMEPReports(path, datasetName)
 

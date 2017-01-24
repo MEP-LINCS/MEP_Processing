@@ -40,7 +40,7 @@ preprocessLevel4 <- function(dt, seNames=NULL){
   setkey(mdDT,Ligand,ECMp,Drug,CellLine)
   l4DT <- merge(mdDT,merge(l4Signals,l4Ses))
   return(l4DT)
-}#End of createl4
+}#End of preprocesslevel4
 
 preprocessMEMALevel4 <- function(datasetName, path, verbose=FALSE){
   startTime <- Sys.time()
