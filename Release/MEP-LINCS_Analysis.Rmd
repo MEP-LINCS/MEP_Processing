@@ -124,7 +124,7 @@ if(!Segmentation=="v1"){
 <br>
 
 ##Introduction  
-The LINCS `r datasetName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r Segmentation` performed the segmentation and the analysis pipeline is `r Preprocess`.
+The MEP-LINCS `r datasetName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r Segmentation` performed the segmentation and the analysis pipeline is `r Preprocess`.
 
 Intensity, position and morphology data are gathered for each cell, merged with the experiment metadata, normalized with `r unique(l3$NormMethod)`, filtered and summarized. 
 
@@ -178,7 +178,7 @@ if (grepl("SS3|SS4",StainingSet)){
 
 
 ##Spot Cell Count Analysis
-The spot cell count analysis identifies MEPs with extreme population sizes. The normalized spot cell counts in the plot below are summarized by the median and standard error of their replicates. Hovering over the the interactive plot below shows the MEP identities. Clicking and dragging over a section of the plot will zoom into the selected location. Double clicking on the zooomed plot will restore the original plot.
+The spot cell count analysis orders MEPs to help identify extreme population sizes. The normalized spot cell counts in the plot below are summarized by the median and standard error of their replicates. Hovering over the the interactive plot below shows the MEP identities. Clicking and dragging over a section of the plot will zoom into the selected location. Double clicking on the zooomed plot will restore the original plot.
 
 <br>
 
@@ -189,7 +189,7 @@ dt <- l4F
 
 p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountLog2RUVLoess), y = Spot_PA_SpotCellCountLog2RUVLoess))+
   geom_errorbar(aes(ymin=Spot_PA_SpotCellCountLog2RUVLoess-Spot_PA_SpotCellCountLog2RUVLoess_SE, ymax=Spot_PA_SpotCellCountLog2RUVLoess+Spot_PA_SpotCellCountLog2RUVLoess_SE), width=.01, colour="black") +
-  xlab("MEP")+ylab("Normalized Spot Cell Count")+
+  xlab("MEP")+ylab("Normalized Spot Cell Count (log2)")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized Spot Cell Count (Full dataset)")
 
@@ -202,7 +202,7 @@ ggplotly(p)
 
 ###Normalized Spot Cell Counts
 
-The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the normalized spot cell count. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.  
+The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the normalized log2 of the spot cell count. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.  
 
 ```{r SCCHeatmapFull, fig.width=8, fig.height=5}
 #Cast to get ligands into columns
@@ -218,11 +218,11 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 <br>
 
 ##Interactive Datatables   
-The first datatable below shows the MEP summarized values while the second table shows the spot-level data. The spot-level datatable includes links to the images stored in OHSU's Omero database.  
+The first datatable below shows the MEP summarized values while the second table shows the spot-level data. The spot-level datatable includes links to the images stored in OHSU's Omero database (account needed).  
 
 The tables can be sorted by the values in any column, filtered by any search term and adjusted to display from 5 to 100 rows.  
 
-A useful mining method to use the first table to identify a MEP of interest as this table uses robust methods to summarize the replicates, then view the individual replicate data and images in the second table.  
+A useful mining method is to use the first table to identify a MEP of interest as this table uses robust methods to summarize the replicates, then view the individual replicate data and images in the second table.  
 
 <br> 
 
@@ -270,21 +270,21 @@ datatable(format(dt[,colNamesSpots, with=FALSE], digits=2, scientific = FALSE, n
 
 ##DNA Content Analysis
 
-All cells are stained with DAPI and autogated as DNA 2N or 4N. The proportion of 2N and 4N cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV and loess normalized. Lower normalized values have smaller 2N populations and therefore larger 4N populations.
+All cells are stained with DAPI and autogated as DNA 2n or 4n. The proportion of 2n and 4n cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV and loess normalized. Lower normalized values have smaller 2n populations and therefore larger 4n populations.
 
 <br>
 
-```{r DNA2NByMEPFull, fig.width=8, fig.height=6}
+```{r DNA2NByMEP, fig.width=8, fig.height=6}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess-Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess_SE, ymax=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess+Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess_SE), width=.01, colour="black") +
-  xlab("MEP")+ylab("Normalized DNA 2N Proportion Ratio")+
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess), y = btLogit(Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess)))+
+  geom_errorbar(aes(ymin=btLogit(Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess-Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess_SE), ymax=btLogit(Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess+Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess_SE)), width=.01, colour="black") +
+  xlab("MEP")+ylab("Normalized DNA 2n Proportion Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized DNA Proportion (Full dataset)")
+  ggtitle("MEPs Ordered by Normalized DNA Proportion")
 
-p <- p + geom_point(aes(y=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess),colour = "blue", alpha = .5)
+p <- p + geom_point(aes(y=btLogit(Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess)),colour = "blue", alpha = .5)
 
 ggplotly(p)
 
@@ -292,11 +292,11 @@ ggplotly(p)
 
 <br>
 
-###Normalized DNA 2N Heatmaps
+###Normalized DNA 2n Heatmaps
 
-The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the normalized DNA 2N proportions. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.    
+The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the logits of the normalized DNA 2n proportions. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.    
 
-```{r DNA2NHeatmapFull, fig.width=8, fig.height=5}
+```{r DNA2NHeatmap, fig.width=8, fig.height=5}
 
 #Cast again to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess")
@@ -326,13 +326,13 @@ p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoT
   xlab("MEP")+ylab("Normalized MitoTracker Intensity Ratio")+
   geom_point(colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized MitoTracker Intensity with SE Bars (Full dataset)")
+  ggtitle("MEPs Ordered by Normalized MitoTracker Intensity with SE Bars")
 
 ggplotly(p)
 ```
 
 
-```{r MitotrackerHeatmapFull, eval=grepl("SS1",StainingSet), fig.width=8, fig.height=5}
+```{r MitotrackerHeatmap, eval=grepl("SS1",StainingSet), fig.width=8, fig.height=5}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess")
@@ -350,13 +350,13 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEP,eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet), fig.width=8, fig.height=6}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess-Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess+Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_SE), width=.01, colour="black") +
-  xlab("MEP")+ylab("Normalized EdU+ Proportion Logit")+
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+
+  geom_errorbar(aes(ymin=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess-Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_SE), ymax=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess+Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_SE)), width=.01, colour="black") +
+  xlab("MEP")+ylab("Normalized EdU+ Proportion")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized EdU+ Proportion")
@@ -379,7 +379,7 @@ rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
 
-try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(d3heatmap(dfZoom(df, .02, .98), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
 
 ```
 
@@ -515,13 +515,12 @@ Clicking and dragging will zoom in on a section. Double clicking on the zoomed i
 
 <br> 
 
-```{r, eval=FALSE}
+```{r}
 
 lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
-fvDT <- filterl4RUV(l4, lowQALigands)
+fvDT <- filterl4RUV(l4F, lowQALigands)
 setkey(fvDT, MEP)
-fvDT <- fvDT[!grepl("FBS|Fiducial|fiducial|blank|PBS",fvDT$MEP),]
-fvDT <- fvDT[,Barcode := NULL]
+fvDT <- fvDT[!grepl("air|Fiducial|fiducial|blank|PBS",fvDT$MEP),]
 
 #Shorten the feature names
 setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("RUVLoess","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
@@ -532,11 +531,11 @@ if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NPropor
 fvDT <- data.frame(fvDT)
 rownames(fvDT) <- fvDT$MEP
 
-fvDT <- fvDT[,!(names(fvDT) %in% c("MEP"))]
+fvDT <- fvDT[,!(names(fvDT) %in% c("Barcode","MEP"))]
 ```
 
 
-```{r, fig.height=8, fig.width=7, eval = FALSE}
+```{r, fig.height=8, fig.width=7}
 fvDTC <- apply(fvDT,2,fvZoom, min=.02, max=.98)
 try(d3heatmap(fvDTC, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE), TRUE)
 
