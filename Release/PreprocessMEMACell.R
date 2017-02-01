@@ -4,12 +4,8 @@
 #author: "Mark Dane"
 # 1/16/17
 
-
-#Debug dcoument this library stucture
-.libPaths(c("/home/users/dane/R/x86_64-pc-linux-gnu-library/3.3","~/R/x86_64-redhat-linux-gnu-library/3.3"))
 library("parallel")#use multiple cores for faster processing
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-.libPaths(c("~/R/x86_64-redhat-linux-gnu-library/3.3"))
 
 compressHA <- function(x){
   x <- gsub("(hyaluronic_acid_greater_than_500kDa)","HA>500kDa",x)
