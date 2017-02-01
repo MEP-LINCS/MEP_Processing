@@ -69,15 +69,13 @@ gateOnQuantile <- function(x,probs){
   return(gatedClass)
 }
 
-preprocessMEMACell <- function(barcodePath, verbose=FALSE){
+preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersion="v2", verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
   path <- gsub(barcode,"",barcodePath)
   if (verbose) cat("Processing plate:",barcode,"at",path,"\n")
   functionStartTime<- Sys.time()
   startTime<- Sys.time()
   
-  analysisVersion<-"v1.7"
-  rawDataVersion<-"v2"
   limitBarcodes<- NULL
   mergeOmeroIDs<-TRUE
   calcAdjacency<-TRUE
