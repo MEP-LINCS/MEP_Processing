@@ -12,7 +12,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   functionStartTime<- Sys.time()
   startTime<- Sys.time()
   
-  analysisVersion<-"v1.8"
+  analysisVersion<-"v1.7"
   rawDataVersion<-"v2"
   limitBarcodes<- NULL
   mergeOmeroIDs<-TRUE
