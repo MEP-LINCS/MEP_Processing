@@ -194,7 +194,7 @@ filterl4RUV <- function(dt,lowQALigands){
               "Nuclei_PA_AreaShape_NeighborsLog2RUVLoess",
               "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess$",
               "Nuclei_CP_Intensity_MedianIntensity_EdULog2RUVLoess",
-              "Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",
+              "Nuclei_PA_Gated_EduPositiveProportionLogitRUVLoessRUVLoess",
               "Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess",
               "Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess",
               "Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess$",
