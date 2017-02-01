@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env Rscript
 
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
