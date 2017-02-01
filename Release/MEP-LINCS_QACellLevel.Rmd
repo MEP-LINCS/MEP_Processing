@@ -28,6 +28,9 @@ library(DT)
 library(d3heatmap)
 library(plotly)
 library(googlesheets)
+library(readr)
+library(stringr)
+library(parallel)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -37,12 +40,12 @@ sampleProportion <- .1
 
 ```
 
-```{r readLevel1SubsetData}
+```{r readLevel1SubsetData, echo=FALSE, message=FALSE}
 #Download Plate Tracker google sheet
 ptObj <- gs_url("https://docs.google.com/spreadsheets/d/1QefmAsK2B_no3iL-epx198pP_HVJegOlku_nliiy3eg/pubhtml")
-ptData <- gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE) %>%
-  read_csv()
-barcodes <- str_split(ptData[["Plate IDs"]][ptData[["Expt Name"]]==datasetName], ",") %>%
+ptData <- gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose = FALSE) %>%
+  read_csv(progress = FALSE)
+barcodes <- str_split(ptData[["Plate IDs"]][ptData[["Study Name"]]==datasetName], ",") %>%
   unlist()
 l1SDTL <- mclapply(barcodes, function(barcode, path){
   sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_Level1Subset.tsv"),verbose = FALSE, showProgress = FALSE)
@@ -105,7 +108,7 @@ Most of the histograms and scatterplots that display cell level data are from a 
 <br>
 
 ###DAPI QA
-Histograms of the total DAPI signal are typicaly bimodal with peaks at the 2N and 4N DNA positions. The blue vertical line shows the auto-gate value for classifying 2N and 4N populations.
+Histograms of the total DAPI signal are typicaly bimodal with peaks at the 2n and 4n DNA positions. The blue vertical line shows the auto-gate value for classifying 2n and 4n populations.
 
 We want to normalize the DNA signal so that the G0/G1 peak has a value of 1. This should yield G2 peak at 2. To achieve this, the total DAPI intensity is divided by the median total DAPI intensity for all cells that have a DNA Cycle State value of 1 (to the left of the blue line).
 

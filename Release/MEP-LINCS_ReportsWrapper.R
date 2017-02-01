@@ -18,8 +18,15 @@ renderAnalysisReport <- function(path, datasetName){
          output_format = "html_document")
 }
 
+renderCellLineAnalysisReport <- function(path, datasetName){
+  render("MEP_LINCS/Release/MEP-LINCS_AnalysisSB_SSC.Rmd",
+         output_file = paste0(path,"/",datasetName,"/Reports/MEP-LINCS_Analysis_CellLine",datasetName,".html"),
+         output_format = "html_document")
+}
 path <- "/lincs/share/lincs_user"
-datasetName="MCF10A_Neratinib_2"
+datasetName="HMEC240L_SS4"
 tmp <- renderQACellReport(path, datasetName)
 tmp <- renderQASpotMEPReport(path, datasetName)
 tmp <- renderAnalysisReport(path, datasetName)
+tmp <- renderCellLinAnalysisReport(path, datasetName)
+

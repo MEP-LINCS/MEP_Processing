@@ -94,59 +94,63 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   cDT <- cDT[,Nuclei_PA_Cycle_DNA2NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA2NProportion)]
   cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportion := 1-Nuclei_PA_Cycle_DNA2NProportion]
   cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA4NProportion)]
-
+  
   #Calculate proportions for gated signals
   gatedSignals <- grep("Positive|High",colnames(cDT), value=TRUE)
-  proportions <- cDT[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
-  setnames(proportions,
-           grep("Gated",colnames(proportions),value=TRUE),
-           paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
-  #Calculate logits of proportions
-  proportionSignals <- grep("Proportion",colnames(proportions), value=TRUE)
-  proportionLogits <- proportions[,lapply(.SD, boundedLogit),by="Barcode,Well,Spot", .SDcols=proportionSignals]
-  setnames(proportionLogits,
-           grep("Proportion",colnames(proportionLogits),value=TRUE),
-           paste0(grep("Proportion",colnames(proportionLogits),value=TRUE),"Logit"))
-  proportionsDT <-merge(proportions,proportionLogits)
-  
-  #Create proportions and logits of mutlivariate gates
-  if ("Cytoplasm_PA_Gated_KRTClass" %in% colnames(cDT)){
-    #Determine the class of each cell based on KRT5 and KRT19 class
-    #0 double negative
-    #1 KRT5+, KRT19-
-    #2 KRT5-, KRT19+
-    #3 KRT5+, KRT19+
-    #Calculate gating proportions for EdU and KRT19
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5RT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cytoplasm_PA_Gated_KRT5RT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5RT19NegativeProportion)]
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
-    cDT <- cDT[,Cells_PA_Gated_KRT5PositiveKRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_KRT5PositiveKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_KRT5PositiveKRT19NegativeProportion)]
-    cDT <- cDT[,Cells_PA_Gated_KRT5PositivedKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_Cells_PA_Gated_KRT5PositivedKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_KRT5PositivedKRT19PositiveProportion)]
+  if(!length(gatedSignals)==0){
+    proportions <- cDT[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
+    setnames(proportions,
+             grep("Gated",colnames(proportions),value=TRUE),
+             paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
+    #Calculate logits of proportions
+    proportionSignals <- grep("Proportion",colnames(proportions), value=TRUE)
+    proportionLogits <- proportions[,lapply(.SD, boundedLogit),by="Barcode,Well,Spot", .SDcols=proportionSignals]
+    setnames(proportionLogits,
+             grep("Proportion",colnames(proportionLogits),value=TRUE),
+             paste0(grep("Proportion",colnames(proportionLogits),value=TRUE),"Logit"))
+    proportionsDT <-merge(proportions,proportionLogits)
+    
+    #Create proportions and logits of mutlivariate gates
+    if ("Cytoplasm_PA_Gated_KRTClass" %in% colnames(cDT)){
+      #Determine the class of each cell based on KRT5 and KRT19 class
+      #0 double negative
+      #1 KRT5+, KRT19-
+      #2 KRT5-, KRT19+
+      #3 KRT5+, KRT19+
+      #Calculate gating proportions for EdU and KRT19
+      cDT <- cDT[,Cytoplasm_PA_Gated_KRT5RT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cytoplasm_PA_Gated_KRT5RT19NegativeProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5RT19NegativeProportion)]
+      cDT <- cDT[,Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_KRT5NegativeKRT19PositiveProportionLogit:= boundedLogit(Cytoplasm_PA_Gated_KRT5NegativeKRT19PositiveProportion)]
+      cDT <- cDT[,Cells_PA_Gated_KRT5PositiveKRT19NegativeProportion := sum(Cytoplasm_PA_Gated_KRTClass==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_KRT5PositiveKRT19NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_KRT5PositiveKRT19NegativeProportion)]
+      cDT <- cDT[,Cells_PA_Gated_KRT5PositivedKRT19PositiveProportion := sum(Cytoplasm_PA_Gated_KRTClass==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_Cells_PA_Gated_KRT5PositivedKRT19PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_KRT5PositivedKRT19PositiveProportion)]
+    }
+    
+    if ("Cells_PA_Gated_EdUKRT5Class" %in% colnames(cDT)){
+      #Determine the class of each cell based on KRT5 and EdU class
+      #0 double negative
+      #1 KRT5+, EdU-
+      #2 KRT5-, EdU+
+      #3 KRT5+, EdU+
+      #Calculate gating proportions for EdU and KRT5
+      cDT <- cDT[,Cells_PA_Gated_EdUKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_EdUKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5NegativeProportion)]
+      cDT <- cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT5NegativeProportion)]
+      cDT <- cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT5PositiveProportion)]
+      cDT <- cDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
+      cDT <-cDT[,Cells_PA_Gated_EdUKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
+    }
   }
-  
-  if ("Cells_PA_Gated_EdUKRT5Class" %in% colnames(cDT)){
-    #Determine the class of each cell based on KRT5 and EdU class
-    #0 double negative
-    #1 KRT5+, EdU-
-    #2 KRT5-, EdU+
-    #3 KRT5+, EdU+
-    #Calculate gating proportions for EdU and KRT5
-    cDT <- cDT[,Cells_PA_Gated_EdUKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==0)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5NegativeProportion)]
-    cDT <- cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportion := sum(Cells_PA_Gated_EdUKRT5Class==2)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUPositiveKRT5NegativeProportionLogit:= boundedLogit(Cells_PA_Gated_EdUPositiveKRT5NegativeProportion)]
-    cDT <- cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==1)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUNegativeKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUNegativeKRT5PositiveProportion)]
-    cDT <- cDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
-    cDT <-cDT[,Cells_PA_Gated_EdUKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
-  }
-
   #median summarize the rest of the signals
-  signalDT <- summarizeToSpot(cDT,lthresh, seNames)
-  spotDT <- merge(signalDT,proportionsDT)
+  if(exists("proportionsDT")) {
+    spotDT <- merge(summarizeToSpot(cDT,lthresh, seNames),proportionsDT)
+  } else {
+    spotDT <- summarizeToSpot(cDT,lthresh, seNames)
+  }
   
   #Summarize 
   # The cell level raw data and metadata is saved as Level 1 data. 
