@@ -2,11 +2,11 @@
 ```{r "setup", include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
                       echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
-knitr::opts_knit$set(root.dir = "/data/share/dane/MEP-LINCS/MEP_LINCS/Release")
+knitr::opts_knit$set(root.dir = "/graylab/share/dane/MEP-LINCS/MEP_LINCS/Release")
 
 #Author: Mark Dane, copyright 2015
 
-source("MEPLINCSFunctions.R")
+#source("MEPLINCSFunctions.R")
 
 #' Summarize spot level data to the MEP level
 #' 

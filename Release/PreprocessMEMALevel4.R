@@ -2,46 +2,6 @@
 #author: "Mark Dane"
 #1/18/2017
 
-source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-
-#' Summarize spot level data to the MEP level
-#' 
-#' Median summarize the spot level normalized values the most biologically 
-#' interpretable raw data at each spot, calculate the standard errors and add
-#' SE columns for all median summarized data
-#' @param l3 The datatable of spot level data to be summarized
-#' @return A datatable of MEP level, median summarized data with standard error values and 
-#'  metadata
-#' @export
-preprocessLevel4 <- function(dt, seNames=NULL){
-  #Add a count of replicates
-  dt <- dt[,Spot_PA_ReplicateCount := .N,by="Ligand,ECMp,Drug,CellLine"]
-  rawSignalNames <- grep("_SE",grep("Log2|Logit|_PA_|Intensity|AreaShape",colnames(dt), value=TRUE), value=TRUE, invert=TRUE)
-  l4Signals<- dt[,lapply(.SD, numericMedian), by="Ligand,ECMp,Drug,CellLine", .SDcols=rawSignalNames]
-  
-  #Use seNames to select the parameters that get SE values
-  if(!is.null(seNames)){
-    seNamesPattern<-paste(seNames,collapse="|")
-    seSignalNames <- grep(seNamesPattern,rawSignalNames,value=TRUE)
-    l4Ses <- dt[,lapply(.SD,MEMA:::se),keyby="Ligand,ECMp,Drug,CellLine", .SDcols=seSignalNames]
-  } else{
-    l4Ses <- dt[,lapply(.SD,MEMA:::se),keyby="Ligand,ECMp,Drug,CellLine"]
-  }
-  
-  #Add _SE to the standard error column names
-  setnames(l4Ses, grep("Ligand|ECMp|Drug|CellLine",colnames(l4Ses), value = TRUE, invert = TRUE), paste0(grep("Ligand|ECMp|Drug|CellLine",colnames(l4Ses), value = TRUE, invert = TRUE),"_SE"))
-  
-  #Merge back in the replicate metadata
-  metadataNames <- grep("_SE|Barcode|^BW$|ArrayRow|ArrayColumn|^Well$|^Spot$|^PrintSpot$|^Well_Ligand$|ImageID|QA_|ECMSet",colnames(dt), value=TRUE,invert=TRUE) %>%
-    setdiff(rawSignalNames)
-  mdDT <- unique(dt[,metadataNames, with=FALSE])
-  setkey(l4Signals,Ligand,ECMp,Drug,CellLine)
-  setkey(l4Ses,Ligand,ECMp,Drug,CellLine)
-  setkey(mdDT,Ligand,ECMp,Drug,CellLine)
-  l4DT <- merge(mdDT,merge(l4Signals,l4Ses))
-  return(l4DT)
-}#End of preprocesslevel4
-
 preprocessMEMALevel4 <- function(datasetName, path, verbose=FALSE){
   startTime <- Sys.time()
   writeFiles<-TRUE

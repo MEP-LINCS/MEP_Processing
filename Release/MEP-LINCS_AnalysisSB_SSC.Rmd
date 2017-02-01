@@ -16,8 +16,8 @@ knitr::opts_chunk$set(fig.width=12, fig.height=8,
 #Author: Mark Dane, copyright 2016
 #Stored and run from MEP-LINCS/MEP_LINCS/Release
 
-source("MEPLINCSFunctions.R")
-source("MEP-LINCS QANorm Functions.R")
+#source("MEPLINCSFunctions.R")
+#source("MEP-LINCS QANorm Functions.R")
 
 createPCAModel <- function(dt,fvNames){
   #delete any non-varying signals that cannot be scaled to unit variance

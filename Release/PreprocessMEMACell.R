@@ -5,74 +5,6 @@
 # 1/16/17
 
 
-#Debug dcoument this library stucture
-.libPaths(c("/home/users/dane/R/x86_64-pc-linux-gnu-library/3.3","~/R/x86_64-redhat-linux-gnu-library/3.3"))
-library("parallel")#use multiple cores for faster processing
-source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-.libPaths(c("~/R/x86_64-redhat-linux-gnu-library/3.3"))
-
-compressHA <- function(x){
-  x <- gsub("(hyaluronic_acid_greater_than_500kDa)","HA>500kDa",x)
-  x <- gsub("(hyaluronic_acid_less_than_500kDa)","HA<500kDa",x)
-  x <- gsub("hyaluronicacid","HA",x)
-  x <- gsub("lessthan","<",x)
-  x <- gsub("greaterthan",">",x)
-  return(x)
-}
-
-processan2omero <- function (fileNames) {
-  rbindlist(lapply(fileNames, function(fn){
-    #Process each file separately
-    dt <- fread(fn,header = TRUE)
-    
-    #Rename to preprocessing pipeline variable names
-    setnames(dt,"OSpot","Spot")
-    setnames(dt,"PlateID","Barcode")
-    setnames(dt,"395nm","EndpointDAPI")
-    setnames(dt,"488nm","Endpoint488")
-    setnames(dt,"555nm","Endpoint555")
-    setnames(dt,"640nm","Endpoint647")
-    setnames(dt,"750nm","Endpoint750")
-    #Shorten and combine Annot names
-    dt$CellLine <- gsub("_.*","",dt$CellLine)
-    dt$ECM1 <- compressHA(dt$ECM1)
-    dt$ECM2 <- compressHA(dt$ECM2)
-    dt$ECM3 <- compressHA(dt$ECM3)
-    #Chain ECM proteins if the second one is not COL1
-    dt$ECMp <-paste0(gsub("_.*","",dt$ECM1),"_",gsub("_.*","",dt$ECM2),"_",gsub("_.*","",dt$ECM3)) %>%
-      gsub("_NA","",.) %>%
-      gsub("_COL1|_$","",.)
-    #Chain ligands
-    dt$Ligand <-paste0(gsub("_.*","",dt$Ligand1),"_",gsub("_.*","",dt$Ligand2)) %>%
-      gsub("_NA","",.)
-    dt$MEP <- paste0(dt$ECMp,"_",dt$Ligand)
-    dt$Drug <- gsub("_.*","",dt$Drug1)
-    dt$MEP_Drug <-paste0(dt$MEP,"_",dt$Drug)
-    dt$EndpointDAPI <-gsub("_.*","",dt$EndpointDAPI)
-    dt$Endpoint488 <-gsub("_.*","",dt$Endpoint488)
-    dt$Endpoint555 <-gsub("_.*","",dt$Endpoint555)
-    dt$Endpoint647 <-gsub("_.*","",dt$Endpoint647)
-    #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-    dt$PrintSpot <- dt$Spot
-    nrArrayRows <- max(dt$ArrayRow)
-    nrArrayColumns <- max(dt$ArrayColumn)
-    dt$PrintSpot[grepl("B", dt$Well)] <- (nrArrayRows*nrArrayColumns+1)-dt$PrintSpot[grepl("B", dt$Well)]
-    return(dt)
-    #  }, mc.cores=max(4, detectCores())))
-  }))
-  
-}
-
-spotNorm <- function(x){
-  return(x/median(x,na.rm=TRUE))
-}
-
-gateOnQuantile <- function(x,probs){
-  gatedClass <- integer(length(x))
-  gatedClass[x>quantile(x,probs=probs,na.rm=TRUE)]<-1
-  return(gatedClass)
-}
-
 preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
   path <- gsub(barcode,"",barcodePath)
@@ -86,8 +18,8 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   mergeOmeroIDs<-TRUE
   calcAdjacency<-TRUE
   writeFiles<-TRUE
-  useAnnotMetadata<-TRUE
-
+  useAnnotMetadata<-FALSE
+  
   #library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
@@ -133,17 +65,17 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   if(useAnnotMetadata){
     metadata <- processan2omero(paste0(barcodePath,"/Analysis/",barcode,"_an2omero.csv"))
   } else {
-    stop("Non-An! metadata not supported in this script")
+    #stop("Non-An! metadata not supported in this script")
     #Read in the spot metadata from the gal file
-    if(!length(fileNames$Path[fileNames$Type=="gal"])==1) stop("There must be 1 gal file in the dataset folders")
-    smd <- readSpotMetadata(fileNames$Path[fileNames$Type=="gal"])
+    if(!length(dir(paste0(barcodePath,"/Analysis"),pattern = "gal"))==1) stop(paste("There must be 1 gal file in the",barcode, "Analysis folder"))
+    smd <- readSpotMetadata(dir(paste0(barcodePath,"/Analysis"),pattern = "gal",full.names = TRUE))
     
     #Relabel the column Name to ECMp
     setnames(smd, "Name", "ECMp")
     
     #Add the print order and deposition number to the metadata
-    if(!length(fileNames$Path[fileNames$Type=="xml"])==1) stop("There must be 1 xml log file in the dataset folders")
-    ldf <- readLogData(fileNames$Path[fileNames$Type=="xml"])
+    if(!length(dir(paste0(barcodePath,"/Analysis"),pattern = "xml"))==1) stop(paste("There must be 1 xml file in the",barcode, "Analysis folder"))
+    ldf <- readLogData(dir(paste0(barcodePath,"/Analysis"),pattern = "xml",full.names = TRUE))
     
     spotMetadata <- merge(smd,ldf, all=TRUE)
     setkey(spotMetadata,Spot)
@@ -208,9 +140,19 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       #Merge the data with its metadata based on the row it's in
       m <- regexpr("[[:alpha:]]",well)
       row <- regmatches(well,m)
-      setkey(DT,Spot)
-      dtm <- switch(row, A = merge(DT,spotMetadata,all.x=TRUE),
-                    B = merge(DT,spotMetadata180,all.x=TRUE))
+      setkey(dt,Spot)
+      dtm <- switch(row, A = merge(dt,spotMetadata,all.x=TRUE),
+                    B = merge(dt,spotMetadata180,all.x=TRUE))
+      #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
+      nrArrayRows <- max(dtm$ArrayRow)
+      nrArrayColumns <- max(dtm$ArrayColumn)
+      dtm$PrintSpot <- dtm$Spot
+      dtm$PrintSpot[grepl("B", dtm$Well)] <- (nrArrayRows*nrArrayColumns+1)-dtm$PrintSpot[grepl("B", dtm$Well)]
+      
+      #Read the well metadata from a multi-sheet Excel file
+      wellMetadata <- data.table(readMetadata(dir(paste0(barcodePath,"/Analysis"),pattern = "xlsx",full.names = TRUE)), key="Well")
+      #merge well metadata with the data and spot metadata
+      dtm <- merge(dtm,wellMetadata,by = "Well")
       #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
       nrArrayRows <- max(dtm$ArrayRow)
       nrArrayColumns <- max(dtm$ArrayColumn)
@@ -314,20 +256,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   gc()
   cat("Gating cell level data for plate",barcode,"\n")  
   
-  #   if(!useAnnotMetadata){
-  #     #Read the well metadata from a multi-sheet Excel file
-  #     #wellMetadata <- data.table(readMetadata(paste0(filePath,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
-  #     #Debug reDAPI plates with new file structure
-  #     wellMetadata <- data.table(readMetadata(fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="metadata"]), key="Well")
-  #     #merge well metadata with the data and spot metadata
-  #     pcDT <- merge(pcDT,wellMetadata,by = "Well")
-  #     #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-  #     nrArrayRows <- max(pcDT$ArrayRow)
-  #     nrArrayColumns <- max(pcDT$ArrayColumn)
-  #     pcDT$PrintSpot <- pcDT$Spot
-  #     pcDT$PrintSpot[grepl("B", pcDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-pcDT$PrintSpot[grepl("B", pcDT$Well)]
-  #   }
-  #   
+  
   if(mergeOmeroIDs){
     #Read in and merge the Omero URLs
     omeroIndex <- fread(paste0(barcodePath,"/Analysis/",barcode,"_imageIDs.tsv"))[,list(WellName,Row,Column,ImageID)]
@@ -355,10 +284,10 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   if(!useAnnotMetadata){
     #Create short display names, then replace where not unique
     #Use entire AnnotID for ligands with same uniprot IDs
-    # cDT$Ligand[grepl("NRG1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = cDT$Ligand[grepl("NRG1",cDT$Ligand)])
-    # cDT$Ligand[grepl("TGFB1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = cDT$Ligand[grepl("TGFB1",cDT$Ligand)])
-    # cDT$Ligand[grepl("CXCL12",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = cDT$Ligand[grepl("CXCL12",cDT$Ligand)])
-    # cDT$Ligand[grepl("IGF1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = cDT$Ligand[grepl("IGF1",cDT$Ligand)])
+    cDT$Ligand[grepl("NRG1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = cDT$Ligand[grepl("NRG1",cDT$Ligand)])
+    cDT$Ligand[grepl("TGFB1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = cDT$Ligand[grepl("TGFB1",cDT$Ligand)])
+    cDT$Ligand[grepl("CXCL12",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = cDT$Ligand[grepl("CXCL12",cDT$Ligand)])
+    cDT$Ligand[grepl("IGF1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = cDT$Ligand[grepl("IGF1",cDT$Ligand)])
   }
   
   #Create staining set specific derived parameters
@@ -488,5 +417,6 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
 }
 
 barcodePath <-commandArgs(trailingOnly = TRUE)
+#barcodePath <- "/lincs/share/lincs_user/LI8X00761"
 res <- preprocessMEMACell(barcodePath, verbose=TRUE)
 
