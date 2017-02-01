@@ -72,7 +72,8 @@ gateOnQuantile <- function(x,probs){
   return(gatedClass)
 }
 
-preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersion="v2", verbose=FALSE){
+preprocessMEMACell <- function(barcodePath, metadataSourceFile, 
+                               analysisVersion="v1.7", rawDataVersion="v2", verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
   path <- gsub(barcode,"",barcodePath)
   if (verbose) message("Processing plate:",barcode,"at",path,"\n")
@@ -128,12 +129,13 @@ preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersi
   
   #Use metadata from an2omero files
   if(useAnnotMetadata){
-    metadata <- processan2omero(paste0(barcodePath,"/Analysis/",barcode,"_an2omero.csv"))
+    # file looks like /Analysis/",barcode,"_an2omero.csv"
+    metadata <- processan2omero(metadataSourceFile)
   } else {
     stop("Non-An! metadata not supported in this script")
     #Read in the spot metadata from the gal file
-    if(!length(fileNames$Path[fileNames$Type=="gal"])==1) stop("There must be 1 gal file in the dataset folders")
-    smd <- readSpotMetadata(fileNames$Path[fileNames$Type=="gal"])
+    # if(!length(fileNames$Path[fileNames$Type=="gal"])==1) stop("There must be 1 gal file in the dataset folders")
+    smd <- readSpotMetadata(metadataSourceFile)
     
     #Relabel the column Name to ECMp
     setnames(smd, "Name", "ECMp")
