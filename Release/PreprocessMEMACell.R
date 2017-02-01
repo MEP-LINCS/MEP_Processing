@@ -35,11 +35,14 @@ processan2omero <- function (fileNames) {
     dt$ECM2 <- compressHA(dt$ECM2)
     dt$ECM3 <- compressHA(dt$ECM3)
     #Chain ECM proteins if the second one is not COL1
-    dt$ECMp <-paste0(gsub("_.*","",dt$ECM1),"_",gsub("_.*","",dt$ECM2),"_",gsub("_.*","",dt$ECM3)) %>%
+    dt$ECMp <-paste0(gsub("_.*","",dt$ECM1), "_",
+                     gsub("_.*","",dt$ECM2), "_",
+                     gsub("_.*","",dt$ECM3)) %>%
       gsub("_NA","",.) %>%
       gsub("_COL1|_$","",.)
     #Chain ligands
-    dt$Ligand <-paste0(gsub("_.*","",dt$Ligand1),"_",gsub("_.*","",dt$Ligand2)) %>%
+    dt$Ligand <-paste0(gsub("_.*", "", dt$Ligand1), "_",
+                       gsub("_.*","",dt$Ligand2)) %>%
       gsub("_NA","",.)
     dt$MEP <- paste0(dt$ECMp,"_",dt$Ligand)
     dt$Drug <- gsub("_.*","",dt$Drug1)
