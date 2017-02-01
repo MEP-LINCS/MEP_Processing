@@ -5,6 +5,8 @@
 # 1/16/17
 
 library("parallel")#use multiple cores for faster processing
+library("synapseClient")
+
 source("MEP_LINCS/Release/MEPLINCSFunctions.R")
 
 compressHA <- function(x){
@@ -486,6 +488,12 @@ preprocessMEMACell <- function(barcodePath, metadataSourceFile,
   message("Elapsed time:", Sys.time()-functionStartTime, "\n")
 }
 
-barcodePath <-commandArgs(trailingOnly = TRUE)
-res <- preprocessMEMACell(barcodePath, verbose=TRUE)
+args <- commandArgs(trailingOnly = TRUE)
+
+barcodePath <- args[1]
+galSynId <- args[2]
+gal <- synGet(galSynId)
+
+res <- preprocessMEMACell(barcodePath, metadataSourceFile = getFileLocation(gal),
+                          verbose=TRUE)
 
