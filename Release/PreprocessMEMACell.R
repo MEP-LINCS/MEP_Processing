@@ -72,7 +72,7 @@ gateOnQuantile <- function(x,probs){
 preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersion="v2", verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
   path <- gsub(barcode,"",barcodePath)
-  if (verbose) cat("Processing plate:",barcode,"at",path,"\n")
+  if (verbose) message("Processing plate:",barcode,"at",path,"\n")
   functionStartTime<- Sys.time()
   startTime<- Sys.time()
   
@@ -157,7 +157,7 @@ preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersi
   startTime <- Sys.time()
   debugLimiter <- 8
   expDTList <- mclapply(unique(dataBWInfo$Well)[1:debugLimiter], function(well){
-    if(verbose) cat(paste("Reading and annotating data for",barcode, well,"\n"))
+    if(verbose) message(paste("Reading and annotating data for",barcode, well,"\n"))
     nuclei <- convertColumnNames(fread(dataBWInfo$Path[grepl("Nuclei",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
     if (curatedOnly) nuclei <- nuclei[,grep(curatedCols,colnames(nuclei)), with=FALSE]
     setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
@@ -266,7 +266,7 @@ preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersi
       }
     }
     if(calcAdjacency){
-      if(verbose) cat("Calculating adjacency data\n")
+      if(verbose) message("Calculating adjacency data\n")
       
       densityRadius <- sqrt(median(dtm$Nuclei_CP_AreaShape_Area, na.rm = TRUE)/pi)
       
@@ -306,7 +306,7 @@ preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersi
   cDT <- rbindlist(expDTList)
   rm(expDTList)
   gc()
-  cat("Gating cell level data for plate",barcode,"\n")  
+  message("Gating cell level data for plate",barcode,"\n")  
   
   #   if(!useAnnotMetadata){
   #     #Read the well metadata from a multi-sheet Excel file
@@ -431,15 +431,15 @@ preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersi
   
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
-    if(verbose) cat("Writing full",barcode,"level 1 file to disk\n")
+    if(verbose) message("Writing full",barcode,"level 1 file to disk\n")
     writeTime<-Sys.time()
     fwrite(data.table(format(cDT, digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1.tsv"), sep = "\t", quote=FALSE)
-    cat("Write time:", Sys.time()-writeTime,"\n")
-    if(verbose) cat("Writing subset",barcode,"level 1 file to disk\n")
+    message("Write time:", Sys.time()-writeTime,"\n")
+    if(verbose) message("Writing subset",barcode,"level 1 file to disk\n")
     writeTime<-Sys.time()
     set.seed(42)
     fwrite(data.table(format(cDT[sample(x=1:nrow(cDT),size = .1*nrow(cDT),replace=FALSE),], digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
-    cat("Write time:", Sys.time()-writeTime,"\n")
+    message("Write time:", Sys.time()-writeTime,"\n")
     
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
@@ -478,7 +478,7 @@ preprocessMEMACell <- function(barcodePath, analysisVersion="v1.7", rawDataVersi
     ),
     paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
-  cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
+  message("Elapsed time:", Sys.time()-functionStartTime, "\n")
 }
 
 barcodePath <-commandArgs(trailingOnly = TRUE)
