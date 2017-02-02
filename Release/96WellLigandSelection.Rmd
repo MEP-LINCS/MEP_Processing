@@ -83,7 +83,7 @@ print(p)
 ```
 
 ***
-The data is filtered down to MEPs that contain `r unique(l4f$ECMp)` as these match the ECM proteins in the 96 well development plates. The normalized Spot Cell Count and EdU+ proliferation boxplots are shown in these figures.
+This data come from the MCF10A_DMSO_2 dataset which was a full set of eight 8 well plates with the standard MEP-LINCS set of ligands and ECM proteins. The data is filtered down to MEPs that contain `r unique(l4f$ECMp)` as these match the ECM proteins in the LE96_3_ECM_MEMAs plates. The normalized Spot Cell Count and EdU+ proliferation boxplots are shown in these figures. Each data type is presented in rank-ordered and alphabetical versions.
 
 
 ###Proliferation vs Cell Count Colored by ECM Protein
