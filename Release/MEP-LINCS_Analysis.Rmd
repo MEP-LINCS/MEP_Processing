@@ -137,7 +137,7 @@ l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
 
 #Remove failed QA wells
 #Read in manually cureated list
-PoorQualityWells <- read_excel("~/GrayLabData/dane/MEP-LINCS/PoorQualityWells.xlsx")
+PoorQualityWells <- read_excel("/graylab/share/dane/MEP-LINCS/PoorQualityWells.xlsx")
 PoorQualityWells$QA_LowWellQA <- TRUE
 l3F <- l3F[,QA_LowWellQA :=NULL]
 l3F <- merge(l3F,PoorQualityWells,by=c("Barcode","Well"),all=TRUE)

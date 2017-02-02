@@ -4,6 +4,7 @@
 #author: "Mark Dane"
 # 1/16/17
 
+.libPaths("/home/users/dane/R/x86_64-redhat-linux-gnu-library/3.3")
 
 preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
@@ -18,7 +19,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   mergeOmeroIDs<-TRUE
   calcAdjacency<-TRUE
   writeFiles<-TRUE
-  useAnnotMetadata<-FALSE
+  useAnnotMetadata<-TRUE
   
   #library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
