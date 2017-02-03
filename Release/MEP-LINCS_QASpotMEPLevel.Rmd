@@ -885,7 +885,8 @@ Below are plots showing data from well B01 from plate LI8X00110 from LINCS stain
 
 ```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4}
 setkey(l3,Barcode,Well)
-DT <-l3[.(barcodes[1],"A01")]
+wellExample <- unique(l3$Well)[1]
+DT <-l3[.(barcodes[1],wellExample)]
 #Remove the fiducial entries
 setkey(DT,ECMp)
 DT <- DT[!"fiducial"]

@@ -19,7 +19,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   mergeOmeroIDs<-TRUE
   calcAdjacency<-TRUE
   writeFiles<-TRUE
-  useAnnotMetadata<-TRUE
+  useAnnotMetadata<-FALSE
   
   #library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
@@ -94,7 +94,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
   
   startTime <- Sys.time()
-  debugLimiter <- 8
+  debugLimiter <- min(length(unique(dataBWInfo$Well)),8)
   expDTList <- mclapply(unique(dataBWInfo$Well)[1:debugLimiter], function(well){
     if(verbose) cat(paste("Reading and annotating data for",barcode, well,"\n"))
     nuclei <- convertColumnNames(fread(dataBWInfo$Path[grepl("Nuclei",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
@@ -196,6 +196,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     #Add MEP and convenience labels for wells and ligands
     dtm <- dtm[,MEP:=paste(ECMp,Ligand,sep = "_")]
     dtm <- dtm[,Well_Ligand:=paste(Well,Ligand,sep = "_")]
+    dtm <- dtm[,MEP_Drug:=paste(MEP,Drug,sep = "_")]
     
     # Eliminate Variations in the Endpoint metadata
     endpointNames <- grep("End",colnames(dtm), value=TRUE)
@@ -418,6 +419,6 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
 }
 
 barcodePath <-commandArgs(trailingOnly = TRUE)
-#barcodePath <- "/lincs/share/lincs_user/LI8X00761"
+#barcodePath <- "/lincs/share/lincs_user/LI8X00860"
 res <- preprocessMEMACell(barcodePath, verbose=TRUE)
 

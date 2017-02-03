@@ -19,7 +19,7 @@ renderAnalysisReport <- function(path, datasetName){
 }
 
 path <- "/lincs/share/lincs_user"
-datasetName="MCF10A_Neratinib_2"
+datasetName="Pin_Analysis_Study"
 tmp <- renderQACellReport(path, datasetName)
 tmp <- renderQASpotMEPReport(path, datasetName)
 tmp <- renderAnalysisReport(path, datasetName)

@@ -34,7 +34,7 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   ptData <- gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE) %>%
     read_csv()
   #ptData <- read_csv(gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE))
-  barcodes <- str_split(ptData[["Plate IDs"]][ptData[["Expt Name"]]==datasetName], ",") %>%
+  barcodes <- str_split(ptData[["Plate IDs"]][ptData[["Study Name"]]==datasetName], ",") %>%
     unlist()
   
   spotDTL <- mclapply(barcodes, function(barcode, path){

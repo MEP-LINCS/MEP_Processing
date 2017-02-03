@@ -33,20 +33,23 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   cDT <- cDT[,Nuclei_PA_Cycle_DNA2NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA2NProportion)]
   cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportion := 1-Nuclei_PA_Cycle_DNA2NProportion]
   cDT <- cDT[,Nuclei_PA_Cycle_DNA4NProportionLogit := boundedLogit(Nuclei_PA_Cycle_DNA4NProportion)]
-
-  #Calculate proportions for gated signals
+  
+  #If present, Calculate proportions for gated signals
   gatedSignals <- grep("Positive|High",colnames(cDT), value=TRUE)
-  proportions <- cDT[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
-  setnames(proportions,
-           grep("Gated",colnames(proportions),value=TRUE),
-           paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
-  #Calculate logits of proportions
-  proportionSignals <- grep("Proportion",colnames(proportions), value=TRUE)
-  proportionLogits <- proportions[,lapply(.SD, boundedLogit),by="Barcode,Well,Spot", .SDcols=proportionSignals]
-  setnames(proportionLogits,
-           grep("Proportion",colnames(proportionLogits),value=TRUE),
-           paste0(grep("Proportion",colnames(proportionLogits),value=TRUE),"Logit"))
-  proportionsDT <-merge(proportions,proportionLogits)
+  if(length(gatedSignals)>0){
+    proportions <- cDT[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
+    setnames(proportions,
+             grep("Gated",colnames(proportions),value=TRUE),
+             paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
+    #Calculate logits of proportions
+    proportionSignals <- grep("Proportion",colnames(proportions), value=TRUE)
+    proportionLogits <- proportions[,lapply(.SD, boundedLogit),by="Barcode,Well,Spot", .SDcols=proportionSignals]
+    setnames(proportionLogits,
+             grep("Proportion",colnames(proportionLogits),value=TRUE),
+             paste0(grep("Proportion",colnames(proportionLogits),value=TRUE),"Logit"))
+    proportionsDT <-merge(proportions,proportionLogits)
+  }
+  
   
   #Create proportions and logits of mutlivariate gates
   if ("Cytoplasm_PA_Gated_KRTClass" %in% colnames(cDT)){
@@ -82,10 +85,14 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
     cDT <- cDT[,Cells_PA_Gated_EdUKRT5PositiveProportion := sum(Cells_PA_Gated_EdUKRT5Class==3)/length(ObjectNumber),by="Barcode,Well,Spot"]
     cDT <-cDT[,Cells_PA_Gated_EdUKRT5PositiveProportionLogit:= boundedLogit(Cells_PA_Gated_EdUKRT5PositiveProportion)]
   }
-
+  
   #median summarize the rest of the signals
   signalDT <- summarizeToSpot(cDT,lthresh, seNames)
-  spotDT <- merge(signalDT,proportionsDT)
+  if(exists("proportionsDT")) {
+    spotDT <- merge(signalDT,proportionsDT)
+  } else {
+    spotDT <- signalDT
+  }
   
   #Summarize 
   # The cell level raw data and metadata is saved as Level 1 data. 
@@ -111,6 +118,6 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
   cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
 }
 
-#Debug purposes:  barcodePath <- "/lincs/share/lincs_user/LI8X00771"
+#Debug purposes:  barcodePath <- "/lincs/share/lincs_user/LI8X00850"
 barcodePath <-commandArgs(trailingOnly = TRUE)
 res <- preprocessMEMASpot(barcodePath, verbose=TRUE)
