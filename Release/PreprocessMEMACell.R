@@ -13,15 +13,14 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   functionStartTime<- Sys.time()
   startTime<- Sys.time()
   
-  analysisVersion<-"v1.7"
-  rawDataVersion<-"v2"
+  analysisVersion<-"v1.8"
+  rawDataVersion<-"v1"
   limitBarcodes<- NULL
   mergeOmeroIDs<-TRUE
   calcAdjacency<-TRUE
   writeFiles<-TRUE
-  useAnnotMetadata<-FALSE
+  useAnnotMetadata<-TRUE
   
-  #library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
   library(parallel)#use multiple cores for faster processing
@@ -66,15 +65,11 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   if(useAnnotMetadata){
     metadata <- processan2omero(paste0(barcodePath,"/Analysis/",barcode,"_an2omero.csv"))
   } else {
-    #stop("Non-An! metadata not supported in this script")
     #Read in the spot metadata from the gal file
     if(!length(dir(paste0(barcodePath,"/Analysis"),pattern = "gal"))==1) stop(paste("There must be 1 gal file in the",barcode, "Analysis folder"))
     smd <- readSpotMetadata(dir(paste0(barcodePath,"/Analysis"),pattern = "gal",full.names = TRUE))
-    
-    #Relabel the column Name to ECMp
     setnames(smd, "Name", "ECMp")
     
-    #Add the print order and deposition number to the metadata
     if(!length(dir(paste0(barcodePath,"/Analysis"),pattern = "xml"))==1) stop(paste("There must be 1 xml file in the",barcode, "Analysis folder"))
     ldf <- readLogData(dir(paste0(barcodePath,"/Analysis"),pattern = "xml",full.names = TRUE))
     
@@ -84,53 +79,86 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     spotMetadata180 <- rotateMetadata(spotMetadata)
   }
   
-  # Next, the data is filtered to remove objects with a nuclear area less than nuclearAreaThresh pixels or more than nuclearAreaHiThresh pixels.
-  
-  #The next steps are to bring in the well metadata, the print order and the CP data
   cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
   if(length(cellDataFilePaths)==0) stop("No raw data files found")
   dataBWInfo <- data.table(Path=cellDataFilePaths,
                            Well=gsub("_","",str_extract(dir(paste0(barcodePath,"/Analysis/",rawDataVersion)),"_.*_")),
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
-  
   startTime <- Sys.time()
-  debugLimiter <- min(length(unique(dataBWInfo$Well)),8)
-  expDTList <- mclapply(unique(dataBWInfo$Well)[1:debugLimiter], function(well){
-    if(verbose) cat(paste("Reading and annotating data for",barcode, well,"\n"))
-    nuclei <- convertColumnNames(fread(dataBWInfo$Path[grepl("Nuclei",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
-    if (curatedOnly) nuclei <- nuclei[,grep(curatedCols,colnames(nuclei)), with=FALSE]
-    setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
-    setnames(nuclei,"Nuclei_CP_ImageNumber","Spot")
-    setnames(nuclei,"Nuclei_CP_ObjectNumber","ObjectNumber")
-    setkey(nuclei,Spot,ObjectNumber) 
-    
-    if(any(grepl("Cells",dataBWInfo$Location)&grepl(well,dataBWInfo$Well))){
-      cells <- convertColumnNames(fread(dataBWInfo$Path[grepl("Cells",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
-      if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
-      setnames(cells,paste0("Cells_",colnames(cells)))
-      setnames(cells,"Cells_CP_ImageNumber","Spot")
-      setnames(cells,"Cells_CP_ObjectNumber","ObjectNumber")
-      setkey(cells,Spot,ObjectNumber)
-    } 
-    
-    if(any(grepl("Cytoplasm",dataBWInfo$Location)&grepl(well,dataBWInfo$Well))){
-      cytoplasm <- convertColumnNames(fread(dataBWInfo$Path[grepl("Cytoplasm",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
-      if (curatedOnly) cytoplasm <- cytoplasm[,grep(curatedCols,colnames(cytoplasm)), with=FALSE]
-      setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
-      setnames(cytoplasm,"Cytoplasm_CP_ImageNumber","Spot")
-      setnames(cytoplasm,"Cytoplasm_CP_ObjectNumber","ObjectNumber")
-      setkey(cytoplasm,Spot,ObjectNumber)
-    } 
-    
-    #Merge the data from the different locations if it exists
-    if(exists("cells")&exists("cytoplasm")) {
-      dt <- cells[cytoplasm[nuclei]]
-    } else {
-      dt <- nuclei
+  #Gather data from either CP or INCell
+  if("Nuclei" %in% dataBWInfo$Location){
+    dtL <- mclapply(unique(dataBWInfo$Well), function(well){
+      if(verbose) cat(paste("Reading and annotating data for",barcode, well,"\n"))
+      nuclei <- convertColumnNames(fread(dataBWInfo$Path[grepl("Nuclei",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
+      if (curatedOnly) nuclei <- nuclei[,grep(curatedCols,colnames(nuclei)), with=FALSE]
+      setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
+      setnames(nuclei,"Nuclei_CP_ImageNumber","Spot")
+      setnames(nuclei,"Nuclei_CP_ObjectNumber","ObjectNumber")
+      setkey(nuclei,Spot,ObjectNumber) 
+      
+      if(any(grepl("Cells",dataBWInfo$Location)&grepl(well,dataBWInfo$Well))){
+        cells <- convertColumnNames(fread(dataBWInfo$Path[grepl("Cells",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
+        if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
+        setnames(cells,paste0("Cells_",colnames(cells)))
+        setnames(cells,"Cells_CP_ImageNumber","Spot")
+        setnames(cells,"Cells_CP_ObjectNumber","ObjectNumber")
+        setkey(cells,Spot,ObjectNumber)
+      } 
+      
+      if(any(grepl("Cytoplasm",dataBWInfo$Location)&grepl(well,dataBWInfo$Well))){
+        cytoplasm <- convertColumnNames(fread(dataBWInfo$Path[grepl("Cytoplasm",dataBWInfo$Location)&grepl(well,dataBWInfo$Well)]))
+        if (curatedOnly) cytoplasm <- cytoplasm[,grep(curatedCols,colnames(cytoplasm)), with=FALSE]
+        setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
+        setnames(cytoplasm,"Cytoplasm_CP_ImageNumber","Spot")
+        setnames(cytoplasm,"Cytoplasm_CP_ObjectNumber","ObjectNumber")
+        setkey(cytoplasm,Spot,ObjectNumber)
+      } 
+      
+      #Merge the data from the different locations if it exists
+      if(exists("cells")&exists("cytoplasm")) {
+        dt <- cells[cytoplasm[nuclei]]
+      } else {
+        dt <- nuclei
+      }
+      #Add the well name and barcode as parameters
+      dt <- dt[,Well := well]
+      dt <- dt[,Barcode := barcode]
+      return(dt)
+    },mc.cores=detectCores())
+  } else { #read and convert INCell data to CP format
+    if(verbose) cat(paste("Reading and annotating INCell data for",barcode,"\n"))
+    #Read and combine the 2 header rows after the summary information
+    hdrRows <- read.csv(cellDataFilePaths,skip = 18, nrows=2, header=FALSE,stringsAsFactors = FALSE)
+    hdr <- sub("^_","",paste(hdrRows[1,],hdrRows[2,],sep="_"))
+    #Read the cell level and spot summary data
+    df <- read.csv(cellDataFilePaths,skip = 20, header=FALSE, stringsAsFactors = FALSE)
+    #remove the spot summary data and convert to a data.table
+    if(any(which(df$V1==""))) {
+      df <- df[-(min(which(df$V1=="")):nrow(df)),]
     }
-    #Add the well name and barcode as parameters
-    dt <- dt[,Well := well]
-    dt <- dt[,Barcode := barcode]
+    dt <- data.table(df)
+    #Name the columns
+    setnames(dt,names(dt), hdr)
+    if("NA_NA" %in% colnames(dt)) dt <- dt[,NA_NA := NULL]
+    #Create a spot column from the field value
+    dt$Field <- gsub(".*fld ","",dt$Well)
+    dt$Field <- as.numeric(gsub(")","",dt$Field))
+    #clean up and hold the well names
+    wellNames <- paste0(sub(" -.*","",dt$Well), sprintf("%02s", gsub("[[:alpha:]] - ","",sub("[(].*","",dt$Well))))
+    dt <- dt[,Well:=NULL]
+    dt <- convertColumnNames(dt)
+    pNames <- grep("_",colnames(dt),value=TRUE)
+    setnames(dt,pNames,paste0("IC_",pNames))
+    #Convert all columns besides the Well to numeric values
+    dt <- dt[,lapply(.SD, as.numeric)]
+    dt <- dt[,Well :=wellNames]
+    dt <- dt[,PlateRow:= gsub("[[:digit:]]","",Well)]
+    dt <- dt[,PlateCol := as.numeric(gsub("[[:alpha:]]","",Well))]
+    dt$Barcode <- barcode
+    dtL <-list(dt)
+  }
+  
+  expDTList <- mclapply(dtL, function(dt){
     #Remove problematic features
     dt <- dt[,grep("Euler",colnames(dt),invert=TRUE), with=FALSE]
     if (useAnnotMetadata) {
@@ -172,7 +200,6 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       setnames(dtm,edUNames,gsub("Edu","EdU",edUNames))
     }
     
-    
     #log transform all intensity and areaShape values
     intensityNames <- grep("Intensity",colnames(dtm), value=TRUE)
     scaledInts <- dtm[,intensityNames, with=FALSE]*2^16
@@ -202,7 +229,6 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     endpointNames <- grep("End",colnames(dtm), value=TRUE)
     endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
     setnames(dtm,endpointNames,paste0("Endpoint",endpointWL))
-    
     
     if(normToSpot){
       #Add spot level normalizations for selected intensities
@@ -248,16 +274,14 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     } else {
       dtm$PinDiameter <- 350
     }
-    #names(dtm) <- dataBWI
     return(dtm)
   }, mc.cores=detectCores())
-  #Add names to the data.tables in the list
-  names(expDTList) <- paste(barcode,unique(dataBWInfo$Well)[1:debugLimiter],sep="_")
-  cDT <- rbindlist(expDTList)
-  rm(expDTList)
-  gc()
-  cat("Gating cell level data for plate",barcode,"\n")  
   
+  #Add names to the data.tables in the list
+  #names(expDTList) <- paste(barcode,unique(dataBWInfo$Well),sep="_")
+  cDT <- rbindlist(expDTList)
+  rm(expDTList,dtL)
+  gc()
   
   if(mergeOmeroIDs){
     #Read in and merge the Omero URLs
@@ -279,6 +303,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
   }
   
+  if (verbose) cat("Gating cell level data for plate",barcode,"\n")  
   #Set 2N and 4N DNA status
   cDT <- cDT[,Nuclei_PA_Cycle_State := gateOnlocalMinima(Nuclei_CP_Intensity_IntegratedIntensity_Dapi)]
   
@@ -343,7 +368,6 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     #2 KRT19-, EdU+
     #3 KRT19+, EdU+
     cDT <- cDT[,Cells_PA_Gated_EdUKRT19Class := Cytoplasm_PA_Gated_KRT19Positive+2*Nuclei_PA_Gated_EdUPositive]
-    
   }
   
   if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT14" %in% colnames(cDT)&
@@ -368,14 +392,18 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   
   # The cell level raw data and metadata is saved as Level 1 data. 
   if(writeFiles){
-    if(verbose) cat("Writing full",barcode,"level 1 file to disk\n")
+    # formatTime<-Sys.time()
+    # if(verbose) cat("Formatting",barcode,"level 1 data\n")
+    # dt <- data.table(format(cDT, digits = 4, trim=TRUE))
+    # if(verbose) cat("Format time for ",barcode,":", Sys.time()-writeTime,"\n")
+    if(verbose) cat("Writing",barcode,"level 1 full file to disk\n")
     writeTime<-Sys.time()
-    fwrite(data.table(format(cDT, digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1.tsv"), sep = "\t", quote=FALSE)
+    fwrite(cDT, paste0(barcodePath, "/Analysis/", barcode,"_","Level1.tsv"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
-    if(verbose) cat("Writing subset",barcode,"level 1 file to disk\n")
+    if(verbose) cat("Writing",barcode,"level 1 subset file to disk\n")
     writeTime<-Sys.time()
     set.seed(42)
-    fwrite(data.table(format(cDT[sample(x=1:nrow(cDT),size = .1*nrow(cDT),replace=FALSE),], digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
+    fwrite(cDT[sample(x=1:nrow(dt),size = .1*nrow(dt),replace=FALSE),], paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #Write the pipeline parameters to  tab-delimited file
@@ -419,6 +447,6 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
 }
 
 barcodePath <-commandArgs(trailingOnly = TRUE)
-#barcodePath <- "/lincs/share/lincs_user/LI8X00860"
+#barcodePath <- "/lincs/share/lincs_user/LI8X00771"
 res <- preprocessMEMACell(barcodePath, verbose=TRUE)
 
