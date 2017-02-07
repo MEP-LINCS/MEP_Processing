@@ -18,8 +18,8 @@ renderAnalysisReport <- function(path, datasetName){
          output_format = "html_document")
 }
 
-path <- "/lincs/share/lincs_user"
-datasetName="Pin_Analysis_Study"
+path <- "/lincs/share/lincs_user/lincs86well"
+datasetName="LE96_3_ECM_MEMAs_2"
 tmp <- renderQACellReport(path, datasetName)
 tmp <- renderQASpotMEPReport(path, datasetName)
 tmp <- renderAnalysisReport(path, datasetName)

@@ -47,7 +47,7 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   #Debug
-  slDT <- slDT[,Cytoplasm_CP_AreaShape_MaximumRadiusLog2 :=NULL]
+  if("Cytoplasm_CP_AreaShape_MaximumRadiusLog2" %in% colnames(slDT)) slDT <- slDT[,Cytoplasm_CP_AreaShape_MaximumRadiusLog2 :=NULL]
   
   rawSignalsMinimalMetadataRXP <- grep("_SE",grep("Log2|Logit|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^ArrayRow$|^ArrayColumn$|^CellLine$",colnames(slDT), value=TRUE), value=TRUE, invert=TRUE)
   
@@ -114,5 +114,5 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
 
 path <- commandArgs(trailingOnly = TRUE)[1]
 datasetName <- commandArgs(trailingOnly = TRUE)[2]
-res <- preprocessMEMALevel3(datasetName, path, verbose=TRUE)
+res <- preprocessMEMALevel3(datasetName, path, verbose=TRUE, k=0)
 

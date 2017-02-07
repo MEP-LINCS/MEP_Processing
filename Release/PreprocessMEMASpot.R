@@ -119,5 +119,7 @@ preprocessMEMASpot <- function(barcodePath, verbose=FALSE){
 }
 
 #Debug purposes:  barcodePath <- "/lincs/share/lincs_user/LI8X00850"
+#Debug purposes:  barcodePath <- "/lincs/share/lincs_user/lincs96well/LI9V01612"
+
 barcodePath <-commandArgs(trailingOnly = TRUE)
 res <- preprocessMEMASpot(barcodePath, verbose=TRUE)

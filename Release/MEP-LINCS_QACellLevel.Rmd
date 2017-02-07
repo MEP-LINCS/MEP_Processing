@@ -68,6 +68,8 @@ l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
 l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
 
+#Debug - removes blank barcode
+l1S <- l1S[!l1S$Barcode=="",]
 barcodes <- sort(unique(l1S$Barcode))
 
 #Set a threshold for filtering wells on their QA score
@@ -117,6 +119,7 @@ The plots below are of a randomly sampled subset of the cell-level data.
 
 binwidth=.04
 cummulativeMaxCount<-0
+#Determine how to set a common scale for all figures
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]

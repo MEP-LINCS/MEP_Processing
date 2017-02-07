@@ -76,6 +76,11 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 l3 <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
 l4 <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
 
+#Debug - removes blank barcode
+l3 <- l3[!l3$Barcode=="",]
+l4 <- l4[!l4$Barcode=="",]
+
+
 annotations <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level3Annotations.tsv"),header = FALSE)
 CellLine = annotations$V2[annotations$V1=="CellLine"]
 Preprocess = annotations$V2[annotations$V1=="Preprocess"]
@@ -87,7 +92,6 @@ StainingSet = annotations$V2[annotations$V1=="StainingSet"]
 Level = annotations$V2[annotations$V1=="Level"]
 
 
-barcodes <- sort(unique(l3$Barcode))
 
 #Set a threshold for filtering wells on their QA score
 wellQAThresh <- 0.7
