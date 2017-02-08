@@ -147,6 +147,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       smdPlate <- smdPlate[,PlatePrintCol :=NULL]
       smdPlate <- smdPlate[,PrintHeadRow :=NULL]
       smdPlate <- smdPlate[,PrintHeadCol :=NULL]
+      smdPlate <- smdPlate[,WellIndex :=NULL]
     } else {
       stop("Only 8 well and 96 well plates are supported")
     }
@@ -229,8 +230,8 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     #Convert all columns besides the Well to numeric values
     dt <- dt[,lapply(.SD, as.numeric),.SDcols = grep("Well",colnames(dt),value=TRUE,invert=TRUE)]
     dt$Well <- wells
-    dt$PlateRow <- wellRow
-    dt <- dt[,PlateCol := as.numeric(gsub("[[:alpha:]]","",dt$Well))]
+    # dt$PlateRow <- wellRow
+    # dt <- dt[,PlateCol := as.numeric(gsub("[[:alpha:]]","",dt$Well))]
     #Convert INCell names to CP versions
     dt <- convertColumnNames(dt)
     #Assume first nuclear channel is DAPI
@@ -267,7 +268,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     if(useAnnotMetadata) {
       dtm <- merge(dt,metadata,by = c("Barcode","Well","Spot"))
       dtm$PrintSpot <- dtm$Spot
-
+      
     } else {
       #For 8 well plates, merge the data with its metadata based on the row it's in
       
@@ -296,93 +297,95 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       }
       dtm <- merge(wellMetadata,dtm,by="Well")
     }
-      if(any(grepl("Nuclei_CP_AreaShape_Area",colnames(dtm)))){
-        dtm <- dtm[dtm$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
-        dtm <- dtm[dtm$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
-      }
-      
-      #Change Edu back to EdU
-      if(any(grepl("Edu",colnames(dtm)))){
-        edUNames <- grep("Edu",colnames(dtm),value=TRUE)
-        setnames(dtm,edUNames,gsub("Edu","EdU",edUNames))
-      }
-      
-      #log transform all intensity and areaShape values
+    if(any(grepl("Nuclei_CP_AreaShape_Area",colnames(dtm)))){
+      dtm <- dtm[dtm$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
+      dtm <- dtm[dtm$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
+    }
+    
+    #Change Edu back to EdU
+    if(any(grepl("Edu",colnames(dtm)))){
+      edUNames <- grep("Edu",colnames(dtm),value=TRUE)
+      setnames(dtm,edUNames,gsub("Edu","EdU",edUNames))
+    }
+    #Scale CP pipelin values
+    if(CPPipeline) {
       intensityNames <- grep("Intensity",colnames(dtm), value=TRUE)
       scaledInts <- dtm[,intensityNames, with=FALSE]*2^16
       dtm <- cbind(dtm[,!intensityNames, with=FALSE],scaledInts)
-      transformNames <- grep("_Center_|_Eccentricity|_Orientation",grep("Intensity|AreaShape",colnames(dtm), value=TRUE, ignore.case = TRUE), value=TRUE, invert=TRUE)
-      dtLog <- dtm[,lapply(.SD,boundedLog2),.SDcols=transformNames]
-      setnames(dtLog,colnames(dtLog),paste0(colnames(dtLog),"Log2"))
-      dtm <- cbind(dtm,dtLog)
+    }
+    #log transform all intensity and areaShape values
+    transformNames <- grep("_Center_|_Eccentricity|_Orientation",grep("Intensity|AreaShape",colnames(dtm), value=TRUE, ignore.case = TRUE), value=TRUE, invert=TRUE)
+    dtLog <- dtm[,lapply(.SD,boundedLog2),.SDcols=transformNames]
+    setnames(dtLog,colnames(dtLog),paste0(colnames(dtLog),"Log2"))
+    dtm <- cbind(dtm,dtLog)
+    
+    #logit transform eccentricity
+    if(any(grepl("Nuclei_CP_AreaShape_Eccentricity",colnames(dtm)))){
+      dtm <- dtm[,Nuclei_CP_AreaShape_EccentricityLogit := boundedLogit(Nuclei_CP_AreaShape_Eccentricity)]
+    }
+    if(any(grepl("Nuclei_CP_AreaShape_Center",colnames(dtm)))){
+      #Add the local polar coordinates and Neighbor Count
+      dtm <- dtm[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
+      dtm <- dtm[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
+      dtm <- dtm[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
+      dtm <- dtm[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
+    }
+    #Add MEP and convenience labels for wells and ligands
+    dtm <- dtm[,MEP:=paste(ECMp,Ligand,sep = "_")]
+    dtm <- dtm[,Well_Ligand:=paste(Well,Ligand,sep = "_")]
+    dtm <- dtm[,MEP_Drug:=paste(MEP,Drug,sep = "_")]
+    
+    # Eliminate Variations in the Endpoint metadata
+    endpointNames <- grep("End",colnames(dtm), value=TRUE)
+    endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
+    setnames(dtm,endpointNames,paste0("Endpoint",endpointWL))
+    
+    if(normToSpot){
+      #Add spot level normalizations for selected intensities
+      intensityNamesAll <- grep("_CP_Intensity_Median",colnames(dtm), value=TRUE)
+      intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
+      for(intensityName in intensityNames){
+        #Median normalize the median intensity at each spot
+        setnames(dtm,intensityName,"value")
+        dtm <- dtm[,paste0(intensityName,"_SpotNorm") := spotNorm(value),by="Barcode,Well,Spot"]
+        setnames(dtm,"value",intensityName)
+      }
+    }
+    if(calcAdjacency){
+      if(verbose) cat("Calculating adjacency data\n")
       
-      #logit transform eccentricity
-      if(any(grepl("Nuclei_CP_AreaShape_Eccentricity",colnames(dtm)))){
-        dtm <- dtm[,Nuclei_CP_AreaShape_EccentricityLogit := boundedLogit(Nuclei_CP_AreaShape_Eccentricity)]
-      }
-      if(any(grepl("Nuclei_CP_AreaShape_Center",colnames(dtm)))){
-        #Add the local polar coordinates and Neighbor Count
-        dtm <- dtm[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
-        dtm <- dtm[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
-        dtm <- dtm[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
-        dtm <- dtm[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
-      }
-      #Add MEP and convenience labels for wells and ligands
-      dtm <- dtm[,MEP:=paste(ECMp,Ligand,sep = "_")]
-      dtm <- dtm[,Well_Ligand:=paste(Well,Ligand,sep = "_")]
-      dtm <- dtm[,MEP_Drug:=paste(MEP,Drug,sep = "_")]
+      densityRadius <- sqrt(median(dtm$Nuclei_CP_AreaShape_Area, na.rm = TRUE)/pi)
       
-      # Eliminate Variations in the Endpoint metadata
-      endpointNames <- grep("End",colnames(dtm), value=TRUE)
-      endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
-      setnames(dtm,endpointNames,paste0("Endpoint",endpointWL))
+      #Count the number of neighboring cells
+      dtm <- dtm[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
       
-      if(normToSpot){
-        #Add spot level normalizations for selected intensities
-        intensityNamesAll <- grep("_CP_Intensity_Median",colnames(dtm), value=TRUE)
-        intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
-        for(intensityName in intensityNames){
-          #Median normalize the median intensity at each spot
-          setnames(dtm,intensityName,"value")
-          dtm <- dtm[,paste0(intensityName,"_SpotNorm") := spotNorm(value),by="Barcode,Well,Spot"]
-          setnames(dtm,"value",intensityName)
-        }
-      }
-      if(calcAdjacency){
-        if(verbose) cat("Calculating adjacency data\n")
-        
-        densityRadius <- sqrt(median(dtm$Nuclei_CP_AreaShape_Area, na.rm = TRUE)/pi)
-        
-        #Count the number of neighboring cells
-        dtm <- dtm[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
-        
-        #Rules for classifying perimeter cells
-        dtm <- dtm[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
-        
-        #Add a local wedge ID to each cell based on conversations with Michel Nederlof
-        dtm <- dtm[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
-        
-        #Define the perimeter cell if it exists in each wedge
-        #Classify cells as outer if they have a radial position greater than a thresh
-        dtm <- dtm[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
-        
-        #Require a perimeter cell not be in a sparse region
-        denseOuterDT <- dtm[!dtm$Spot_PA_Sparse  & dtm$Spot_PA_OuterCell]
-        denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
-        setkey(dtm,Barcode,Well,Spot,ObjectNumber)
-        setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
-        dtm <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][dtm]
-        dtm$Spot_PA_Perimeter[is.na(dtm$Spot_PA_Perimeter)] <- FALSE
-        
-      }
-      #Add the pin diameter metadata in microns
-      if(any(grepl("MCF7|PC3|YAPC",unique(dtm$CellLine)))){
-        dtm$PinDiameter <- 180
-      } else {
-        dtm$PinDiameter <- 350
-      }
-      return(dtm)
-    }, mc.cores=detectCores())
+      #Rules for classifying perimeter cells
+      dtm <- dtm[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
+      
+      #Add a local wedge ID to each cell based on conversations with Michel Nederlof
+      dtm <- dtm[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
+      
+      #Define the perimeter cell if it exists in each wedge
+      #Classify cells as outer if they have a radial position greater than a thresh
+      dtm <- dtm[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
+      
+      #Require a perimeter cell not be in a sparse region
+      denseOuterDT <- dtm[!dtm$Spot_PA_Sparse  & dtm$Spot_PA_OuterCell]
+      denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
+      setkey(dtm,Barcode,Well,Spot,ObjectNumber)
+      setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
+      dtm <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][dtm]
+      dtm$Spot_PA_Perimeter[is.na(dtm$Spot_PA_Perimeter)] <- FALSE
+      
+    }
+    #Add the pin diameter metadata in microns
+    if(any(grepl("MCF7|PC3|YAPC",unique(dtm$CellLine)))){
+      dtm$PinDiameter <- 180
+    } else {
+      dtm$PinDiameter <- 350
+    }
+    return(dtm)
+  }, mc.cores=detectCores())
   
   #Add names to the data.tables in the list
   #names(expDTList) <- paste(barcode,unique(dataBWInfo$Well),sep="_")
@@ -526,7 +529,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     if(verbose) cat("Writing",barcode,"level 1 subset file to disk\n")
     writeTime<-Sys.time()
     set.seed(42)
-    fwrite(cDT[sample(x=1:nrow(dt),size = .1*nrow(dt),replace=FALSE),], paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
+    fwrite(cDT[sample(x=1:nrow(cDT),size = .1*nrow(cDT),replace=FALSE),], paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #Write the pipeline parameters to  tab-delimited file
@@ -567,11 +570,10 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
     paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
-  }
-  
-  barcodePath <-commandArgs(trailingOnly = TRUE)
-  #barcodePath <- "/lincs/share/lincs_user/LI8X00771"
-  #barcodePath <- "/lincs/share/lincs_user/lincs96well/LI9V01612"
-  res <- preprocessMEMACell(barcodePath, verbose=TRUE)
-  
-  
+}
+
+barcodePath <-commandArgs(trailingOnly = TRUE)
+#barcodePath <- "/lincs/share/lincs_user/LI8X00771"
+#barcodePath <- "/lincs/share/lincs_user/lincs96well/LI9V01612"
+res <- preprocessMEMACell(barcodePath, verbose=TRUE)
+

@@ -58,6 +58,8 @@ Drug = annotations$V2[annotations$V1=="Drug"]
 Segmentation = annotations$V2[annotations$V1=="Segmentation"]
 StainingSet = annotations$V2[annotations$V1=="StainingSet"]
 Level = annotations$V2[annotations$V1=="Level"]
+plateType <- paste0(length(unique(l1S$Well)),"Well")
+nrPlateRow <- length(unique(l1S$PlateRow))
 
 ```
 
@@ -68,8 +70,6 @@ l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
 l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
 
-#Debug - removes blank barcode
-l1S <- l1S[!l1S$Barcode=="",]
 barcodes <- sort(unique(l1S$Barcode))
 
 #Set a threshold for filtering wells on their QA score
@@ -115,7 +115,7 @@ The plots below are of a randomly sampled subset of the cell-level data.
 
 <br>
 
-```{r rawDAPIPlots, fig.width=3.7,fig.height=3}
+```{r rawDAPIPlots, fig.width=3.7,fig.height=1.5*nrPlateRow}
 
 binwidth=.04
 cummulativeMaxCount<-0
@@ -134,9 +134,9 @@ for(barcode in barcodes){
   p <- ggplot(dtb, aes(x=TotalDNANormed))+geom_histogram(binwidth = binwidth)+
     coord_cartesian(x=c(0,4), y=c(0,cummulativeMaxCount))+
     geom_vline(data = dtb, aes(xintercept = DNAThresh), colour = "blue")+
-    facet_wrap(~Well_Ligand, nrow=2) +
+    facet_wrap(~Well_Ligand, nrow=nrPlateRow) +
     ylab("Count")+xlab("Total Intensity DAPI")+ggtitle(paste("Total DAPI Intensity:",barcode))+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)),strip.text.x = element_text(size = rel(.5)))
+    theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)),strip.text.x = element_text(size = rel(.4)))
   suppressWarnings(print(p))
 }
 ```
