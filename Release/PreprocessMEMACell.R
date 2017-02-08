@@ -421,10 +421,10 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
         as.numeric() %>%
         sprintf("%02d",.) %>%
         paste0(wellRow,.)
-      omeroIndex$Spot <- str_match(omeroIndex$WellName,"#[:digit:]*") %>%
-        str_replace("#","") %>%
-        as.numeric()
-      cDT <- merge(cDT,omeroIndex,by=c("Well","Spot"))
+      setnames(omeroIndex,"Row","ArrayRow")
+      setnames(omeroIndex,"Column","ArrayColumn")
+      omeroIndex <- omeroIndex[,WellName:=NULL]
+      cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
     } else {
       stop("Only 8 and 96 well plates can be merged with omero IDs")
     }
