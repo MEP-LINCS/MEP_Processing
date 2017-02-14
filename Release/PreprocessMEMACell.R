@@ -25,7 +25,7 @@ simplifyLigandAnnotID <- function (ligand, annotIDs)
   return(ligands)
 }
 
-.libPaths("/home/users/dane/R/x86_64-redhat-linux-gnu-library/3.3")
+#.libPaths("/home/users/dane/R/x86_64-redhat-linux-gnu-library/3.3")
 
 preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
@@ -35,12 +35,12 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   startTime<- Sys.time()
   
   analysisVersion<-"v1.8"
-  rawDataVersion<-"v1"
+  rawDataVersion<-"v2"
   limitBarcodes<- NULL
   mergeOmeroIDs<-TRUE
   calcAdjacency<-TRUE
   writeFiles<-TRUE
-  useAnnotMetadata<-FALSE
+  useAnnotMetadata<-TRUE
   
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
@@ -85,7 +85,9 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   #Use metadata from an2omero files
   if(useAnnotMetadata){
     metadata <- processan2omero(paste0(barcodePath,"/Analysis/",barcode,"_an2omero.csv"))
-  } else {
+    MEMA8Well <- length(unique(metadata$Well))==8
+    MEMA96Well <- length(unique(metadata$Well))==96
+    } else {
     fn <- dir(paste0(barcodePath,"/Analysis"),pattern = "xml",full.names = TRUE)
     if(!length(fn)==1) stop(paste("There must be 1 xml file in the",barcode, "Analysis folder"))
     ldf <- readLogData(fn)
