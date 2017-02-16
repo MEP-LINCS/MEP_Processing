@@ -150,7 +150,7 @@ The following plots are pseudo images of each MEMA's spot cell count along with 
 
 
 ```{r Heatmaps_QAScores, fig.width=3.7,fig.height=4, eval=TRUE}
-
+barcodes <- unique(l3$Barcode)
 dt <- copy(l3)
 dt$Well_Ligand <- sub("_","\n",dt$Well_Ligand)
 plotSCCHeatmapsQAHistograms(dt, barcodes, lthresh=lthresh)
@@ -232,12 +232,12 @@ print(p)
 ```
 
 
-```{r, child='MEP-LINCS_MitoText.Rmd', eval=any("MitoTracker",colnames(l3))}
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=any(grepl("MitoTracker",colnames(l3)))}
 ```
 
 
 
-```{r rawMitoBoxplots, fig.height=5,  eval=any("MitoTracker",colnames(l3))}
+```{r rawMitoBoxplots, fig.height=5,  eval=any(grepl("MitoTracker",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -251,7 +251,7 @@ print(p)
 
 
 
-```{r rawcaspaseBoxplots, fig.height=5,  eval=any("CaspaseLog2",colnames(l3))}
+```{r rawcaspaseBoxplots, fig.height=5,  eval=any(grepl("CaspaseLog2",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -313,7 +313,7 @@ print(p)
 
 
 
-```{r rawCaspaseBoxplots, fig.height=5,  eval=any("Caspase",colnames(l3))}
+```{r rawCaspaseBoxplots, fig.height=5,  eval=any(grepl("Caspase",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -860,7 +860,7 @@ print(p)
 ###Replicate Count
 The median replicate count is `r  sprintf("%3.2f",median(table(DT$ECMp)))` and the range of the replicate counts is `r range(table(DT$ECMp))`.  
 
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=8, eval=exists("l3")}
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=8, eval=dim(DT)[1]>0}
 
 p <- ggplot(DT, aes(x=ECMp))+
   geom_bar(width=.8)+geom_hline(yintercept = median(table(DT$ECMp)), colour="blue")+
@@ -1036,7 +1036,7 @@ print(p)
 
 ```
 
-```{r, , fig.height=10,  eval=any("EdUPositiveProportion",colnames(l3))}
+```{r, , fig.height=10,  eval=any(grepl("EdUPositiveProportion",colnames(l3)))}
 
 
 if(exists("l3$Nuclei_PA_Gated_EdUPositiveProportion")){

@@ -255,7 +255,10 @@ if(any(grepl("MitoTrackerLog2RUVLoess",colnames(l4F)))){
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
     
   }
-} else stop("Unknown staining set")
+} else {
+   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess", "Spot_PA_ReplicateCount")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Replicate Count")
+}
 
 dt <- setorder(l4F,-Spot_PA_SpotCellCountLog2RUVLoess)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
