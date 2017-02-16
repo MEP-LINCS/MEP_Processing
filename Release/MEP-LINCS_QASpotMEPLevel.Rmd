@@ -232,12 +232,12 @@ print(p)
 ```
 
 
-```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",StainingSet)}
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=any("MitoTracker",colnames(l3))}
 ```
 
 
 
-```{r rawMitoBoxplots, fig.height=5, eval=grepl("SS1",StainingSet)}
+```{r rawMitoBoxplots, fig.height=5,  eval=any("MitoTracker",colnames(l3))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -251,7 +251,7 @@ print(p)
 
 
 
-```{r rawcaspaseBoxplots, fig.height=5, eval=grepl("SSD",StainingSet)}
+```{r rawcaspaseBoxplots, fig.height=5,  eval=any("CaspaseLog2",colnames(l3))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -264,12 +264,12 @@ print(p)
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet)}
+```{r, child='MEP-LINCS_EdUText.Rmd', eval=any(grepl("EdU",colnames(l3)))}
 ```
 
 <br>
 
-```{r rawEdUBoxplots, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",StainingSet)}
+```{r rawEdUBoxplots, fig.height=5, eval=any(grepl("EdU",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_EdULog2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -280,7 +280,7 @@ print(p)
 
 ```
 
-```{r rawEdUBoxplotsbyWell, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",StainingSet)}
+```{r rawEdUBoxplotsbyWell, fig.height=5, eval=any(grepl("EdU",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Well), y=Nuclei_CP_Intensity_MedianIntensity_EdULog2, colour=factor(Barcode)))+
   geom_boxplot(outlier.size = .5)+
@@ -292,7 +292,7 @@ print(p)
 ```
 
 
-```{r rawEdUBoxplotsbyLigand, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSD|SSE|SSF",StainingSet)}
+```{r rawEdUBoxplotsbyLigand, fig.height=5, eval=any(grepl("EdU",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Ligand), y=Nuclei_PA_Gated_EdUPositiveProportion, colour=factor(Barcode)))+
   geom_boxplot(outlier.size = .5)+
@@ -313,7 +313,7 @@ print(p)
 
 
 
-```{r rawCaspaseBoxplots, fig.height=5, eval=grepl("SSD",StainingSet)}
+```{r rawCaspaseBoxplots, fig.height=5,  eval=any("Caspase",colnames(l3))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -328,7 +328,7 @@ print(p)
 
 
 
-```{r rawKrt5Boxplots, fig.height=5, eval=grepl("SS3|SS4|SSF",StainingSet)}
+```{r rawKrt5Boxplots, fig.height=5, eval=any(grepl("KRT5",colnames(l3)))}
 
 p <- ggplot(l3, aes(x=factor(Barcode), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2, colour=Well))+
   geom_boxplot(outlier.size = .5)+
@@ -584,7 +584,7 @@ suppressWarnings(print(p))
 ```{r ProliferationByLigandFull, , eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), colour = Barcode))+geom_boxplot()+
-  coord_cartesian(ylim = c(0,.5))+
+  coord_cartesian(ylim = c(0,1))+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -595,7 +595,7 @@ suppressWarnings(print(p))
 ```{r ProliferationByECMpFull, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess",colnames(dt)))}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess, FUN=median), y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+geom_boxplot()+
-    coord_cartesian(ylim = c(0,.5))+
+    coord_cartesian(ylim = c(0,1))+
   ggtitle(paste("\n\nMEP Normalized, EdU+ Proportion by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -947,93 +947,54 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
   
   
-  if (grepl("SS1",StainingSet))  {
+  if (any(grepl("Actin",colnames(DT))))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
-    
+  }
+  if (any(grepl("CellMask",colnames(DT))))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
-    
+  }
+  if (any(grepl("MitoTracker",colnames(DT))))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
   }
   
-  if (grepl("SS2",StainingSet)){   
+  if (any(grepl("Firbillarin",colnames(DT))))  {
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   }
-  if (grepl("SS2|SS4|SSA",StainingSet)){   
-    
+  if (any(grepl("EdU",colnames(DT))))  {    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
-    
   } 
-  if (grepl("SS3|SS4",StainingSet)){
-    
+  
+  if (any(grepl("KRT5",colnames(DT))))  {    
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
-    
+  }
+  if (any(grepl("KRT19",colnames(DT))))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   }
   
-  if (grepl("SS3",StainingSet)){
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint647))
-    suppressWarnings(print(p))
-    
-  }
-  
-  if (grepl("SS6",StainingSet)){
+  if (any(grepl("KRT14",colnames(DT))))  {
     
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT14", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
-    suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
-    suppressWarnings(print(p))
-    
   }
   
-  if (grepl("SSD",StainingSet)){
-    
+  if (any(grepl("Caspase",colnames(DT))))  {    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_IntegratedIntensity_Caspase", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
-    suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
-    suppressWarnings(print(p))
-    
-  }
-  if (grepl("SSE",StainingSet)){
-    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Nestin", prDisplay = unique(DT$Endpoint488))
-    suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
-    suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Mu5AC",prDisplay = unique(DT$Endpoint750))
-    suppressWarnings(print(p))
-    
   }
   
-  if (grepl("SSF",StainingSet)){
-    
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
-    suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
-    suppressWarnings(print(p))
-    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
+  if (any(grepl("Nestin",colnames(DT))))  {    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Nestin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
   }
+  
 }
-
 ```
 
 
@@ -1075,14 +1036,14 @@ print(p)
 
 ```
 
-```{r, , fig.height=10, eval=grepl("SS2|SS4|SS6|SSA|SSD|SSE",StainingSet)}
+```{r, , fig.height=10,  eval=any("EdUPositiveProportion",colnames(l3))}
 
 
 if(exists("l3$Nuclei_PA_Gated_EdUPositiveProportion")){
   p <- ggplot(l3, aes(y=Nuclei_PA_Gated_EdUPositiveProportion, x=Well, colour=Well))+
     geom_boxplot()+
     xlab("Well")+
-    #coord_cartesian( ylim=c(0,1))+
+    coord_cartesian( ylim=c(0,1))+
     ggtitle("EdU+ Proportion by Well")+
     facet_wrap(~Barcode)+
     theme(strip.text = element_text(size = rel(.5)), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))

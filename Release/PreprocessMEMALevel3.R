@@ -93,7 +93,7 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
   #WriteData
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0(path, "/",datasetName, "/Annotated/", datasetName,"_Level3.tsv"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0(path, "/study/",datasetName, "/Annotated/", datasetName,"_Level3.tsv"), sep = "\t", quote=FALSE)
     
     #Write the File Annotations for Synapse to tab-delimited file
     annotations <- fread(paste0(path,"/",barcodes[1],"/Analysis/",barcodes[1],"_SpotLevelAnnotations.tsv"),header = FALSE)
@@ -107,12 +107,12 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
       Segmentation = annotations$V2[annotations$V1=="Segmentation"],
       StainingSet = annotations$V2[annotations$V1=="StainingSet"],
       Level = "3"),
-      paste0(path,"/",datasetName, "/Annotated/", datasetName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+      paste0(path,"/study/",datasetName, "/Annotated/", datasetName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-startTime, "\n")
 }
 
 path <- commandArgs(trailingOnly = TRUE)[1]
 datasetName <- commandArgs(trailingOnly = TRUE)[2]
-res <- preprocessMEMALevel3(datasetName, path, verbose=TRUE, k=0)
+res <- preprocessMEMALevel3(datasetName, path, verbose=TRUE)
 

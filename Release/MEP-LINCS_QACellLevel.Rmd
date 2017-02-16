@@ -28,6 +28,9 @@ library(DT)
 library(d3heatmap)
 library(plotly)
 library(googlesheets)
+library(readr)
+library(stringr)
+library(parallel)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -59,7 +62,7 @@ Segmentation = annotations$V2[annotations$V1=="Segmentation"]
 StainingSet = annotations$V2[annotations$V1=="StainingSet"]
 Level = annotations$V2[annotations$V1=="Level"]
 plateType <- paste0(length(unique(l1S$Well)),"Well")
-nrPlateRow <- length(unique(l1S$PlateRow))
+nrPlateRow <- length(unique(gsub("[[:digit:]]","",l1S$Well)))
 
 ```
 
@@ -211,7 +214,7 @@ for (barcode in barcodes){
 
 <br>
 
-```{r rawKrt5Histograms, fig.width=3.7,fig.height=4, eval=grepl("SS3|SS4|SSF",StainingSet)}
+```{r rawKrt5Histograms, fig.width=3.7,fig.height=4, eval=any(grepl("KRT5",colnames(l1S)))}
 
 xMin <- quantile(l1S$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.01, na.rm=TRUE)
 xMax <- quantile(l1S$Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.99, na.rm=TRUE)
@@ -345,7 +348,7 @@ for (barcode in barcodes){
 
 ```
 
-```{r EdUgatedKRT5Scatterplots, fig.width=8,fig.height=4, eval=grepl("SSF",StainingSet)}
+```{r EdUgatedKRT5Scatterplots, fig.width=8,fig.height=4, eval=any(grepl("KRT5",colnames(l1S)))&any(grepl("EdU",colnames(l1S)))}
 
 for (barcode in barcodes){
   mDT <- l1S[l1S$Barcode == barcode]
@@ -374,7 +377,7 @@ p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity
 suppressWarnings(print(p))
 ```
 
-```{r EdUbygatedKRT5Ligandboxplots, fig.width=10,fig.height=4, eval=grepl("SSF",StainingSet)}
+```{r EdUbygatedKRT5Ligandboxplots, fig.width=10,fig.height=4, eval=any(grepl("KRT5",colnames(l1S)))&any(grepl("EdU",colnames(l1S)))}
 
 p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Cytoplasm_PA_Gated_KRT5Positive)))+
   geom_boxplot(outlier.colour = NA)+

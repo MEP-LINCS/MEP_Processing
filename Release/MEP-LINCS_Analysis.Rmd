@@ -161,12 +161,12 @@ l4F <- summarizeFBS(l4F)
 #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
 l4F <- l4F[,Spot_PA_SpotCellCountLog2RUVLoess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUVLoess)]
 
-if (grepl("SS2|SS4|SSA|SSE|SSF",StainingSet)){
+if  (any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F))))  {
   #Add Robust Z Score of the EdU Signal
   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUVLoess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
 }
 
-if (grepl("SS3|SS4",StainingSet)){
+if  (any(grepl("LineageRatioLog2RUVLoess",colnames(l4F)))) {
   #Add Robust Z Scores of the normalized lineage ratios
   
   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess)]
@@ -228,22 +228,25 @@ A useful mining method to use the first table to identify a MEP of interest as t
 
 
 ```{r SCCTable}
-if(any(grepl("SS1",StainingSet))){
+if(any(grepl("MitoTrackerLog2RUVLoess",colnames(l4F)))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
-} else if (any(grepl("SS2|SS4|SS6|SSA",StainingSet))){
+} else if(any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
-} else if (any(grepl("SSD",StainingSet))){
+} else if(any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))&
+          any(grepl("MedianIntensity_CaspaseLog2RUVLoess",colnames(l4F)))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Nuclei_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Caspase")
-} else if (any(grepl("SSE",StainingSet))){
+} else if(any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))&
+          any(grepl("NestinLog2RUVLoess",colnames(l4F)))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Nestin")
-} else if (any(grepl("SSF",StainingSet))){
+} else if (any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))&
+          any(grepl("KRT5Log2RUVLoess",colnames(l4F)))){
   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed KRT5")
-} else if (any(grepl("SS3|SS4",StainingSet))){
+} else if (any(grepl("LineageRatioLog2RUVLoess",colnames(l4F)))){
   if (CellLine=="MCF10A"){
     colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess", "Spot_PA_ReplicateCount")
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
@@ -252,7 +255,7 @@ if(any(grepl("SS1",StainingSet))){
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
     
   }
-} else stop("Unknown staining set name")
+} else stop("Unknown staining set")
 
 dt <- setorder(l4F,-Spot_PA_SpotCellCountLog2RUVLoess)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
@@ -310,12 +313,12 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",StainingSet)}
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=any(grepl("MitoTracker",colnames(l4F)))}
 ```
 
 <br>
 
-```{r MitoTrackerByMEPFull, eval=grepl("SS1",StainingSet), fig.width=8, fig.height=6}
+```{r MitoTrackerByMEPFull, , eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=8, fig.height=6}
 dt <- l4F
 
 yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess_SE), probs=c(.002, .998))
@@ -332,7 +335,7 @@ ggplotly(p)
 ```
 
 
-```{r MitotrackerHeatmapFull, eval=grepl("SS1",StainingSet), fig.width=8, fig.height=5}
+```{r MitotrackerHeatmapFull, eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=8, fig.height=5}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess")
@@ -345,12 +348,12 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4|SSE|SSA",StainingSet)}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=any(grepl("EdU",colnames(l4F)))}
 ```
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull, eval=any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F))), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -366,11 +369,11 @@ ggplotly(p)
 
 
 
-```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4|SSA|SSE|SSF",StainingSet)}
+```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))}
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet)}
+```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess")
@@ -384,7 +387,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUBoxplotsFull, fig.width=12, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet)}
+```{r EdUBoxplotsFull, fig.width=12, fig.height=5, eval=any(grepl("EdUPositiveProportionLogitRUVLoess",colnames(l4F)))}
 
 p <- ggplot(l4F, aes(x=Ligand, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
@@ -399,7 +402,7 @@ print(p)
 
 ```
 
-```{r NormedNestinByMEP,eval=grepl("SSE",StainingSet), fig.width=8, fig.height=6}
+```{r NormedNestinByMEP, eval=any(grepl("NestinLog2RUVLoess",colnames(l4F))), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -415,7 +418,7 @@ ggplotly(p)
 
 
 
-```{r NestinHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SSE",StainingSet)}
+```{r NestinHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("NestinLog2RUVLoess",colnames(l4F)))}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess")
@@ -429,7 +432,7 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r NestinBoxplotsFull, fig.width=12, fig.height=5, eval=grepl("SSE",StainingSet)}
+```{r NestinBoxplotsFull, fig.width=12, fig.height=5, eval=any(grepl("NestinLog2RUVLoess",colnames(l4F)))}
 
 p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
@@ -443,10 +446,10 @@ print(p)
 
 ```
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3|SS4",StainingSet)}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval=any(grepl("LineageRatioLog2RUVLoess",colnames(l4F)))}
 ```
 
-```{r LineageRatioByMEP,eval=grepl("SS3|SS4",StainingSet), fig.width=8, fig.height=6}
+```{r LineageRatioByMEP,eval=any(grepl("LineageRatioLog2RUVLoess",colnames(l4F))), fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -462,7 +465,7 @@ ggplotly(p)
 
 
 
-```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS3|SS4",StainingSet)}
+```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=any(grepl("KRT5Log2RUVLoess",colnames(l4F)))& any(grepl("KRT19Log2RUVLoess",colnames(l4F)))}
 
 dt <- l4F
 
@@ -475,7 +478,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, y
 ```
 
 
-```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS3|SS4",StainingSet)}
+```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("LineageRatioLog2RUVLoess",colnames(l4F)))}
 
 #Cast to get ECMps in rows and ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess")
@@ -489,7 +492,7 @@ try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS4",StainingSet)}
+```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=any(grepl("LineageRatioLog2RUVLoess",colnames(l4F)))}
 
 dt <- l4
 
