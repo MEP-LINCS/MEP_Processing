@@ -31,10 +31,10 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 ```{r readLevel3and4Data, echo=FALSE}
 path <- "/lincs/share/lincs_user"
 datasetName <- "Pin_Analysis_Study"
-l3 <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
-l4 <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+l3 <- fread(paste0(path,"/study/",datasetName,"/Annotated/",datasetName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l4 <- fread(paste0(path,"/study/",datasetName,"/Annotated/",datasetName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
 
-annotations <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level3Annotations.tsv"),header = FALSE)
+annotations <- fread(paste0(path,"/study/",datasetName,"/Annotated/",datasetName,"_Level3Annotations.tsv"),header = FALSE)
 CellLine = annotations$V2[annotations$V1=="CellLine"]
 Preprocess = annotations$V2[annotations$V1=="Preprocess"]
 DataType = annotations$V2[annotations$V1=="DataType"]
@@ -110,3 +110,36 @@ p
 
 
 ```
+
+
+###Selecting pins with similar cell counts
+
+
+```{r,  fig.height=4, fig.width=4}
+normSCC <- function(x){
+  x/numericMedian(x)
+}
+dt <- unique(l3[,.(Barcode,Block,Spot_PA_SpotCellCount)])
+dt <- dt[, .(PinMedian =numericMedian(Spot_PA_SpotCellCount)), by=c("Barcode","Block")]
+dt <- dt[,PinMedianNorm := normSCC(PinMedian),by="Barcode"]
+dtc <- dcast(dt, Block~Barcode,value.var = "PinMedianNorm")
+
+p <- ggplot(dtc, aes(x = LI8X00850, y=LI8X00860, label=Block))+
+  geom_point()+
+  geom_abline(slope=1, intercept = c(-.05,0,.05))+
+  geom_vline(xintercept = c(.9,1.16))+
+    geom_hline(yintercept = c(.9,1.16))+
+ coord_cartesian(xlim=c(.7,1.4),ylim=c(.7,1.4))+
+  ggtitle(paste("Normalized Spot Cell Count Medians by Pin"))
+
+ggplotly(p)
+
+setnames(dtc,"Block","Pin")
+#unique(dtc[LI8X00850<1.15&LI8X00850>.9&LI8X00860<1.15&LI8X00860>.9,c("Pin")])
+
+```
+
+
+Using the figure and table above, the primary 12 pins from the 860 printhead layout are `r unlist(unique(dtc[LI8X00850<=1.10&LI8X00850>.9&LI8X00860<=1.10&LI8X00860>.9,c("Pin")]))` and pins `r unlist(unique(dtc[LI8X00850<=1.16&LI8X00850>.9&LI8X00860<1.15&LI8X00860>1.1,c("Pin")]))` should be used as spares for this group.
+
+
