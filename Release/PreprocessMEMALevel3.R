@@ -2,7 +2,7 @@
 #author: "Mark Dane"
 # 2/1/2017
 
-preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
+preprocessMEMALevel3 <- function(datasetName, path, k=256, verbose=FALSE){
   startTime <- Sys.time()
   writeFiles<-TRUE
   seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
@@ -114,5 +114,8 @@ preprocessMEMALevel3 <- function(datasetName, path, k= 256, verbose=FALSE){
 
 path <- commandArgs(trailingOnly = TRUE)[1]
 datasetName <- commandArgs(trailingOnly = TRUE)[2]
-res <- preprocessMEMALevel3(datasetName, path, verbose=TRUE)
+k <- commandArgs(trailingOnly = TRUE)[3]
+if(is.na(k))k <- 256
+cat(datasetName,"k=",k)
+res <- preprocessMEMALevel3(datasetName, path, k=as.integer(k), verbose=TRUE)
 
