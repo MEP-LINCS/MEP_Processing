@@ -4,29 +4,6 @@
 #author: "Mark Dane"
 # 1/16/17
 
-simplifyLigandAnnotID <- function (ligand, annotIDs) 
-{
-  if (length(annotIDs)) {
-    splits <- limma::strsplit2(annotIDs, split = "_")
-    us <- apply(splits, 1, function(x) {
-      if (x[length(x)] == "") {
-        if (length(x) < 2) 
-          stop("There are not enough substrings in a ligandAnnotID")
-        u <- x[length(x) - 1]
-      }
-      else {
-        u <- x[length(x)]
-      }
-      return(u)
-    })
-    ligands <- paste(ligand, us, sep = "_")
-  }
-  else ligands <- annotIDs
-  return(ligands)
-}
-
-#.libPaths("/home/users/dane/R/x86_64-redhat-linux-gnu-library/3.3")
-
 preprocessMEMACell <- function(barcodePath, verbose=FALSE){
   barcode <- gsub(".*/","",barcodePath)
   path <- gsub(barcode,"",barcodePath)
@@ -349,7 +326,7 @@ preprocessMEMACell <- function(barcodePath, verbose=FALSE){
       for(intensityName in intensityNames){
         #Median normalize the median intensity at each spot
         setnames(dtm,intensityName,"value")
-        dtm <- dtm[,paste0(intensityName,"_SpotNorm") := spotNorm(value),by="Barcode,Well,Spot"]
+        dtm <- dtm[,paste0(intensityName,"_SpotNorm") := medianNorm(value),by="Barcode,Well,Spot"]
         setnames(dtm,"value",intensityName)
       }
     }
