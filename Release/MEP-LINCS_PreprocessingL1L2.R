@@ -164,6 +164,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     setnames(nuclei,"Nuclei_CP_ImageNumber","Spot")
     setnames(nuclei,"Nuclei_CP_ObjectNumber","ObjectNumber")
     setkey(nuclei,Spot,ObjectNumber) 
+
     
     if(any(grepl("Cells",dataBWI$Location))){
       cells <- convertColumnNames(fread(dataBWI$Path[grepl("Cells",dataBWI$Location)]))
@@ -294,6 +295,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       dtm$Spot_PA_Perimeter[is.na(dtm$Spot_PA_Perimeter)] <- FALSE
       
     }
+      
     #Add the pin diameter metadata in microns
     if(any(grepl("MCF7|PC3|YAPC",unique(dtm$CellLine)))){
       dtm$PinDiameter <- 180
@@ -346,6 +348,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
       cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
     }
   }
+
   
   #Set 2N and 4N DNA status
   cDT <- cDT[,Nuclei_PA_Cycle_State := gateOnlocalMinima(Nuclei_CP_Intensity_IntegratedIntensity_Dapi), by="Barcode,Well"]
@@ -483,7 +486,9 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
     set.seed(42)
+
     fwrite(data.table(format(cDT[sample(x = 1:nrow(cDT),size = .1*nrow(cDT),replace = FALSE),level1Names, with=FALSE], digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","Level1.txt"), sep = "\t", quote=FALSE)
+
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -709,7 +714,7 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Ba
 MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
-                         drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
+                         drug=c("Neratinib","DMSO","Vorinostat","Trametinib"),
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
                          limitBarcodes=c(8),
@@ -740,4 +745,5 @@ library(XLConnect)
 library(data.table)
 
 tmp <- apply(MLDDataSet[2,], 1, preprocessMEPLINCSL1Spot, verbose=TRUE)
+
 

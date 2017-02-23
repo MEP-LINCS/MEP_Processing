@@ -71,7 +71,9 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   slDT <- fread(paste0( "MEP_LINCS/AnnotatedData/", datasetName,"_",ss,"_","SpotLevel.txt"))
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
-  
+  #Hack to remove signal that crashes normalization
+  slDT <- slDT[,Cytoplasm_CP_AreaShape_MaximumRadiusLog2 := NULL]
+               
   metadataNames <- "ObjectNumber|^Row$|^Column$|Block|^ID$|PrintOrder|Depositions|CellLine|Endpoint|WellIndex|Center|LigandAnnotID|ECMpPK|LigandPK|MEP|ECM[[:digit:]]|Ligand[[:digit:]]|Set|Well_Ligand|ImageID|Sparse|Wedge|OuterCell|Spot_PA_Perimeter|Nuclei_PA_Cycle_State|_SE|ReplicateCount|SCC|QAScore|Lx|PinDiameter"
   
   rawSignalNames <- paste(grep("_SE",gsub("Log2|Logit","",grep("Log",colnames(slDT),value=TRUE)), value=TRUE,invert=TRUE),collapse="$|^")
@@ -87,10 +89,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   
   if(!k==0){
     #Normalize each feature, pass with location and content metadata
-    if(verbose) {
-      cat("Normalizing\n")
-      #save(slDT, file="slDT.RData")
-    }
+    if(verbose) cat("Normalizing\n")
     nDT <- normRUVLoessResiduals(slDT[,signalsWithMetadata, with = FALSE], k)
     nDT$NormMethod <- "RUVLoessResiduals"
     
@@ -334,7 +333,7 @@ Baylor <- data.frame(datasetName=c("Baylor1", "Baylor2","Baylor3", "Baylor4","Ba
 MLDDataSet <- data.frame(datasetName=c("MCF10ANeratinib2","MCF10ADMSO2","MCF10AVorinostat","MCF10ATrametinib"),
                          cellLine=c("MCF10A"),
                          ss=c("SSF"),
-                         drug=c("Neratinib","DMSO","Vorinostat","Ttametinib"),
+                         drug=c("Neratinib","DMSO","Vorinostat","Trametinib"),
                          analysisVersion="av1.7",
                          rawDataVersion="v2",
                          limitBarcodes=c(8),
@@ -362,4 +361,6 @@ library(XLConnect)
 library(data.table)
 
 tmp <- apply(MLDDataSet[1,], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+
+
 
