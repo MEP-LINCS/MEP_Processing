@@ -1,14 +1,11 @@
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
-# 2/1/2017
+# 2/2017
 
 preprocessMEMALevel3 <- function(datasetName, path, k=256, verbose=FALSE){
   startTime <- Sys.time()
-  writeFiles<-TRUE
-  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
   
   library(MEMA)#merge, annotate and normalize functions
-  library(data.table)#fast file reads, data merges and subsetting
   library(parallel)#use multiple cores for faster processing
   library(RUVnormalize)
   library(ruv)
@@ -16,26 +13,23 @@ preprocessMEMALevel3 <- function(datasetName, path, k=256, verbose=FALSE){
   library(googlesheets)
   library(tidyr)
   library(readr)
+  library(dplyr)
   
-  #Set a threshold for the lowSpotCellCount flag
-  lowSpotCellCountThreshold <- 5
+  getBarcodes("Pin_Analysis_Study")
   
-  #Set a threshold for the lowRegionCellCount flag
-  lowRegionCellCountThreshold <- .4
-  
-  #Set a threshold for lowWellQA flag
-  lowWellQAThreshold <- .7
-  
-  #Set a threshold for the lowSpotReplicates flag
-  lowReplicateCount <- 3
-  
-  #Download Plate Tracker google sheet
-  ptObj <- gs_url("https://docs.google.com/spreadsheets/d/1QefmAsK2B_no3iL-epx198pP_HVJegOlku_nliiy3eg/pubhtml")
-  ptData <- gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE) %>%
-    read_csv()
-  #ptData <- read_csv(gs_download(ptObj,to="PlateTracker.csv", overwrite = TRUE, verbose=FALSE))
-  barcodes <- str_split(ptData[["Plate IDs"]][ptData[["Study Name"]]==datasetName], ",") %>%
-    unlist()
+  # #Set a threshold for the lowSpotCellCount flag
+  # lowSpotCellCountThreshold <- 5
+  # 
+  # #Set a threshold for the lowRegionCellCount flag
+  # lowRegionCellCountThreshold <- .4
+  # 
+  # #Set a threshold for lowWellQA flag
+  # lowWellQAThreshold <- .7
+  # 
+  # #Set a threshold for the lowSpotReplicates flag
+  # lowReplicateCount <- 3
+  # 
+  # 
   
   spotDTL <- mclapply(barcodes, function(barcode, path){
     sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_SpotLevel.tsv"))
