@@ -1,46 +1,6 @@
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
 # 2/1/2017
-######
-# #' Merge in Omero IDs to link images to t
-# if(mergeOmeroIDs){
-#   #Read in and merge the Omero URLs
-#   omeroIndex <- fread(paste0(barcodePath,"/Analysis/",barcode,"_imageIDs.tsv"))[,list(WellName,Row,Column,ImageID)]
-#   if(MEMA8Well){
-#     m <- regexpr("Well[[:digit:]]",omeroIndex$WellName)
-#     wellNames <- regmatches(omeroIndex$WellName,m)
-#     omeroIndex$Well <- sapply(gsub("Well","",wellNames,""),FUN=switch,
-#                               "1"="A01",
-#                               "2"="A02",
-#                               "3"="A03",
-#                               "4"="A04",
-#                               "5"="B01",
-#                               "6"="B02",
-#                               "7"="B03",
-#                               "8"="B04")
-#     setnames(omeroIndex,"Row","ArrayRow")
-#     setnames(omeroIndex,"Column","ArrayColumn")
-#     omeroIndex <- omeroIndex[,WellName:=NULL]
-#     cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
-#   } else if(MEMA96Well){
-#     #Convert well names to alphanumeric with 2 digit columns
-#     wellRow <- str_match(omeroIndex$WellName,"[:alpha:]-") %>%
-#       str_replace("-","")
-#     omeroIndex$Well <- str_match(omeroIndex$WellName,"-[:digit:]*") %>%
-#       str_replace("-","") %>%
-#       as.numeric() %>%
-#       sprintf("%02d",.) %>%
-#       paste0(wellRow,.)
-#     setnames(omeroIndex,"Row","ArrayRow")
-#     setnames(omeroIndex,"Column","ArrayColumn")
-#     omeroIndex <- omeroIndex[,WellName:=NULL]
-#     cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
-#   } else {
-#     stop("Only 8 and 96 well plates can be merged with omero IDs")
-#   }
-# }
-
-######
 
 processSpotCommandLine <- function(x, rawDataVersion="v2", verbose="FALSE"){
   if(length(x)==0) stop("There must be a barcodePath argument in the command line call")
@@ -51,7 +11,9 @@ processSpotCommandLine <- function(x, rawDataVersion="v2", verbose="FALSE"){
 }
 
 #Debug: To be deleted
+#Issues: 
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00771","v2",TRUE)
+#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00655","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/lincs96well/LI9V01610","v1",TRUE)
@@ -102,6 +64,10 @@ if(exists("proportions")) {
 
 #Set a threshold for the loess well level QA Scores
 spotDT <- QASpotData(spotDT, lthresh = .6)
+
+#Merge in Omero imageID links
+spotDT <- merge(spotDT,getOmeroIDs(barcodePath),by=c("WellIndex","ArrayRow","ArrayColumn"))
+
 if(verbose) cat("Writing spot level data to disk\n")
 writeTime<-Sys.time()
 fwrite(data.table(spotDT), paste0(barcodePath, "/Analysis/", barcode,"_","SpotLevel.tsv"), sep = "\t", quote=FALSE)

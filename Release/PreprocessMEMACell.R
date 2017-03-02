@@ -14,6 +14,7 @@ processCellCommandLine <- function(x, useAnnotMetadata=TRUE, rawDataVersion="v2"
 }
 
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00771",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00655",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",FALSE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
