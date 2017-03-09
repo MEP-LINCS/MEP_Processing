@@ -31,7 +31,7 @@ library(stringr)
 
 barcode <- gsub(".*/","",barcodePath)
 path <- gsub(barcode,"",barcodePath)
-if(verbose) cat("Processing plate:",barcode,"at",path,"\n")
+if(verbose) message(paste("Processing plate:",barcode,"at",path,"\n"))
 #Get all metadata
 metadata <- getMetadata(barcode, path, useAnnotMetadata)
 #Gather filenames of raw data
@@ -76,7 +76,7 @@ write.table(c(
   StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
   Level = "1"
 ),paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
-if(verbose) cat("Elapsed time:", Sys.time()-scriptStartTime, "\n")
+if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
 
 
 

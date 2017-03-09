@@ -24,7 +24,7 @@ verbose <- as.logical(callParams[[3]])
 
 barcode <- gsub(".*/","",barcodePath)
 path <- gsub(barcode,"",barcodePath)
-if (verbose) cat("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n")
+if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n"))
 functionStartTime<- Sys.time()
 startTime<- Sys.time()
 seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
@@ -68,10 +68,10 @@ spotDT <- QASpotData(spotDT, lthresh = .6)
 #Merge in Omero imageID links
 spotDT <- merge(spotDT,getOmeroIDs(barcodePath),by=c("WellIndex","ArrayRow","ArrayColumn"))
 
-if(verbose) cat("Writing spot level data to disk\n")
+if(verbose) message("Writing spot level data to disk\n")
 writeTime<-Sys.time()
-fwrite(data.table(spotDT), paste0(barcodePath, "/Analysis/", barcode,"_","SpotLevel.tsv"), sep = "\t", quote=FALSE)
-if(verbose) cat("Write time:", Sys.time()-writeTime,"\n")
+fwrite(data.table(spotDT), paste0(barcodePath, "/Analysis/", barcode,"_","Level2.tsv"), sep = "\t", quote=FALSE)
+if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
 
 #Write the File Annotations for Synapse to tab-delimited file
 write.table(c(
@@ -83,6 +83,6 @@ write.table(c(
   Segmentation = annotations$V2[annotations$V1=="Segmentation"],
   StainingSet = annotations$V2[annotations$V1=="StainingSet"],
   Level = "Spot"),
-  paste0(barcodePath, "/Analysis/", barcode,"_","SpotLevelAnnotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
-if(verbose) cat("Elapsed time:", Sys.time()-functionStartTime, "\n")
+  paste0(barcodePath, "/Analysis/", barcode,"_","Level2Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+if(verbose) message(paste("Elapsed time:", Sys.time()-functionStartTime, "\n"))
 

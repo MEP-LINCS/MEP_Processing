@@ -22,6 +22,9 @@ processLevel3CommandLine <- function(x, path, k=256, verbose="FALSE"){
 }
 
 #callParams <- processLevel3CommandLine(c("MCF10A_DMSO_2", "/lincs/share/lincs_user",256,TRUE))
+#callParams <- processLevel3CommandLine(c("MCF10A_Neratinib_2", "/lincs/share/lincs_user",256,TRUE))
+#callParams <- processLevel3CommandLine(c("HMEC240L_SS4", "/lincs/share/lincs_user",256,TRUE))
+#callParams <- processLevel3CommandLine(c("HMEC122L_SS4", "/lincs/share/lincs_user",256,TRUE))
 callParams <- processLevel3CommandLine(commandArgs(trailingOnly = TRUE))
 studyName <-callParams[[1]]
 path <-callParams[[2]]
@@ -30,15 +33,17 @@ verbose <- as.logical(callParams[[4]])
 startTime <- Sys.time()
 
 #Read the annotated data for all plates in the study
-slDT <- getSpotLevelData("MCF10A_DMSO_2",path)
+slDT <- getSpotLevelData(studyName, path)
 
 signalsMinimalMetadata <- grep("_SE",grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^ArrayRow$|^ArrayColumn$|^CellLine$",colnames(slDT), value=TRUE), value=TRUE, invert=TRUE)
 
 #RUVLoess normalize all signals
 if(!k==0){
-  if(verbose)  cat("Normalizing", studyName,"\n")
+  if(verbose)  message(paste("Normalizing", studyName,"\n"))
+  slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
   nDT <- normRUVLoessResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUVLoessResiduals"
+  slDT$k <- k
   slDT <- merge(slDT, nDT, by = c("BW","PrintSpot"))
 } else {
   slDT$NormMethod <- "none"
@@ -50,11 +55,11 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
                         lowRegionCellCountThreshold = 0.4,
                         lowWellQAThreshold = .7)
 
-if(verbose) cat("Writing level 3 file to disk\n")
+if(verbose) message(paste("Writing level 3 file to disk\n"))
 fwrite(data.table(slDT), paste0(path, "/study/",studyName, "/Annotated/", studyName,"_Level3.tsv"), sep = "\t", quote=FALSE)
 
 #Write the File Annotations for Synapse to tab-delimited file
-annotations <- fread(paste0(path,"/",unique(slDT$Barcode)[1],"/Analysis/",unique(slDT$Barcode)[1],"_SpotLevelAnnotations.tsv"),header = FALSE)
+annotations <- fread(paste0(path,"/",unique(slDT$Barcode)[1],"/Analysis/",unique(slDT$Barcode)[1],"_Level2Annotations.tsv"),header = FALSE)
 
 write.table(c(
   CellLine = annotations$V2[annotations$V1=="CellLine"],
@@ -67,6 +72,6 @@ write.table(c(
   Level = "3"),
   paste0(path,"/study/",studyName, "/Annotated/", studyName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
 
-cat("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n")
+message(paste("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n"))
 
 
