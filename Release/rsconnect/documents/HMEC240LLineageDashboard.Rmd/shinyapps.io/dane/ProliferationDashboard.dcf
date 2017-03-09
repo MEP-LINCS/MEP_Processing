@@ -1,0 +1,10 @@
+name: ProliferationDashboard
+title: HMEC240LLineageDashboard
+account: dane
+server: shinyapps.io
+appId: 139480
+bundleId: 626905
+url: https://dane.shinyapps.io/ProliferationDashboard/
+when: 1480282385.33221
+asMultiple: FALSE
+asStatic: FALSE
