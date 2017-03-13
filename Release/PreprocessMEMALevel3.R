@@ -25,6 +25,7 @@ processLevel3CommandLine <- function(x, path, k=256, verbose="FALSE"){
 #callParams <- processLevel3CommandLine(c("MCF10A_Neratinib_2", "/lincs/share/lincs_user",256,TRUE))
 #callParams <- processLevel3CommandLine(c("HMEC240L_SS4", "/lincs/share/lincs_user",256,TRUE))
 #callParams <- processLevel3CommandLine(c("HMEC122L_SS4", "/lincs/share/lincs_user",256,TRUE))
+#callParams <- processLevel3CommandLine(c("Neratinib_Dose_Response_Curve", "/lincs/share/lincs_user",256,TRUE))
 callParams <- processLevel3CommandLine(commandArgs(trailingOnly = TRUE))
 studyName <-callParams[[1]]
 path <-callParams[[2]]
@@ -35,12 +36,12 @@ startTime <- Sys.time()
 #Read the annotated data for all plates in the study
 slDT <- getSpotLevelData(studyName, path)
 
-signalsMinimalMetadata <- grep("_SE",grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^ArrayRow$|^ArrayColumn$|^CellLine$",colnames(slDT), value=TRUE), value=TRUE, invert=TRUE)
+signalsMinimalMetadata <- grep("_SE",grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",colnames(slDT), value=TRUE), value=TRUE, invert=TRUE)
 
 #RUVLoess normalize all signals
 if(!k==0){
   if(verbose)  message(paste("Normalizing", studyName,"\n"))
-  slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
+  #slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
   nDT <- normRUVLoessResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUVLoessResiduals"
   slDT$k <- k

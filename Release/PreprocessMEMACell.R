@@ -13,8 +13,12 @@ processCellCommandLine <- function(x, useAnnotMetadata=TRUE, rawDataVersion="v2"
   list(barcodePath,useAnnotMetadata,rawDataVersion,verbose)
 }
 
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00528",TRUE, "v2", TRUE) #MCF10A_SS2
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00510",TRUE, "v2", TRUE) #MCF10A_SS3
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00751",TRUE,"v2",TRUE) #MCF10A_Neratinib_2
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00771",TRUE,"v2",TRUE)
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00655",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00765",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",FALSE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
