@@ -1,16 +1,14 @@
 library("rmarkdown")
 
-
-
-renderAnalysisReports <- function(datasetName){
-  render("./MEP_LINCS/Release/MEP-LINCS_AnalysisSB_SSC.Rmd",
-         output_file = paste0("../AnalysisReports/MEP-LINCS_AnalysisSB_",
-                              datasetName,".html"),
+renderAnalysisReports <- function(studyName, path){
+  render("MEP-LINCS_AnalysisSB_SSC.Rmd",
+         output_file = paste0(path,"/",studyName,"/Reports/MEP-LINCS_AnalysisSB_",
+                              studyName,".html"),
          output_format = NULL)
 }
 
-r <- renderAnalysisReports(datasetName="MCF10A")
-r <- renderAnalysisReports(datasetName="HMEC122L")
-r <- renderAnalysisReports(datasetName="HMEC240L")
+r <- renderAnalysisReports(studyName="MCF10A_SSC", path="/lincs/share/lincs_user/study")
+r <- renderAnalysisReports(studyName="HMEC122L_SSC", path="/lincs/share/lincs_user/study")
+r <- renderAnalysisReports(studyName = "HMEC240L_SSC", path="/lincs/share/lincs_user/study")
 
 
