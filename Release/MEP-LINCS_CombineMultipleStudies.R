@@ -22,7 +22,7 @@ processCommonSignalCommandLine <- function(x, path, k=256, verbose="FALSE"){
   list(studyNameList, path, k, verbose)
 }
 
-#callParams <- processCommonSignalCommandLine(c("HMEC240L_SS1,HMEC240L_SS4", "/lincs/share/lincs_user",256,TRUE))
+#callParams <- processCommonSignalCommandLine(c("HMEC122L_SS1,HMEC122L_SS4", "/lincs/share/lincs_user",256,TRUE))
 callParams <- processCommonSignalCommandLine(commandArgs(trailingOnly = TRUE))
 studyNameList <-lapply(unlist(str_split(callParams[[1]],",")), function(x){
   return(x)

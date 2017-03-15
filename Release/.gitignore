@@ -1,3 +1,6 @@
 *.png
 *.zip
 *.html
+*.sh
+*.out
+

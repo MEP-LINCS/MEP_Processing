@@ -2,543 +2,93 @@
 
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
-# 1/16/17
+# 2/2017
 
-library("parallel")#use multiple cores for faster processing
-library("synapseClient")
-library("dplyr")
+library(synapseClient)
+library(MEMA)
+library(parallel)
+library(stringr)
 
-source("MEP_LINCS/Release/MEPLINCSFunctions.R")
-
-compressHA <- function(x){
-  x <- gsub("(hyaluronic_acid_greater_than_500kDa)","HA>500kDa",x)
-  x <- gsub("(hyaluronic_acid_less_than_500kDa)","HA<500kDa",x)
-  x <- gsub("hyaluronicacid","HA",x)
-  x <- gsub("lessthan","<",x)
-  x <- gsub("greaterthan",">",x)
-  return(x)
+processCellCommandLine <- function(x, useAnnotMetadata=TRUE, rawDataVersion="v2", verbose="FALSE"){
+  if(length(x)==0) stop("There must be a barcodePath argument in the command line call")
+  barcodePath <- x[1]
+  if((length(x)>1)) useAnnotMetadata <- x[2]
+  if((length(x)>1)) rawDataVersion <- x[3]
+  if((length(x)>1)) verbose <- x[4]
+  list(barcodePath,useAnnotMetadata,rawDataVersion,verbose)
 }
 
-processan2omero <- function (fileNames) {
-  rbindlist(lapply(fileNames, function(fn){
-    #Process each file separately
-    dt <- fread(fn,header = TRUE)
-    
-    #Rename to preprocessing pipeline variable names
-    setnames(dt,"OSpot","Spot")
-    setnames(dt,"PlateID","Barcode")
-    setnames(dt,"395nm","EndpointDAPI")
-    setnames(dt,"488nm","Endpoint488")
-    setnames(dt,"555nm","Endpoint555")
-    setnames(dt,"640nm","Endpoint647")
-    setnames(dt,"750nm","Endpoint750")
-    #Shorten and combine Annot names
-    dt$CellLine <- gsub("_.*","",dt$CellLine)
-    dt$ECM1 <- compressHA(dt$ECM1)
-    dt$ECM2 <- compressHA(dt$ECM2)
-    dt$ECM3 <- compressHA(dt$ECM3)
-    #Chain ECM proteins if the second one is not COL1
-    dt$ECMp <-paste0(gsub("_.*","",dt$ECM1), "_",
-                     gsub("_.*","",dt$ECM2), "_",
-                     gsub("_.*","",dt$ECM3)) %>%
-      gsub("_NA","",.) %>%
-      gsub("_COL1|_$","",.)
-    #Chain ligands
-    dt$Ligand <-paste0(gsub("_.*", "", dt$Ligand1), "_",
-                       gsub("_.*","",dt$Ligand2)) %>%
-      gsub("_NA","",.)
-    dt$MEP <- paste0(dt$ECMp,"_",dt$Ligand)
-    dt$Drug <- gsub("_.*","",dt$Drug1)
-    dt$MEP_Drug <-paste0(dt$MEP,"_",dt$Drug)
-    dt$EndpointDAPI <-gsub("_.*","",dt$EndpointDAPI)
-    dt$Endpoint488 <-gsub("_.*","",dt$Endpoint488)
-    dt$Endpoint555 <-gsub("_.*","",dt$Endpoint555)
-    dt$Endpoint647 <-gsub("_.*","",dt$Endpoint647)
-    #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-    dt$PrintSpot <- dt$Spot
-    nrArrayRows <- max(dt$ArrayRow)
-    nrArrayColumns <- max(dt$ArrayColumn)
-    dt$PrintSpot[grepl("B", dt$Well)] <- (nrArrayRows*nrArrayColumns+1)-dt$PrintSpot[grepl("B", dt$Well)]
-    return(dt)
-    #  }, mc.cores=max(4, detectCores())))
-  }))
-  
-}
-
-spotNorm <- function(x){
-  return(x/median(x,na.rm=TRUE))
-}
-
-gateOnQuantile <- function(x,probs){
-  gatedClass <- integer(length(x))
-  gatedClass[x>quantile(x,probs=probs,na.rm=TRUE)]<-1
-  return(gatedClass)
-}
-
-normToSpot <- function(dtm) {
-  #Add spot level normalizations for selected intensities
-  intensityNamesAll <- grep("_CP_Intensity_Median",colnames(dtm), value=TRUE)
-  intensityNames <- grep("Norm",intensityNamesAll,invert=TRUE,value=TRUE)
-  for(intensityName in intensityNames){
-    #Median normalize the median intensity at each spot
-    setnames(dtm,intensityName,"value")
-    dtm <- dtm[,paste0(intensityName,"_SpotNorm") := spotNorm(value),by="Barcode,Well,Spot"]
-    setnames(dtm,"value",intensityName)
-  }
-
-  dtm
-}
-
-calcAdjacency <- function(dtm, neighborhoodNucleiRadii=7, neighborsThresh=0.4,
-                          wedgeAngs=20, outerThresh=0.5) {
-
-  densityRadius <- sqrt(median(dtm$Nuclei_CP_AreaShape_Area, na.rm = TRUE)/pi)
-  
-  #Count the number of neighboring cells
-  dtm <- dtm[,Nuclei_PA_AreaShape_Neighbors := cellNeighbors(.SD, radius = densityRadius*neighborhoodNucleiRadii), by = "Barcode,Well,Spot"]
-  
-  #Rules for classifying perimeter cells
-  dtm <- dtm[,Spot_PA_Sparse := Nuclei_PA_AreaShape_Neighbors < neighborsThresh]
-  
-  #Add a local wedge ID to each cell based on conversations with Michel Nederlof
-  dtm <- dtm[,Spot_PA_Wedge:=ceiling(Nuclei_PA_AreaShape_Center_Theta/wedgeAngs)]
-  
-  #Define the perimeter cell if it exists in each wedge
-  #Classify cells as outer if they have a radial position greater than a thresh
-  dtm <- dtm[,Spot_PA_OuterCell := labelOuterCells(Nuclei_PA_AreaShape_Center_R, thresh=outerThresh),by="Barcode,Well,Spot"]
-  
-  #Require a perimeter cell not be in a sparse region
-  denseOuterDT <- dtm[!dtm$Spot_PA_Sparse  & dtm$Spot_PA_OuterCell]
-  denseOuterDT <- denseOuterDT[,Spot_PA_Perimeter := findPerimeterCell(.SD) ,by="Barcode,Well,Spot,Spot_PA_Wedge"]
-  setkey(dtm,Barcode,Well,Spot,ObjectNumber)
-  setkey(denseOuterDT,Barcode,Well,Spot,ObjectNumber)
-  dtm <- denseOuterDT[,list(Barcode,Well,Spot,ObjectNumber,Spot_PA_Perimeter)][dtm]
-  dtm$Spot_PA_Perimeter[is.na(dtm$Spot_PA_Perimeter)] <- FALSE
-  
-  dtm
-  
-}
-
-wellProcessFxn <- function(well, barcode, dataBWInfo, metadata, curatedCols, 
-                           useAnnotMetadata=TRUE, nuclearAreaThresh=50, 
-                           nuclearAreaHiThresh=4000, calcAdjacency=TRUE, normToSpot=TRUE){
-  if(verbose) message(paste("Reading and annotating data for", well,"\n"))
-  
-  whichNucleiRows <- grepl("Nuclei", dataBWInfo$Location) & grepl(well,dataBWInfo$Well)
-  tmpNucleiData <- fread(getFileLocation(synGet(dataBWInfo$id[whichNucleiRows])))
-  nuclei <- convertColumnNames(tmpNucleiData)
-  
-  if (curatedOnly) {
-    nuclei <- nuclei[,grep(curatedCols,colnames(nuclei)), with=FALSE]
-  }
-  
-  setnames(nuclei,paste0("Nuclei_",colnames(nuclei)))
-  setnames(nuclei,"Nuclei_CP_ImageNumber","Spot")
-  setnames(nuclei,"Nuclei_CP_ObjectNumber","ObjectNumber")
-  setkey(nuclei, Spot, ObjectNumber) 
-  
-  if(any(grepl("Cells", dataBWInfo$Location) & grepl(well, dataBWInfo$Well))) {
-    whichCellRows <- grepl("Cells",dataBWInfo$Location) & grepl(well,dataBWInfo$Well)
-    tmpCellData <- fread(getFileLocation(synGet(dataBWInfo$id[whichCellRows])))
-    cells <- convertColumnNames(tmpCellData)
-    if (curatedOnly) cells <- cells[,grep(curatedCols,colnames(cells)), with=FALSE]
-    setnames(cells,paste0("Cells_",colnames(cells)))
-    setnames(cells,"Cells_CP_ImageNumber","Spot")
-    setnames(cells,"Cells_CP_ObjectNumber","ObjectNumber")
-    setkey(cells,Spot,ObjectNumber)
-  } 
-  
-  if(any(grepl("Cytoplasm", dataBWInfo$Location) & grepl(well, dataBWInfo$Well))){
-    whichCytoplasmRows <- grepl("Cytoplasm",dataBWInfo$Location) & grepl(well,dataBWInfo$Well)
-    tmpCytoplasmData <- fread(getFileLocation(synGet(dataBWInfo$id[whichCytoplasmRows])))
-    cytoplasm <- convertColumnNames(tmpCytoplasmData)
-    if (curatedOnly) cytoplasm <- cytoplasm[,grep(curatedCols,colnames(cytoplasm)), with=FALSE]
-    setnames(cytoplasm,paste0("Cytoplasm_",colnames(cytoplasm)))
-    setnames(cytoplasm,"Cytoplasm_CP_ImageNumber","Spot")
-    setnames(cytoplasm,"Cytoplasm_CP_ObjectNumber","ObjectNumber")
-    setkey(cytoplasm,Spot,ObjectNumber)
-  } 
-  
-  #Merge the data from the different locations if it exists
-  if(exists("cells")&exists("cytoplasm")) {
-    dt <- cells[cytoplasm[nuclei]]
-  } else {
-    dt <- nuclei
-  }
-  #Add the well name and barcode as parameters
-  dt <- dt[,Well := well]
-  dt <- dt[,Barcode := barcode]
-  #Remove problematic features
-  dt <- dt[,grep("Euler",colnames(dt),invert=TRUE), with=FALSE]
-
-  if (useAnnotMetadata) {
-    dtm <- merge(dt,metadata,by = c("Barcode","Well","Spot"))
-    dtm$PrintSpot <- dtm$Spot
-  } else {
-    #Merge the data with its metadata based on the row it's in
-    m <- regexpr("[[:alpha:]]",well)
-    row <- regmatches(well,m)
-    setkey(DT,Spot)
-    dtm <- switch(row, A = merge(DT,spotMetadata,all.x=TRUE),
-                  B = merge(DT,spotMetadata180,all.x=TRUE))
-    #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-    nrArrayRows <- max(dtm$ArrayRow)
-    nrArrayColumns <- max(dtm$ArrayColumn)
-    dtm$PrintSpot <- dtm$Spot
-    dtm$PrintSpot[grepl("B", dtm$Well)] <- (nrArrayRows*nrArrayColumns+1)-dtm$PrintSpot[grepl("B", dtm$Well)]
-  }
-  
-  if(any(grepl("Nuclei_CP_AreaShape_Area",colnames(dtm)))){
-    dtm <- dtm[dtm$Nuclei_CP_AreaShape_Area > nuclearAreaThresh,]
-    dtm <- dtm[dtm$Nuclei_CP_AreaShape_Area < nuclearAreaHiThresh,]
-  }
-  
-  #Change Edu back to EdU
-  if(any(grepl("Edu",colnames(dtm)))){
-    edUNames <- grep("Edu",colnames(dtm),value=TRUE)
-    setnames(dtm,edUNames,gsub("Edu","EdU",edUNames))
-  }
-  
-  #log transform all intensity and areaShape values
-  intensityNames <- grep("Intensity",colnames(dtm), value=TRUE)
-  scaledInts <- dtm[,intensityNames, with=FALSE]*2^16
-  dtm <- cbind(dtm[,!intensityNames, with=FALSE],scaledInts)
-  transformNames <- grep("_Center_|_Eccentricity|_Orientation",
-                         grep("Intensity|AreaShape", colnames(dtm), 
-                              value=TRUE, ignore.case = TRUE), 
-                         value=TRUE, invert=TRUE)
-  dtLog <- dtm[,lapply(.SD,boundedLog2),.SDcols=transformNames]
-  
-  setnames(dtLog, colnames(dtLog), paste0(colnames(dtLog),"Log2"))
-  
-  dtm <- cbind(dtm, dtLog)
-  
-  #logit transform eccentricity
-  if(any(grepl("Nuclei_CP_AreaShape_Eccentricity",colnames(dtm)))){
-    dtm <- dtm[,Nuclei_CP_AreaShape_EccentricityLogit := boundedLogit(Nuclei_CP_AreaShape_Eccentricity)]
-  }
-  if(any(grepl("Nuclei_CP_AreaShape_Center",colnames(dtm)))){
-    #Add the local polar coordinates and Neighbor Count
-    dtm <- dtm[,Nuclei_PA_Centered_X :=  Nuclei_CP_AreaShape_Center_X-median(Nuclei_CP_AreaShape_Center_X)]
-    dtm <- dtm[,Nuclei_PA_Centered_Y :=  Nuclei_CP_AreaShape_Center_Y-median(Nuclei_CP_AreaShape_Center_Y)]
-    dtm <- dtm[, Nuclei_PA_AreaShape_Center_R := sqrt(Nuclei_PA_Centered_X^2 + Nuclei_PA_Centered_Y^2)]
-    dtm <- dtm[, Nuclei_PA_AreaShape_Center_Theta := calcTheta(Nuclei_PA_Centered_X, Nuclei_PA_Centered_Y)]
-  }
-  #Add MEP and convenience labels for wells and ligands
-  dtm <- dtm[,MEP:=paste(ECMp,Ligand,sep = "_")]
-  dtm <- dtm[,Well_Ligand:=paste(Well,Ligand,sep = "_")]
-  
-  # Eliminate Variations in the Endpoint metadata
-  endpointNames <- grep("End",colnames(dtm), value=TRUE)
-  endpointWL <- regmatches(endpointNames,regexpr("[[:digit:]]{3}|DAPI",endpointNames))
-  setnames(dtm,endpointNames,paste0("Endpoint",endpointWL))
-  
-  if (normToSpot){
-    dtm <- normToSpot(dtm)
-  }
-  
-  if (calcAdjacency) {
-    dtm <- calcAdjacency(dtm)
-  }
-  
-  #Add the pin diameter metadata in microns
-  if(any(grepl("MCF7|PC3|YAPC",unique(dtm$CellLine)))){
-    dtm$PinDiameter <- 180
-  } else {
-    dtm$PinDiameter <- 350
-  }
-  #names(dtm) <- dataBWI
-  return(dtm)
-}
-
-preprocessMEMACell <- function(barcodePath, dataBWInfo, metadataSourceFile, xmlLogFile,
-                               analysisVersion="v1.7", rawDataVersion="v2",
-                               useAnnotMetadata=TRUE, verbose=FALSE){
-  barcode <- gsub(".*/","",barcodePath)
-  path <- gsub(barcode,"",barcodePath)
-  if (verbose) message("Processing plate:",barcode,"at",path,"\n")
-  functionStartTime<- Sys.time()
-  startTime<- Sys.time()
-  
-  limitBarcodes<- NULL
-  mergeOmeroIDs<-TRUE
-  calcAdjacency<-TRUE
-  writeFiles<-TRUE
-
-  #library(limma)#read GAL file and strsplit2
-  library(MEMA)#merge, annotate and normalize functions
-  library(data.table)#fast file reads, data merges and subsetting
-  library(parallel)#use multiple cores for faster processing
-  library(stringr)
-  
-  #Rules-based classifier thresholds for perimeter cells
-  neighborsThresh <- 0.4 #Gates sparse cells on a spot
-  wedgeAngs <- 20 #Size in degrees of spot wedges used in perimeter gating
-  outerThresh <- 0.5 #Defines out cells used in perimeter gating
-  neighborhoodNucleiRadii <- 7 #Defines the neighborhood annulus
-  
-  #Filter out debris based on nuclear area
-  nuclearAreaThresh <- 50
-  nuclearAreaHiThresh <- 4000
-  
-  #Only process a curated set of the data
-  curatedOnly <- TRUE
-  curatedCols <- "ImageNumber|ObjectNumber|AreaShape|_MedianIntensity_|_IntegratedIntensity_|_Center_|_PA_|Texture"
-  
-  #Do not normalized to Spot level
-  normToSpot <- TRUE
-  
-  #QA flags are used to enable analyses that require minimum cell and
-  #replicate counts
-  
-  #Set a threshold for the lowSpotCellCount flag
-  lowSpotCellCountThreshold <- 5
-  
-  #Set a threshold for the lowRegionCellCount flag
-  lowRegionCellCountThreshold <- .4
-  
-  #Set a threshold for the loess well level QA Scores
-  lthresh <- 0.6
-  
-  #Set a threshold for lowWellQA flag
-  lowWellQAThreshold <- .7
-  
-  #Set a threshold for the lowSpotReplicates flag
-  lowReplicateCount <- 3
-  
-  #Use metadata from an2omero files
-  if(useAnnotMetadata){
-    # file looks like /Analysis/",barcode,"_an2omero.csv"
-    metadata <- processan2omero(metadataSourceFile)
-  } else {
-    stop("Non-An! metadata not supported in this script")
-    #Read in the spot metadata from the gal file
-    smd <- readSpotMetadata(metadataSourceFile)
-    
-    #Relabel the column Name to ECMp
-    setnames(smd, "Name", "ECMp")
-    
-    #Add the print order and deposition number to the metadata
-    ldf <- readLogData(xmlLogFile)
-    
-    spotMetadata <- merge(smd,ldf, all=TRUE)
-    setkey(spotMetadata,Spot)
-    #Make a rotated version of the spot metadata to match the print orientation
-    spotMetadata180 <- rotateMetadata(spotMetadata)
-  }
-  
-  # Next, the data is filtered to remove objects with a nuclear area less than nuclearAreaThresh pixels or more than nuclearAreaHiThresh pixels.
-  
-  #The next steps are to bring in the well metadata, the print order and the CP data
-  # cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
-  # if(length(cellDataFilePaths)==0) stop("No raw data files found")
-  # dataBWInfo <- data.table(Path=cellDataFilePaths,
-  #                          Well=gsub("_","",str_extract(dir(paste0(barcodePath,"/Analysis/",rawDataVersion)),"_.*_")),
-  #                          Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
-  
-  startTime <- Sys.time()
-  debugLimiter <- 8
-  
-  expDTList <- mclapply(unique(dataBWInfo$Well)[1:debugLimiter], 
-                        wellProcessFxn, mc.cores=detectCores())
-
-  # Add names to the data.tables in the list
-  names(expDTList) <- paste(barcode,unique(dataBWInfo$Well)[1:debugLimiter],sep="_")
-  cDT <- rbindlist(expDTList)
-  rm(expDTList)
-  gc()
-  message("Gating cell level data for plate",barcode,"\n")  
-  
-  #   if(!useAnnotMetadata){
-  #     #Read the well metadata from a multi-sheet Excel file
-  #     #wellMetadata <- data.table(readMetadata(paste0(filePath,"/Metadata/",gsub("reDAPI","",barcode),".xlsx")), key="Well")
-  #     #Debug reDAPI plates with new file structure
-  #     wellMetadata <- data.table(readMetadata(fileNames$Path[fileNames$Barcode==barcode&fileNames$Type=="metadata"]), key="Well")
-  #     #merge well metadata with the data and spot metadata
-  #     pcDT <- merge(pcDT,wellMetadata,by = "Well")
-  #     #Add a WellSpace spot index that recognizes the arrays are rotated 180 degrees
-  #     nrArrayRows <- max(pcDT$ArrayRow)
-  #     nrArrayColumns <- max(pcDT$ArrayColumn)
-  #     pcDT$PrintSpot <- pcDT$Spot
-  #     pcDT$PrintSpot[grepl("B", pcDT$Well)] <- (nrArrayRows*nrArrayColumns+1)-pcDT$PrintSpot[grepl("B", pcDT$Well)]
-  #   }
-  #   
-  if(mergeOmeroIDs){
-    #Read in and merge the Omero URLs
-    omeroIndex <- fread(paste0(barcodePath,"/Analysis/",barcode,"_imageIDs.tsv"))[,list(WellName,Row,Column,ImageID)]
-    m <- regexpr("Well[[:digit:]]",omeroIndex$WellName)
-    wellNames <- regmatches(omeroIndex$WellName,m)
-    omeroIndex$Well <- sapply(gsub("Well","",wellNames,""),FUN=switch,
-                              "1"="A01",
-                              "2"="A02",
-                              "3"="A03",
-                              "4"="A04",
-                              "5"="B01",
-                              "6"="B02",
-                              "7"="B03",
-                              "8"="B04")
-    setnames(omeroIndex,"Row","ArrayRow")
-    setnames(omeroIndex,"Column","ArrayColumn")
-    omeroIndex <- omeroIndex[,WellName:=NULL]
-    cDT <- merge(cDT,omeroIndex,by=c("Well","ArrayRow","ArrayColumn"))
-  }
-  
-  #Set 2N and 4N DNA status
-  cDT <- cDT[,Nuclei_PA_Cycle_State := gateOnlocalMinima(Nuclei_CP_Intensity_IntegratedIntensity_Dapi)]
-  
-  
-  if(!useAnnotMetadata){
-    #Create short display names, then replace where not unique
-    #Use entire AnnotID for ligands with same uniprot IDs
-    # cDT$Ligand[grepl("NRG1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "NRG1",annotIDs = cDT$Ligand[grepl("NRG1",cDT$Ligand)])
-    # cDT$Ligand[grepl("TGFB1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "TGFB1",annotIDs = cDT$Ligand[grepl("TGFB1",cDT$Ligand)])
-    # cDT$Ligand[grepl("CXCL12",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "CXCL12",annotIDs = cDT$Ligand[grepl("CXCL12",cDT$Ligand)])
-    # cDT$Ligand[grepl("IGF1",cDT$Ligand)] <- simplifyLigandAnnotID(ligand = "IGF1",annotIDs = cDT$Ligand[grepl("IGF1",cDT$Ligand)])
-  }
-  
-  #Create staining set specific derived parameters
-  if("Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(cDT)){
-    #Use the entire plate to set the autogate threshold if there's no control well
-    if(any(grepl("FBS",unique(cDT$Ligand)))){
-      cDT <- cDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "FBS"), by="Barcode"]
-    } else {
-      cDT <- cDT[,Nuclei_PA_Gated_EdUPositive := kmeansCluster(.SD,value =  "Nuclei_CP_Intensity_MedianIntensity_EdU",ctrlLigand = "."), by="Barcode"]
-    }
-    
-    #Modify the gate threshold to be 3 sigma from the EdU- median
-    EdUDT <- cDT[Nuclei_PA_Gated_EdUPositive==0,.(EdUMedian=median(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE),EdUSD=sd(Nuclei_CP_Intensity_MedianIntensity_EdULog2, na.rm=TRUE)),by="Barcode,Well"]
-    EdUDT <- EdUDT[,Median3SD := EdUMedian+3*EdUSD]
-    cDT <- merge(cDT,EdUDT,by=c("Barcode","Well"))
-    cDT$Nuclei_PA_Gated_EdUPositive[cDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>cDT$Median3SD]<-1
-    #Overide autogate for AU565 cell line in Lapatinib MEMAs
-    # if(grepl("AU565_Lapatinib|AU565_DMSO",datasetName)){
-    #   cDT$Nuclei_PA_Gated_EdUPositive <- 0
-    #   cDT$Nuclei_PA_Gated_EdUPositive[cDT$Nuclei_CP_Intensity_MedianIntensity_EdULog2>10] <- 1
-    # }
-    
-  }
-  
-  #Calculate a lineage ratio of luminal/basal or KRT19/KRT5
-  if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT19" %in% colnames(cDT)&
-      "Cytoplasm_CP_Intensity_MedianIntensity_KRT5" %in% colnames(cDT)){
-    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT5]
-    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
-    #Gate the KRT signals using kmeans clustering
-    
-    if(grepl("HMEC",unique(cDT$CellLine))) {
-      cDT <- cDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
-    } else {
-      cDT <- cDT[,Cytoplasm_PA_Gated_KRT5Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT5",ctrlLigand = "."), by="Barcode"]
-    }
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRT19Positive := kmeansCluster(.SD,value =  "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",ctrlLigand = "."), by="Barcode"]
-    #Determine the class of each cell based on KRT5 and KRT19 class
-    #0 double negative
-    #1 KRT5+, KRT19-
-    #2 KRT5-, KRT19+
-    #3 KRT5+, KRT19+
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRTClass := Cytoplasm_PA_Gated_KRT5Positive+2*Cytoplasm_PA_Gated_KRT19Positive]
-    
-  }
-  if("Nuclei_PA_Gated_EdUPositive" %in% colnames(cDT)&
-     "Cytoplasm_PA_Gated_KRT19Positive" %in% colnames(cDT)){
-    #Determine the class of each cell based on KRT19 and EdU class
-    #0 double negative
-    #1 KRT19+, EdU-
-    #2 KRT19-, EdU+
-    #3 KRT19+, EdU+
-    cDT <- cDT[,Cells_PA_Gated_EdUKRT19Class := Cytoplasm_PA_Gated_KRT19Positive+2*Nuclei_PA_Gated_EdUPositive]
-    
-  }
-  
-  if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT14" %in% colnames(cDT)&
-      "Cytoplasm_CP_Intensity_MedianIntensity_KRT19" %in% colnames(cDT)){
-    #Calculate a lineage ratio of luminal/basal or KRT19/KRT14
-    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatio := Cytoplasm_CP_Intensity_MedianIntensity_KRT19/Cytoplasm_CP_Intensity_MedianIntensity_KRT14]
-    cDT <- cDT[,Cytoplasm_PA_Intensity_LineageRatioLog2 := boundedLog2(Cytoplasm_PA_Intensity_LineageRatio)]
-  }
-  if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2" %in% colnames(cDT)&
-      "Nuclei_PA_Gated_EdUPositive" %in% colnames(cDT)){
-    #Determine the class of each cell based on KRT5 and EdU class
-    #0 double negative
-    #1 KRT5+, EdU-
-    #2 KRT5-, EdU+
-    #3 KRT5+, EdU+
-    cDT <- cDT[,Cytoplasm_PA_Gated_KRT5Positive := gateOnQuantile(Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2,probs=.02),by="Barcode,Well"]
-    cDT <- cDT[,Cells_PA_Gated_EdUKRT5Class := Cytoplasm_PA_Gated_KRT5Positive+2*Nuclei_PA_Gated_EdUPositive]
-  }
-  
-  ##Remove nuclear objects that dont'have cell and cytoplasm data
-  if("Cells_CP_AreaShape_MajorAxisLength" %in% colnames(cDT)) cDT <- cDT[!is.na(cDT$Cells_CP_AreaShape_MajorAxisLength),]
-  
-  # The cell level raw data and metadata is saved as Level 1 data. 
-  if(writeFiles){
-    if(verbose) message("Writing full",barcode,"level 1 file to disk\n")
-    writeTime<-Sys.time()
-    fwrite(data.table(format(cDT, digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1.tsv"), sep = "\t", quote=FALSE)
-    message("Write time:", Sys.time()-writeTime,"\n")
-    if(verbose) message("Writing subset",barcode,"level 1 file to disk\n")
-    writeTime<-Sys.time()
-    set.seed(42)
-    fwrite(data.table(format(cDT[sample(x=1:nrow(cDT),size = .1*nrow(cDT),replace=FALSE),], digits = 4, trim=TRUE)), paste0(barcodePath, "/Analysis/", barcode,"_","Level1Subset.tsv"), sep = "\t", quote=FALSE)
-    message("Write time:", Sys.time()-writeTime,"\n")
-    
-    #Write the pipeline parameters to  tab-delimited file
-    write.table(c(
-      cellLine = unique(cDT$CellLine),
-      analysisVersion = analysisVersion,
-      rawDataVersion = rawDataVersion,
-      neighborhoodNucleiRadii = neighborhoodNucleiRadii,
-      neighborsThresh = neighborsThresh,
-      wedgeAngs = wedgeAngs,
-      outerThresh = outerThresh,
-      nuclearAreaThresh = nuclearAreaThresh,
-      nuclearAreaHiThresh = nuclearAreaHiThresh,
-      curatedOnly = curatedOnly,
-      curatedCols = curatedCols,
-      writeFiles = writeFiles,
-      limitBarcodes = limitBarcodes,
-      normToSpot = normToSpot,
-      lowSpotCellCountThreshold = lowSpotCellCountThreshold,
-      lowRegionCellCountThreshold = lowRegionCellCountThreshold,
-      lowWellQAThreshold = lowWellQAThreshold,
-      lowReplicateCount =lowReplicateCount,
-      lthresh = lthresh
-    ),
-    paste0(barcodePath, "/Analysis/", barcode,"_","Level1PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
-    
-    #Write the File Annotations for Synapse to tab-delimited file
-    write.table(c(
-      CellLine = unique(cDT$CellLine),
-      Preprocess = analysisVersion,
-      DataType = "Quanititative Imaging",
-      Consortia = "MEP-LINCS",
-      Drug = unique(cDT$Drug),
-      Segmentation = rawDataVersion,
-      StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
-      Level = "1"
-    ),
-    paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
-  }
-  message("Elapsed time:", Sys.time()-functionStartTime, "\n")
-}
-
-args <- commandArgs(trailingOnly = TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00528",TRUE, "v2", TRUE) #MCF10A_SS2
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00510",TRUE, "v2", TRUE) #MCF10A_SS3
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00751",TRUE,"v2",TRUE) #MCF10A_Neratinib_2
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00771",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00765",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",FALSE,"v2",TRUE)
+callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
+# callParams <- processCellCommandLine(commandArgs(trailingOnly = TRUE))
+barcodePath <-callParams[[1]]
+useAnnotMetadata <-as.logical(callParams[[2]])
+rawDataVersion <-callParams[[3]]
+verbose <- as.logical(callParams[[4]])
 
 synapseLogin()
 
-barcodePath <- args[1]
-galSynId <- args[2]
-xmlSynId <- args[3]
+scriptStartTime<- Sys.time()
 
-galFile <- synGet(galSynId)
+barcode <- gsub(".*/","",barcodePath)
+path <- gsub(barcode,"",barcodePath)
+if(verbose) message(paste("Processing plate:",barcode,"at",path,"\n"))
+#Get all metadata
+metadata <- getMetadata(barcode, path, useAnnotMetadata)
 
-# raw files
-rawFiles <- synQuery('select id,name,Barcode,Level,Well,StainingSet,Location from file where parentId=="syn5706233" AND CellLine=="MCF10A" LIMIT 100', blockSize = 250)$collectAll()
+#Gather filenames of raw data
+q <- sprintf('select id,name,Barcode,Level,Well,StainingSet,Location from syn7800478 WHERE Level="0" AND Barcode="%s" LIMIT 100',
+             barcode)
+rawFiles <- synQuery(q, blockSize = 250)$collectAll()
 dataBWInfo <- rawFiles %>% select(id=file.id, Well=file.Well, Location=file.Location, Barcode=file.Barcode)
-dataBWInfoFiltered <- dataBWInfo %>% filter(stringr::str_detect(Barcode, 'LI8X00430'))
 
-res <- preprocessMEMACell(barcodePath, dataBWInfo = dataBWInfoFiltered, 
-                          metadataSourceFile = getFileLocation(galFile),
-                          xmlLogFile = getFileLocation(xmlLogFile), useAnnotMetadata = TRUE,
-                          verbose=TRUE)
 
+cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
+if(length(cellDataFilePaths)==0) stop("No raw data files found")
+dataBWInfo <- data.table(Path=cellDataFilePaths,
+                         Well=gsub("_","",str_extract(dir(paste0(barcodePath,"/Analysis/",rawDataVersion)),"_.*_")),
+                         Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
+#Gather data from either CP or INCell
+if("Nuclei" %in% dataBWInfo$Location) { #Cell Profiler data
+  dtL <- getCPData(dataBWInfo = dataBWInfo, verbose=verbose)
+} else if(any(grepl("96well",dataBWInfo$Path))) { #GE INCell data
+  dtL <- getICData(cellDataFilePaths = cellDataFilePaths, endPoint488 = unique(metadata$Endpoint488),endPoint555 = unique(metadata$Endpoint555),endPoint647 = unique(metadata$Endpoint647), verbose=verbose)
+} else {
+  stop("Only data from Cell Profiler or INCell pipelines are supported")
+}
+#Clean up legacy issues in column names and some values
+dtL <- lapply(dtL, cleanLegacyIssues)
+#Filter our debris and cell clusters
+dtL <- lapply(dtL, function(dt){
+  filterObjects(dt,nuclearAreaThresh = 50, nuclearAreaHiThresh = 4000)})
+#Add local XY and polar coordinates
+dtL <- mclapply(dtL, addPolarCoords, mc.cores = detectCores())
+#Add spot level normalizations for median intensities
+dtL <- mclapply(dtL,spotNormIntensities, mc.cores = detectCores())
+#Add adjacency values
+dtL <- mclapply(dtL, calcAdjacency, mc.cores = detectCores())
+#Merge the data with metadata
+cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
+# Gate cells where possible
+cDT <- gateCells(cDT)
+#Write the annotated cell level files to disk
+writeCellLevel(dt=cDT,path=path,barcode=barcode, verbose=verbose)
+#Write the File Annotations for Synapse to tab-delimited file
+write.table(c(
+  CellLine = unique(cDT$CellLine),
+  Preprocess = "v1.8",
+  DataType = "Quanititative Imaging",
+  Consortia = "MEP-LINCS",
+  Drug = unique(cDT$Drug),
+  Segmentation = rawDataVersion,
+  StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+  Level = "1"
+),paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))

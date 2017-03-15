@@ -2,56 +2,8 @@
 ```{r "setup", include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,
                       echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
-knitr::opts_knit$set(root.dir = "/data/share/dane/MEP-LINCS/MEP_LINCS/Release")
 
-#Author: Mark Dane, copyright 2015
-
-source("MEPLINCSFunctions.R")
-
-#' Summarize spot level data to the MEP level
-#' 
-#' Median summarize the spot level normalized values the most biologically 
-#' interpretable raw data at each spot, calculate the standard errors and add
-#' SE columns for all median summarized data
-#' @param l3 The datatable of spot level data to be summarized
-#' @return A datatable of MEP level, median summarized data with standard error values and 
-#'  metadata
-#' @export
-preprocessLevel4 <- function(dt, seNames=NULL){
-  #Add a count of replicates
-  dt <- dt[,Spot_PA_ReplicateCount := .N,by="Ligand,ECMp,Drug,CellLine"]
-  rawSignalNames <- grep("_SE",grep("Log2|Logit|_PA_|Intensity|AreaShape",colnames(dt), value=TRUE), value=TRUE, invert=TRUE)
-  l4Signals<- dt[,lapply(.SD, numericMedian), by="Ligand,ECMp,Drug,CellLine", .SDcols=rawSignalNames]
-  
-  #Use seNames to select the parameters that get SE values
-  if(!is.null(seNames)){
-    seNamesPattern<-paste(seNames,collapse="|")
-    seSignalNames <- grep(seNamesPattern,rawSignalNames,value=TRUE)
-    l4Ses <- dt[,lapply(.SD,MEMA:::se),keyby="Ligand,ECMp,Drug,CellLine", .SDcols=seSignalNames]
-  } else{
-    l4Ses <- dt[,lapply(.SD,MEMA:::se),keyby="Ligand,ECMp,Drug,CellLine"]
-  }
-  
-  #Add _SE to the standard error column names
-  setnames(l4Ses, grep("Ligand|ECMp|Drug|CellLine",colnames(l4Ses), value = TRUE, invert = TRUE), paste0(grep("Ligand|ECMp|Drug|CellLine",colnames(l4Ses), value = TRUE, invert = TRUE),"_SE"))
-  
-  #Merge back in the replicate metadata
-  #Remove the plate specific metadata and the signal data
-   metadataNames <- grep("_SE|Barcode|^BW$|ArrayRow|ArrayColumn|^Well$|^Spot$|^PrintSpot$|^Well_Ligand$|ImageID|QA_|ECMSet|QAScore|LigandSet",colnames(dt), value=TRUE,invert=TRUE) %>%
-    setdiff(rawSignalNames)
-  mdDT <- unique(dt[,metadataNames, with=FALSE])
-  setkey(l4Signals,Ligand,ECMp,Drug,CellLine)
-  setkey(l4Ses,Ligand,ECMp,Drug,CellLine)
-  setkey(mdDT,Ligand,ECMp,Drug,CellLine)
-  l4DT <- merge(mdDT,merge(l4Signals,l4Ses))
-  #Add back in a concatenated string of the data's barcodes
-   barcodesList <- sapply(unique(l4DT$MEP_Drug), function(m){
-    paste(unique(dt$Barcode[dt$MEP_Drug==m]),collapse=",")
-  })
-  bmdDT <- data.table(Barcode = barcodesList, MEP_Drug=names(barcodesList))
-  l4DT <- merge(bmdDT,l4DT,by="MEP_Drug")
-  return(l4DT)
-}#End of preprocesslevel4
+#Author: Mark Dane, copyright 2015-2017
 
 library("ggplot2")
 library("data.table")
@@ -69,15 +21,16 @@ library(readxl)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-```
 
+l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
 
-```{r readLevel3and4Data, echo=FALSE}
-
-l3 <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
-l4 <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
-
-annotations <- fread(paste0(path,"/",datasetName,"/Annotated/",datasetName,"_Level3Annotations.tsv"),header = FALSE)
+k <- unique(l3$k)
+wellQAThresh <- unique(l3$QA_lowWellQAThreshold)
+lowRegionCellCountThreshold <- unique(l3$QA_lowRegionCellCountThreshold)
+lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
+barcodes <- sort(unique(l3$Barcode))
+annotations <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3Annotations.tsv"),header = FALSE)
 CellLine = annotations$V2[annotations$V1=="CellLine"]
 Preprocess = annotations$V2[annotations$V1=="Preprocess"]
 DataType = annotations$V2[annotations$V1=="DataType"]
@@ -86,27 +39,6 @@ Drug = annotations$V2[annotations$V1=="Drug"]
 Segmentation = annotations$V2[annotations$V1=="Segmentation"]
 StainingSet = annotations$V2[annotations$V1=="StainingSet"]
 Level = annotations$V2[annotations$V1=="Level"]
-
-
-barcodes <- sort(unique(l3$Barcode))
-
-#Set a threshold for filtering wells on their QA score
-wellQAThresh <- 0.7
-
-#TODO: Read this from Level 3 data
-lthresh <- 0.6
-
-#Number of PCS components to use
-nrPCs <- 9
-
-#Z score threshold for extreme spot cell count
-SCCZscoreThresh <- 3
-
-#Spot cell count threshold for HF dataset
-HFSCCThresh <- 20
-
-#Replicate count threshold for HF Dataset
-HFRepThresh <- 3
 
 if(!Segmentation=="v1"){
   l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
@@ -118,13 +50,13 @@ if(!Segmentation=="v1"){
 
 
 
-#MEP-LINCS `r datasetName` Analysis  
+#MEP-LINCS `r studyName` Analysis  
 ####date: `r Sys.Date()`
 
 <br>
 
 ##Introduction  
-The LINCS `r datasetName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r Segmentation` performed the segmentation and the analysis pipeline is `r Preprocess`.
+The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r Segmentation` performed the segmentation and the analysis pipeline is `r Preprocess`.
 
 Intensity, position and morphology data are gathered for each cell, merged with the experiment metadata, normalized with `r unique(l3$NormMethod)`, filtered and summarized. 
 
@@ -135,42 +67,38 @@ Intensity, position and morphology data are gathered for each cell, merged with 
 setkey(l3,ECMp)
 l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
 
-#Remove failed QA wells
-#Read in manually cureated list
-PoorQualityWells <- read_excel("~/GrayLabData/dane/MEP-LINCS/PoorQualityWells.xlsx")
-PoorQualityWells$QA_LowWellQA <- TRUE
-l3F <- l3F[,QA_LowWellQA :=NULL]
-l3F <- merge(l3F,PoorQualityWells,by=c("Barcode","Well"),all=TRUE)
-l3F$QA_LowWellQA[is.na(l3F$QA_LowWellQA)]<-FALSE
+# #Remove failed QA wells
+# #Read in manually cureated list
+# PoorQualityWells <- read_excel("/graylab/share/dane/MEP-LINCS/PoorQualityWells.xlsx")
+# PoorQualityWells$QA_LowWellQA <- TRUE
+# l3F <- l3F[,QA_LowWellQA :=NULL]
+# l3F <- merge(l3F,PoorQualityWells,by=c("Barcode","Well"),all=TRUE)
+# l3F$QA_LowWellQA[is.na(l3F$QA_LowWellQA)]<-FALSE
 
 #Delete wells that have been flagged for low well quality
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
 
 #Remove features that will not be accessed in this analysis
-l3KeepNames <- grep("Omero|MEP|ECMp|Ligand|Array|QA|Barcode|Spot_PA_SpotCellCount|Nuclei_PA_Gated_EdUPositiveProportionLogit|Cytoplasm_PA_Intensity_LineageRatioLog2|Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess|Spot_PA_ReplicateCount|Cytoplasm_PA_Intensity_LineageRatioLog2|Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2|Cytoplasm_CP_Intensity_MedianIntensity_KRT|Nestin",colnames(l3),value=TRUE)
+l3KeepNames <- grep("Barcode|Omero|CellLine|MEP|ECMp|Drug|Ligand|Array|QA|Barcode|Spot_PA_SpotCellCount|Nuclei_PA_Gated_EdUPositiveProportion|Cytoplasm_PA_Intensity_LineageRatio|Nuclei_PA_Cycle_DNA2NProportion|Spot_PA_ReplicateCount|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Cytoplasm_CP_Intensity_MedianIntensity_KRT|Nestin",colnames(l3),value=TRUE)
 l3F <- l3F[,l3KeepNames, with=FALSE]
 
-#Combine FBS replicates
-l3FFBS <- l3F
-l3FFBS$Ligand[grepl("FBS",l3FFBS$Ligand)] <- gsub("_.*","",l3FFBS$Ligand[grepl("FBS",l3FFBS$Ligand)])
-l4F <- createl4(l3FFBS,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin","Nestin"))
-#Summarize the FBS MEPs
-l4F <- summarizeFBS(l4F)
-
-#Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
-l4F <- l4F[,Spot_PA_SpotCellCountLog2RUVLoess_RobustZ := RZScore(Spot_PA_SpotCellCountLog2RUVLoess)]
-
-if (grepl("SS2|SS4|SSA|SSE|SSF",StainingSet)){
-  #Add Robust Z Score of the EdU Signal
-  l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionRUVLoess_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)]
-}
-
-if (grepl("SS3|SS4",StainingSet)){
-  #Add Robust Z Scores of the normalized lineage ratios
-  
-  l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess)]
-}
+l4F <- preprocessLevel4(l3F,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin","Nestin","Caspase"))
+#Add in the barcodes for each MEP_Drug
+l4F <- addBarcodes(dt3 = l3F, dt4 = l4F)
+# #Add Robust Z Scores of the normalized Spot Cell Counts #across the entire staining set
+# l4F <- l4F[,Spot_PA_SpotCellCountNorm_RobustZ := RZScore(Spot_PA_SpotCellCountNorm)]
+# 
+# if  (any(grepl("EdUPositiveProportionNorm",colnames(l4F))))  {
+#   #Add Robust Z Score of the EdU Signal
+#   l4F <- l4F[,Nuclei_PA_Gated_EdUPositiveProportionNorm_RobustZ := RZScore(Nuclei_PA_Gated_EdUPositiveProportionNorm)]
+# }
+# 
+# if  (any(grepl("LineageRatioNorm",colnames(l4F)))) {
+#   #Add Robust Z Scores of the normalized lineage ratios
+#   
+#   l4F <- l4F[, Cytoplasm_PA_Intensity_LineageRatioNorm_RobustZ:= RZScore(Cytoplasm_PA_Intensity_LineageRatioNorm)]
+# }
 
 ```
 
@@ -187,13 +115,13 @@ The spot cell count analysis identifies MEPs with extreme population sizes. The 
 ```{r SCCByMEPFull, fig.width=8, fig.height=6}
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountLog2RUVLoess), y = Spot_PA_SpotCellCountLog2RUVLoess))+
-  geom_errorbar(aes(ymin=Spot_PA_SpotCellCountLog2RUVLoess-Spot_PA_SpotCellCountLog2RUVLoess_SE, ymax=Spot_PA_SpotCellCountLog2RUVLoess+Spot_PA_SpotCellCountLog2RUVLoess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountNorm), y = Spot_PA_SpotCellCountNorm))+
+  geom_errorbar(aes(ymin=Spot_PA_SpotCellCountNorm-Spot_PA_SpotCellCountNorm_SE, ymax=Spot_PA_SpotCellCountNorm+Spot_PA_SpotCellCountNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized Spot Cell Count")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized Spot Cell Count (Full dataset)")
 
-p <- p + geom_point(aes(y=Spot_PA_SpotCellCountLog2RUVLoess),colour = "darkblue", alpha = .5)
+p <- p + geom_point(aes(y=Spot_PA_SpotCellCountNorm),colour = "darkblue", alpha = .5)
 
 ggplotly(p)
 
@@ -206,7 +134,7 @@ The interactive heatmaps below are arranged by unsupervised clustering of the ro
 
 ```{r SCCHeatmapFull, fig.width=8, fig.height=5}
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCountLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCountLog2RUVLoess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCountNorm,Barcode)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCountNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -228,40 +156,46 @@ A useful mining method to use the first table to identify a MEP of interest as t
 
 
 ```{r SCCTable}
-if(any(grepl("SS1",StainingSet))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess", "Spot_PA_ReplicateCount")
+if(any(grepl("MitoTrackerNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
-} else if (any(grepl("SS2|SS4|SS6|SSA",StainingSet))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess", "Spot_PA_ReplicateCount")
+} else if(any(grepl("EdUPositiveProportionNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm", "Spot_PA_ReplicateCount")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
-} else if (any(grepl("SSD",StainingSet))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Nuclei_CP_Intensity_MedianIntensity_CaspaseLog2RUVLoess")
+} else if(any(grepl("EdUPositiveProportionNorm",colnames(l4F)))&
+          any(grepl("MedianIntensity_CaspaseNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm","Nuclei_CP_Intensity_MedianIntensity_CaspaseNorm")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Caspase")
-} else if (any(grepl("SSE",StainingSet))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess")
+} else if(any(grepl("EdUPositiveProportionNorm",colnames(l4F)))&
+          any(grepl("NestinNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm","Nuclei_CP_Intensity_MedianIntensity_NestinNorm")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Nestin")
-} else if (any(grepl("SSF",StainingSet))){
-  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess")
+} else if (any(grepl("EdUPositiveProportionNorm",colnames(l4F)))&
+          any(grepl("KRT5Norm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm")
   colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed KRT5")
-} else if (any(grepl("SS3|SS4",StainingSet))){
+} else if (any(grepl("LineageRatioNorm",colnames(l4F)))){
   if (CellLine=="MCF10A"){
-    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess", "Spot_PA_ReplicateCount")
+    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_PA_Intensity_LineageRatioNorm", "Spot_PA_ReplicateCount")
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
   }else{
-    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountLog2RUVLoess", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess","Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess", "Spot_PA_ReplicateCount")
+    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_PA_Intensity_LineageRatioNorm", "Spot_PA_ReplicateCount")
     colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
     
   }
-} else stop("Unknown staining set name")
+} else {
+   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm", "Spot_PA_ReplicateCount")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Replicate Count")
+}
 
-dt <- setorder(l4F,-Spot_PA_SpotCellCountLog2RUVLoess)
+dt <- setorder(l4F,-Spot_PA_SpotCellCountNorm)
 datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 
 colNamesSpots <- c(colNames[1],"ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
 colNamesDisplaySpots <- c(colNamesDisplay[1],"ArrayRow","ArrayColumn","Image Link",colNamesDisplay[2:length(colNamesDisplay)])
 setkey(dt,"Ligand")
 
-dt <- setorder(l3F, -Spot_PA_SpotCellCountLog2RUVLoess)
+dt <- setorder(l3F, -Spot_PA_SpotCellCountNorm)
 datatable(format(dt[,colNamesSpots, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
 
 ```
@@ -278,13 +212,13 @@ All cells are stained with DAPI and autogated as DNA 2N or 4N. The proportion of
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess), y = Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess-Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess_SE, ymax=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess+Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Cycle_DNA2NProportionNorm), y = Nuclei_PA_Cycle_DNA2NProportionNorm))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Cycle_DNA2NProportionNorm-Nuclei_PA_Cycle_DNA2NProportionNorm_SE, ymax=Nuclei_PA_Cycle_DNA2NProportionNorm+Nuclei_PA_Cycle_DNA2NProportionNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized DNA 2N Proportion Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized DNA Proportion (Full dataset)")
 
-p <- p + geom_point(aes(y=Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess),colour = "blue", alpha = .5)
+p <- p + geom_point(aes(y=Nuclei_PA_Cycle_DNA2NProportionNorm),colour = "blue", alpha = .5)
 
 ggplotly(p)
 
@@ -299,7 +233,7 @@ The interactive heatmaps below are arranged by unsupervised clustering of the ro
 ```{r DNA2NHeatmapFull, fig.width=8, fig.height=5}
 
 #Cast again to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Cycle_DNA2NProportionLogitRUVLoess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Cycle_DNA2NProportionNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Cycle_DNA2NProportionNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -310,18 +244,18 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r, child='MEP-LINCS_MitoText.Rmd', eval=grepl("SS1",StainingSet)}
+```{r, child='MEP-LINCS_MitoText.Rmd', eval=any(grepl("MitoTracker",colnames(l4F)))}
 ```
 
 <br>
 
-```{r MitoTrackerByMEPFull, eval=grepl("SS1",StainingSet), fig.width=8, fig.height=6}
+```{r MitoTrackerByMEPFull, , eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=8, fig.height=6}
 dt <- l4F
 
-yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess_SE), probs=c(.002, .998))
+yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm_SE), probs=c(.002, .998))
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess))+
-  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess-Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess+Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+
+  geom_errorbar(aes(ymin=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm-Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm_SE, ymax=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm+Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm_SE), width=.01, colour="black") +
   coord_cartesian(ylim=yLimits)+
   xlab("MEP")+ylab("Normalized MitoTracker Intensity Ratio")+
   geom_point(colour = "green", alpha = .5)+
@@ -332,10 +266,10 @@ ggplotly(p)
 ```
 
 
-```{r MitotrackerHeatmapFull, eval=grepl("SS1",StainingSet), fig.width=8, fig.height=5}
+```{r MitotrackerHeatmapFull, eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=8, fig.height=5}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerLog2RUVLoess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -345,17 +279,17 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4|SSE|SSA",StainingSet)}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=any(grepl("EdU",colnames(l4F)))}
 ```
 
 
 
-```{r NormedProliferationByMEPFull,eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F))), fig.width=8, fig.height=6}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), y = Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess))+
-  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess-Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess+Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionNorm), y = Nuclei_PA_Gated_EdUPositiveProportionNorm))+
+  geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportionNorm-Nuclei_PA_Gated_EdUPositiveProportionNorm_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportionNorm+Nuclei_PA_Gated_EdUPositiveProportionNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized EdU+ Proportion Logit")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -366,14 +300,14 @@ ggplotly(p)
 
 
 
-```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=grepl("SS2|SS4|SSA|SSE|SSF",StainingSet)}
+```{r, child='MEP-LINCS_ProliferationHeatMapsText.Rmd', eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet)}
+```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -384,9 +318,9 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUBoxplotsFull, fig.width=12, fig.height=5, eval=grepl("SS2|SS4|SS6|SSA|SSE|SSF",StainingSet)}
+```{r EdUBoxplotsFull, fig.width=12, fig.height=5, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
 
-p <- ggplot(l4F, aes(x=Ligand, y=btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)))+
+p <- ggplot(l4F, aes(x=Ligand, y=plogis(Nuclei_PA_Gated_EdUPositiveProportionNorm)))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
   coord_cartesian(ylim = c(0,.5))+
   guides(colour=FALSE)+
@@ -399,12 +333,12 @@ print(p)
 
 ```
 
-```{r NormedNestinByMEP,eval=grepl("SSE",StainingSet), fig.width=8, fig.height=6}
+```{r NormedNestinByMEP, eval=any(grepl("NestinNorm",colnames(l4F))), fig.width=8, fig.height=6}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess), y = Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess))+
-  geom_errorbar(aes(ymin=Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess-Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess_SE, ymax=Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess+Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_CP_Intensity_MedianIntensity_NestinNorm), y = Nuclei_CP_Intensity_MedianIntensity_NestinNorm))+
+  geom_errorbar(aes(ymin=Nuclei_CP_Intensity_MedianIntensity_NestinNorm-Nuclei_CP_Intensity_MedianIntensity_NestinNorm_SE, ymax=Nuclei_CP_Intensity_MedianIntensity_NestinNorm+Nuclei_CP_Intensity_MedianIntensity_NestinNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized Nestin Intensity")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -415,10 +349,10 @@ ggplotly(p)
 
 
 
-```{r NestinHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SSE",StainingSet)}
+```{r NestinHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("NestinNorm",colnames(l4F)))}
 
 #Cast to get ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_CP_Intensity_MedianIntensity_NestinNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_CP_Intensity_MedianIntensity_NestinNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -429,9 +363,9 @@ try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r NestinBoxplotsFull, fig.width=12, fig.height=5, eval=grepl("SSE",StainingSet)}
+```{r NestinBoxplotsFull, fig.width=12, fig.height=5, eval=any(grepl("NestinNorm",colnames(l4F)))}
 
-p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_CP_Intensity_MedianIntensity_NestinLog2RUVLoess))+
+p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_CP_Intensity_MedianIntensity_NestinNorm))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
   guides(colour=FALSE)+
   xlab("Ligand")+ylab("Normalized Nestin Intensity (log2)")+
@@ -443,15 +377,15 @@ print(p)
 
 ```
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3|SS4",StainingSet)}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval=any(grepl("LineageRatioNorm",colnames(l4F)))}
 ```
 
-```{r LineageRatioByMEP,eval=grepl("SS3|SS4",StainingSet), fig.width=8, fig.height=6}
+```{r LineageRatioByMEP,eval=any(grepl("LineageRatioNorm",colnames(l4F))), fig.width=8, fig.height=6}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess), y = Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess))+
-  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess-Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess+Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess_SE), width=.01, colour="black") +
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioNorm), y = Cytoplasm_PA_Intensity_LineageRatioNorm))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioNorm-Cytoplasm_PA_Intensity_LineageRatioNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioNorm+Cytoplasm_PA_Intensity_LineageRatioNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized Logged Lineage Ratio")+
   geom_point(colour = "blue", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
@@ -462,11 +396,11 @@ ggplotly(p)
 
 
 
-```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS3|SS4",StainingSet)}
+```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=any(grepl("KRT5Norm",colnames(l4F)))& any(grepl("KRT19Norm",colnames(l4F)))}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUVLoess, colour = Ligand))+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm, y = Cytoplasm_CP_Intensity_MedianIntensity_KRT19Norm, colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("Normalized KRT5 Median Intensity")+ylab("Normalized KRT19 Median Intensity")+
@@ -475,10 +409,10 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUVLoess, y
 ```
 
 
-```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=grepl("SS3|SS4",StainingSet)}
+```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("LineageRatioNorm",colnames(l4F)))}
 
 #Cast to get ECMps in rows and ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess")
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatioNorm,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatioNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
@@ -489,11 +423,11 @@ try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=grepl("SS4",StainingSet)}
+```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=any(grepl("LineageRatioNorm",colnames(l4F)))}
 
 dt <- l4
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioLog2RUVLoess, y = btLogit(Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess), colour = Ligand))+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = plogis(Nuclei_PA_Gated_EdUPositiveProportionNorm), colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("Lineage Ratio")+ylab("EdU Proliferation")+
@@ -524,7 +458,7 @@ fvDT <- fvDT[!grepl("FBS|Fiducial|fiducial|blank|PBS",fvDT$MEP),]
 fvDT <- fvDT[,Barcode := NULL]
 
 #Shorten the feature names
-setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("RUVLoess","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
+setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("Norm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
 #Remove when not needed
 if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
 
