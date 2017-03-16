@@ -1,7 +1,7 @@
 ---
-title: "Neratinib Dose Response Curve"
+title: "MCF10A Cell Titrate 96"
 author: "Mark Dane"
-date: "3/14/2017"
+date: "3/16/2017"
 output: 
   flexdashboard::flex_dashboard:
     storyboard: true
@@ -22,27 +22,8 @@ library(stringr)
 
 
 path <- "/lincs/share/lincs_user/study"
-studyName <- "Neratinib_Dose_Response_Curve"
-#Parked code
-# boundSCC01 <- function(x){
-#   x/max(x)
-# }
+studyName <- "MCF10A_Cell_Titrate_96"
 
-#Park sigmoidal code fit
-# dt <- dt[,Spot_PA_SpotCellCountBound := boundSCC01(Spot_PA_SpotCellCount), by="Ligand"]
-# dt <- dt[,Drug1ConcLog10 := log10(Drug1Conc)]
-# modf <- fortify(glm(Spot_PA_SpotCellCountBound~Drug1ConcLog10,data=dt, family=binomial(link = "logit")))
-
-#Fit a sigmoidal function
-# p <- ggplot(dt, aes(x=log10(Drug1Conc), y=Spot_PA_SpotCellCount, colour=Ligand))+
-#   geom_point()+
-#   labs(x="Drug Concentration (log10)",
-#        y="Raw Spot Cell Count",
-#        title="Neratinib Drug Responses\n with Different Ligands")
-# p <- p + geom_point(data=modf, aes(x = Drug1ConcLog10, y = .fitted))
-# 
-# p <- p + geom_point(data=l4[ECMp=="COL1"&Drug=="DMSO",], aes(x=Drug1Conc ,y=Spot_PA_SpotCellCount), shape="+", size=rel(6))
-# p
 ```
 
 
@@ -51,31 +32,28 @@ studyName <- "Neratinib_Dose_Response_Curve"
 l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
 l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
 
-#Write out a subset of the level 3 and level 4 data
-level3Cols <- str_subset(colnames(l3),"Barcode|Well|Spot|MEP|ECM|Ligand|Drug|Nuclei_PA_Gated_EdUPositiveProportion")
-level3Cols <- level3Cols[!str_detect(level3Cols,"Norm|QA|_SE|Loess|Perimeter")]
-fwrite(l3[,level3Cols,with=FALSE], paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3Subset.tsv"), sep = "\t", quote=FALSE)
-#Write out a subset of the level 3 and level 4 data
-level4Cols <- str_subset(colnames(l4),"Barcode|Well|Spot|MEP|ECM|Ligand|Drug|Nuclei_PA_Gated_EdUPositiveProportion")
-level4Cols <- level4Cols[!str_detect(level4Cols,"Norm|QA|_SE|Loess|Perimeter")]
-fwrite(l4[,level4Cols,with=FALSE], paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4Subset.tsv"), sep = "\t", quote=FALSE)
-
 ```
 
 ###Experiment Overview
 
-```{r drugConcLayout, fig.width=5,fig.height=5}
+```{r cellCountLayout, fig.width=12,fig.height=8}
 
-dt <- unique(l3[,.(Well, Drug1Conc,Ligand, Barcode, ECMp,Spot_PA_SpotCellCount, Nuclei_PA_Gated_EdUPositiveProportion, ArrayRow, ArrayColumn)])
+dt <- unique(l3[,.(Well, Ligand, Barcode, ECMp,Spot_PA_SpotCellCount, ArrayRow, ArrayColumn)])
 dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
 dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("B","A"))
 dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
 
-for(barcode in unique(dt$Barcode)){
-  DT <- dt[Barcode==barcode,]
-  p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count")
-print(p)
-}
+p <- ggplot(l3, aes(x=ArrayColumn, y=ArrayRow, colour=Spot_PA_SpotCellCount))+
+  geom_point(size=rel(2))+
+  scale_y_reverse()+
+  scale_x_continuous(breaks= c(min(l3$ArrayColumn),round(mean(c(min(l3$ArrayColumn),max(l3$ArrayColumn)))),max(l3$ArrayColumn)))+
+  scale_colour_gradient(low = "white", high = "red")+
+  guides(colour = guide_legend("Spot Cell Count", keywidth = .5, keyheight = .5))+
+  ggtitle(paste("Spot Cell Count for",unique(l3$CellLine), "cells in plate",unique(l3$Barcode)))+
+  xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))+
+  facet_wrap(~Well, ncol=12)
+ p
+ 
 
 p <- ggplot(dt, aes(x =WellCol, y=WellRow, label=factor(Drug1Conc)))+
   geom_text()+
