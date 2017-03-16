@@ -41,9 +41,17 @@ scriptStartTime<- Sys.time()
 barcode <- gsub(".*/","",barcodePath)
 path <- gsub(barcode,"",barcodePath)
 if(verbose) message(paste("Processing plate:",barcode,"at",path,"\n"))
+
+#Gather filenames of raw data
+
 #Build metdata file name list
+metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",
+             barcode)
+metadataTable <- synTableQuery(metadataq)@values
+metadataFiles <- lapply(metadataTable$id, synGet)
+
 if(useAnnotMetadata){
-  metadataFiles <- list(annotMetadata=paste0(path,barcode,"/Analysis/",barcode,"_an2omero.csv"))
+  metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
 } else {
   metadataFiles <- list(logMetadata = dir(paste0(path,barcode,"/Analysis"),pattern = "xml",full.names = TRUE),
                         spotMetadata = dir(paste0(barcodePath,"/Analysis"),pattern = "gal",full.names = TRUE),
@@ -91,16 +99,23 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 # Gate cells where possible
 cDT <- gateCells(cDT)
 #Write the annotated cell level files to disk
-writeCellLevel(dt=cDT,path=path,barcode=barcode, verbose=verbose)
-#Write the File Annotations for Synapse to tab-delimited file
-write.table(c(
-  CellLine = unique(cDT$CellLine),
-  Preprocess = "v1.8",
-  DataType = "Quanititative Imaging",
-  Consortia = "MEP-LINCS",
-  Drug = unique(cDT$Drug),
-  Segmentation = rawDataVersion,
-  StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
-  Level = "1"
-),paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
-if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
+ofname <- paste0(path, barcode, "_", "Level1.tsv")
+fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
+
+annotatedFolder <- synStore(Folder('Annotated', parentId="syn8466337"))
+synFile <- synStore(File(ofname, parentId=annotatedFolder@properties$id),
+                    used=c(dataBWInfo$id, metadataTable$id))
+
+# #Write the File Annotations for Synapse to tab-delimited file
+# write.table(c(
+#   CellLine = unique(cDT$CellLine),
+#   Preprocess = "v1.8",
+#   DataType = "Quanititative Imaging",
+#   Consortia = "MEP-LINCS",
+#   Drug = unique(cDT$Drug),
+#   Segmentation = rawDataVersion,
+#   StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+#   Level = "1"
+# ),paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+# if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
+  
