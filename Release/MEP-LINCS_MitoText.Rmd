@@ -1,3 +1,0 @@
-###MitoTracker Analysis
-
-This staining set includes MitoTracker which stains mitochondria. 

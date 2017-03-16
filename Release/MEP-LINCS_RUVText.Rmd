@@ -1,3 +1,0 @@
-##Normalization
-
-Each signal of the dataset was independently normalized using the RUV3 method with k=2 and the plate as the unit of study.

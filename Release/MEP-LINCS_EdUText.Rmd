@@ -1,3 +1,0 @@
-###Raw EdU Signal QA
-
-This staining set includes EdU which incorporates into the newly synthesized DNA of proliferating cells during the last hours of the experiment. 

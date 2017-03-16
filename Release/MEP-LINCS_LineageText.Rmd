@@ -1,5 +1,0 @@
-##Lineage Marker Analysis
-
-This staining set includes the lineage markers KRT5 which is associated with basal cells and KRT19 which is associated with luminal cells. This analysis evaluates the lineage responses through a ratio of the median intensity of KRT19 to KRT5. 
-
-The table that follows shows the first and last MEPs ranked by their lineage ratio.

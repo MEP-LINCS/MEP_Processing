@@ -1,5 +1,0 @@
-###Normalization
-
-Each signal of the dataset was independently normalized using the RUV method with the array as the unit of study and spatial residuals as the negative controls. The data is normalized as a matrix of 64 MEMAs in the rows and 694 spots in the columns. The matrix is organized such that each column has data on the same row and column in the printed array thereby containing the same ECM protein. 
-
-The normalization is a round of RUV using the spatial residuals as the controls and k=`r k` followed by a round of bivariate loess using spatial residuals after the RUV round. 
