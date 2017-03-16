@@ -8,6 +8,7 @@ library(synapseClient)
 library(MEMA)
 library(parallel)
 library(stringr)
+library(dplyr)
 
 processCellCommandLine <- function(x, useAnnotMetadata=TRUE, rawDataVersion="v2", verbose="FALSE"){
   if(length(x)==0) stop("There must be a barcodePath argument in the command line call")
@@ -23,10 +24,10 @@ processCellCommandLine <- function(x, useAnnotMetadata=TRUE, rawDataVersion="v2"
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00751",TRUE,"v2",TRUE) #MCF10A_Neratinib_2
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00771",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00765",TRUE,"v2",TRUE)
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641",TRUE,"v2",TRUE)
+callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",FALSE,"v2",TRUE)
-callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
 # callParams <- processCellCommandLine(commandArgs(trailingOnly = TRUE))
 barcodePath <-callParams[[1]]
 useAnnotMetadata <-as.logical(callParams[[2]])
@@ -44,17 +45,19 @@ if(verbose) message(paste("Processing plate:",barcode,"at",path,"\n"))
 metadata <- getMetadata(barcode, path, useAnnotMetadata)
 
 #Gather filenames of raw data
-q <- sprintf('select id,name,Barcode,Level,Well,StainingSet,Location from syn7800478 WHERE Level="0" AND Barcode="%s" LIMIT 100',
+q <- sprintf("select id,name,Barcode,Level,Well,StainingSet,Location from syn7800478 WHERE Level='0' AND Barcode='%s'",
              barcode)
-rawFiles <- synQuery(q, blockSize = 250)$collectAll()
-dataBWInfo <- rawFiles %>% select(id=file.id, Well=file.Well, Location=file.Location, Barcode=file.Barcode)
+rawFiles <- synTableQuery(q)
+dataBWInfo <- rawFiles@values
 
+res <- lapply(dataBWInfo$id, synGet)
 
-cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
+cellDataFilePaths <- unlist(lapply(res, getFileLocation))
+# cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
+dataBWInfo$Path <- cellDataFilePaths
+
 if(length(cellDataFilePaths)==0) stop("No raw data files found")
-dataBWInfo <- data.table(Path=cellDataFilePaths,
-                         Well=gsub("_","",str_extract(dir(paste0(barcodePath,"/Analysis/",rawDataVersion)),"_.*_")),
-                         Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
+
 #Gather data from either CP or INCell
 if("Nuclei" %in% dataBWInfo$Location) { #Cell Profiler data
   dtL <- getCPData(dataBWInfo = dataBWInfo, verbose=verbose)
