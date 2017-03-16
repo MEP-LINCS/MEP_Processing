@@ -36,8 +36,17 @@ library(stringr)
 barcode <- gsub(".*/","",barcodePath)
 path <- gsub(barcode,"",barcodePath)
 if(verbose) message(paste("Processing plate:",barcode,"at",path,"\n"))
+#Build metdata file name list
+if(useAnnotMetadata){
+  metadataFiles <- list(annotMetadata=paste0(path,barcode,"/Analysis/",barcode,"_an2omero.csv"))
+} else {
+  metadataFiles <- list(logMetadata = dir(paste0(path,barcode,"/Analysis"),pattern = "xml",full.names = TRUE),
+                        spotMetadata = dir(paste0(barcodePath,"/Analysis"),pattern = "gal",full.names = TRUE),
+                        wellMetadata =  dir(paste0(path,barcode,"/Analysis"),pattern = "xlsx",full.names = TRUE)
+ )
+}
 #Get all metadata
-metadata <- getMetadata(barcode, path, useAnnotMetadata)
+metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 #Gather filenames of raw data
 cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
 if(length(cellDataFilePaths)==0) stop("No raw data files found")
