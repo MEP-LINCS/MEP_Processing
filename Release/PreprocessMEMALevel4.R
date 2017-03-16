@@ -14,6 +14,7 @@ library(MEMA) #merge, annotate and normalize functions
 #callParams <- processLevel4CommandLine(c("MCF10A_DMSO_2", "/lincs/share/lincs_user/study", TRUE))
 #callParams <- processLevel4CommandLine(c("HMEC240L_SS4", "/lincs/share/lincs_user/study",TRUE))
 #callParams <- processLevel4CommandLine(c("HMEC122L_SS4", "/lincs/share/lincs_user/study",TRUE))
+#callParams <- processLevel4CommandLine(c("MCF10A_Cell_Titrate_96", "/lincs/share/lincs_user/study",TRUE))
 callParams <- processLevel4CommandLine(commandArgs(trailingOnly = TRUE))
 studyName <-callParams[[1]]
 path <-callParams[[2]]

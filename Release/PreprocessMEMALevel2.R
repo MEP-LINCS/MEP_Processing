@@ -14,8 +14,10 @@ processSpotCommandLine <- function(x, rawDataVersion="v2", verbose="FALSE"){
 #Issues: 
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00771","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00655","v2",TRUE)
+#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00765","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01204","v1",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/lincs96well/LI9V01610","v1",TRUE)
 callParams <- processSpotCommandLine(commandArgs(trailingOnly = TRUE))
 barcodePath <-callParams[[1]]
