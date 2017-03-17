@@ -102,9 +102,20 @@ cDT <- gateCells(cDT)
 ofname <- paste0(path, barcode, "_", "Level1.tsv")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
 
-annotatedFolder <- synStore(Folder('Annotated', parentId="syn8466337"))
-synFile <- synStore(File(ofname, parentId=annotatedFolder@properties$id),
-                    used=c(dataBWInfo$id, metadataTable$id))
+annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
+synFile <- File(ofname, parentId=annotatedFolder@properties$id)
+synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
+                                   Preprocess = "v1.8",
+                                   DataType = "Quanititative Imaging",
+                                   Consortia = "MEP-LINCS",
+                                   Drug = unique(cDT$Drug),
+                                   Segmentation = rawDataVersion,
+                                   StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+                                   Level = "1")
+
+synFile <- synStore(synFile,
+                    used=c(dataBWInfo$id, metadataTable$id),
+                    forceVersion=FALSE)
 
 # #Write the File Annotations for Synapse to tab-delimited file
 # write.table(c(
@@ -118,4 +129,3 @@ synFile <- synStore(File(ofname, parentId=annotatedFolder@properties$id),
 #   Level = "1"
 # ),paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
 # if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
-  
