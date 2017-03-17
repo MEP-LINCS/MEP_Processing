@@ -56,7 +56,7 @@ dataBWInfo <- data.table(Path=cellDataFilePaths,
 #Gather data from either CP or INCell
 if("Nuclei" %in% dataBWInfo$Location) { #Cell Profiler data
   dtL <- getCPData(dataBWInfo = dataBWInfo, verbose=verbose)
-} else if(any(grepl("96well|incell",dataBWInfo$Path))) { #GE INCell data
+} else if(any(grepl("96well|incell|MEMA",dataBWInfo$Path))) { #GE INCell data
   dtL <- getICData(cellDataFilePaths = cellDataFilePaths, endPoint488 = unique(metadata$Endpoint488),endPoint555 = unique(metadata$Endpoint555),endPoint647 = unique(metadata$Endpoint647), verbose=verbose)
 } else {
   stop("Only data from Cell Profiler or INCell pipelines are supported")
