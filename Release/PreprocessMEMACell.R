@@ -29,6 +29,7 @@ callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641",TRUE,"v
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",FALSE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
 # callParams <- processCellCommandLine(commandArgs(trailingOnly = TRUE))
+
 barcodePath <-callParams[[1]]
 useAnnotMetadata <-as.logical(callParams[[2]])
 rawDataVersion <-callParams[[3]]
@@ -36,21 +37,19 @@ verbose <- as.logical(callParams[[4]])
 
 synapseLogin()
 
-scriptStartTime<- Sys.time()
+scriptStartTime <- Sys.time()
 
-barcode <- gsub(".*/","",barcodePath)
-path <- gsub(barcode,"",barcodePath)
+barcode <- gsub(".*/", "", barcodePath)
+path <- gsub(barcode, "", barcodePath)
+
 if(verbose) message(paste("Processing plate:",barcode,"at",path,"\n"))
 
-#Gather filenames of raw data
-
-#Build metdata file name list
-metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",
-             barcode)
-metadataTable <- synTableQuery(metadataq)@values
-metadataFiles <- lapply(metadataTable$id, synGet)
-
 if(useAnnotMetadata){
+  #Build metdata file name list
+  metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",
+                       barcode)
+  metadataTable <- synTableQuery(metadataq)@values
+  metadataFiles <- lapply(metadataTable$id, synGet)
   metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
 } else {
   metadataFiles <- list(logMetadata = dir(paste0(path,barcode,"/Analysis"),pattern = "xml",full.names = TRUE),
@@ -58,6 +57,7 @@ if(useAnnotMetadata){
                         wellMetadata =  dir(paste0(path,barcode,"/Analysis"),pattern = "xlsx",full.names = TRUE)
  )
 }
+
 #Get all metadata
 metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
@@ -73,32 +73,44 @@ cellDataFilePaths <- unlist(lapply(res, getFileLocation))
 # cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
 dataBWInfo$Path <- cellDataFilePaths
 
-if(length(cellDataFilePaths)==0) stop("No raw data files found")
+if(length(cellDataFilePaths) == 0) stop("No raw data files found")
 
 #Gather data from either CP or INCell
 if("Nuclei" %in% dataBWInfo$Location) { #Cell Profiler data
   dtL <- getCPData(dataBWInfo = dataBWInfo, verbose=verbose)
 } else if(any(grepl("96well",dataBWInfo$Path))) { #GE INCell data
-  dtL <- getICData(cellDataFilePaths = cellDataFilePaths, endPoint488 = unique(metadata$Endpoint488),endPoint555 = unique(metadata$Endpoint555),endPoint647 = unique(metadata$Endpoint647), verbose=verbose)
+  dtL <- getICData(cellDataFilePaths = cellDataFilePaths, 
+                   endPoint488 = unique(metadata$Endpoint488),
+                   endPoint555 = unique(metadata$Endpoint555),
+                   endPoint647 = unique(metadata$Endpoint647),
+                   verbose=verbose)
 } else {
   stop("Only data from Cell Profiler or INCell pipelines are supported")
 }
+
 #Clean up legacy issues in column names and some values
 dtL <- lapply(dtL, cleanLegacyIssues)
-#Filter our debris and cell clusters
+
+# Filter our debris and cell clusters
 dtL <- lapply(dtL, function(dt){
   filterObjects(dt,nuclearAreaThresh = 50, nuclearAreaHiThresh = 4000)})
-#Add local XY and polar coordinates
+
+# Add local XY and polar coordinates
 dtL <- mclapply(dtL, addPolarCoords, mc.cores = detectCores())
-#Add spot level normalizations for median intensities
+
+# Add spot level normalizations for median intensities
 dtL <- mclapply(dtL,spotNormIntensities, mc.cores = detectCores())
-#Add adjacency values
+
+# Add adjacency values
 dtL <- mclapply(dtL, calcAdjacency, mc.cores = detectCores())
-#Merge the data with metadata
+
+# Merge the data with metadata
 cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
+
 # Gate cells where possible
 cDT <- gateCells(cDT)
-#Write the annotated cell level files to disk
+
+# Write the annotated cell level files to disk
 ofname <- paste0(path, barcode, "_", "Level1.tsv")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
 
@@ -128,4 +140,5 @@ synFile <- synStore(synFile,
 #   StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
 #   Level = "1"
 # ),paste0(barcodePath, "/Analysis/", barcode,"_","Level1Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
-# if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
+
+if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
