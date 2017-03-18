@@ -10,15 +10,16 @@ library(parallel)
 library(stringr)
 library(dplyr)
 
-processCellCommandLine <- function(x, useAnnotMetadata=TRUE, 
+processCellCommandLine <- function(x, useAnnotMetadata=TRUE, useSynapse=TRUE,
                                    rawDataVersion="v2", verbose="FALSE"){
   if(length(x)==0) stop("There must be a barcodePath argument in the command line call")
   barcodePath <- x[1]
   if (length(x) > 1) useAnnotMetadata <- x[2]
-  if (length(x) > 1) rawDataVersion <- x[3]
-  if (length(x) > 1) verbose <- x[4]
+  if (length(x) > 1) useSynapse <- x[3]
+  if (length(x) > 1) rawDataVersion <- x[4]
+  if (length(x) > 1) verbose <- x[5]
   
-  list(barcodePath, useAnnotMetadata, rawDataVersion, verbose)
+  list(barcodePath, useAnnotMetadata, useSynapse, rawDataVersion, verbose)
 }
 
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00528",TRUE, "v2", TRUE) #MCF10A_SS2
@@ -26,18 +27,18 @@ processCellCommandLine <- function(x, useAnnotMetadata=TRUE,
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00751",TRUE,"v2",TRUE) #MCF10A_Neratinib_2
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00771",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00765",TRUE,"v2",TRUE)
-callParams <- processCellCommandLine("/tmp/LI8X00641", TRUE, "v2", TRUE)
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,"v2",TRUE)
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",FALSE,"v2",TRUE)
+callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641", TRUE, TRUE, "v2", TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,FALSE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
 # callParams <- processCellCommandLine(commandArgs(trailingOnly = TRUE))
 
 barcodePath <- callParams[[1]]
 useAnnotMetadata <- as.logical(callParams[[2]])
-rawDataVersion <- callParams[[3]]
-verbose <- as.logical(callParams[[4]])
+useSynapse <- as.logical(callParams[[3]])
+rawDataVersion <- callParams[[4]]
+verbose <- as.logical(callParams[[5]])
 
-synapseLogin()
+if(useSynapse) synapseLogin()
 
 scriptStartTime <- Sys.time()
 
@@ -47,34 +48,48 @@ path <- gsub(barcode, "", barcodePath)
 if (verbose) message(paste("Processing plate:", barcode, "at", path, "\n"))
 
 if (useAnnotMetadata) {
-  #Build metdata file name list
-  metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",
-                       barcode)
-  metadataTable <- synTableQuery(metadataq)@values
-  metadataFiles <- lapply(metadataTable$id, synGet)
-  metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
+  #Build metadata file name list
+  if(useSynapse){
+    metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",
+                         barcode)
+    metadataFiles <- list(annotMetadata=synTableQuery(metadataq)@values$id)
+    metadataTable <- synTableQuery(metadataq)@values
+    metadataFiles <- lapply(metadataTable$id, synGet)
+    metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
+  } else {
+    metadataFiles <- list(annotMetadata=paste0(barcodePath,"/Analysis/",barcode,"_an2omero.csv"))
+  }
+  
 } else {
   metadataFiles <- list(logMetadata = dir(paste0(path,barcode,"/Analysis"),pattern = "xml",full.names = TRUE),
                         spotMetadata = dir(paste0(barcodePath,"/Analysis"),pattern = "gal",full.names = TRUE),
                         wellMetadata =  dir(paste0(path,barcode,"/Analysis"),pattern = "xlsx",full.names = TRUE)
- )
+  )
 }
 
 #Get all metadata
 metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
 #Gather filenames and metadata of level 0 files
-q <- sprintf("select id,name,Barcode,Level,Well,StainingSet,Location from syn7800478 WHERE Level='0' AND Barcode='%s'",
-             barcode)
-rawFiles <- synTableQuery(q)
-dataBWInfo <- rawFiles@values
-
-# Download raw files, or get from cache if already downloaded
-res <- lapply(dataBWInfo$id, synGet)
-
-# Get the path on disk to each file
-cellDataFilePaths <- unlist(lapply(res, getFileLocation))
-dataBWInfo$Path <- cellDataFilePaths
+if(useSynapse){
+  q <- sprintf("select id,name,Barcode,Level,Well,StainingSet,Location from syn7800478 WHERE Level='0' AND Barcode='%s'",
+               barcode)
+  rawFiles <- synTableQuery(q)
+  dataBWInfo <- rawFiles@values
+  
+  # Download raw files, or get from cache if already downloaded
+  res <- lapply(dataBWInfo$id, synGet)
+  
+  # Get the path on disk to each file
+  cellDataFilePaths <- unlist(lapply(res, getFileLocation))
+  dataBWInfo$Path <- cellDataFilePaths
+} else {
+  cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
+  if(length(cellDataFilePaths)==0) stop("No raw data files found")
+  dataBWInfo <- data.table(Path=cellDataFilePaths,
+                           Well=gsub("_","",str_extract(dir(paste0(barcodePath,"/Analysis/",rawDataVersion)),"_.*_")),
+                           Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
+}
 
 if(length(cellDataFilePaths) == 0) stop("No raw data files found")
 
@@ -118,22 +133,26 @@ cDT <- gateCells(cDT)
 
 # Write the annotated cell level files to disk
 ofname <- paste0(path, barcode, "_", "Level1.tsv")
-fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
+if(useSynapse){
+  annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
+  synFile <- File(ofname, parentId=annotatedFolder@properties$id)
+  synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
+                                     Preprocess = "v1.8",
+                                     DataType = "Quanititative Imaging",
+                                     Consortia = "MEP-LINCS",
+                                     Drug = unique(cDT$Drug),
+                                     Segmentation = rawDataVersion,
+                                     StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+                                     Level = "1")
+  
+  synFile <- synStore(synFile,
+                      used=c(dataBWInfo$id, metadataTable$id),
+                      forceVersion=FALSE)
+  
+} else {
+  fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
+}
 
-annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
-synFile <- File(ofname, parentId=annotatedFolder@properties$id)
-synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
-                                   Preprocess = "v1.8",
-                                   DataType = "Quanititative Imaging",
-                                   Consortia = "MEP-LINCS",
-                                   Drug = unique(cDT$Drug),
-                                   Segmentation = rawDataVersion,
-                                   StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
-                                   Level = "1")
-
-synFile <- synStore(synFile,
-                    used=c(dataBWInfo$id, metadataTable$id),
-                    forceVersion=FALSE)
 
 # #Write the File Annotations for Synapse to tab-delimited file
 # write.table(c(
