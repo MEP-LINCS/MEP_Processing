@@ -1,0 +1,3 @@
+##Raw KRT5 and KRT19 QA
+
+This staining set includes KRT5 and KRT19 which are biomarkers for basal and luminal cell differentiation states.

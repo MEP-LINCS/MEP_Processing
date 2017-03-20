@@ -1,0 +1,7 @@
+
+##Proliferation Analysis
+The proliferation analysis method is as follows:  
+First, the cells within each well are auto-gated into Edu+  
+The proportion of EdU+ cells at each spot is calculated  
+The proportions are logit transformed then RUV and loess normalized  
+The normalized proportions are then summarized by the medians of their replicates.  
