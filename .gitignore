@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 *.html
+*.pdf
+*.key
+*.csv
+*.txt
+*.xlsx
+*.pptx

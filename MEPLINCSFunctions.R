@@ -10,13 +10,18 @@ create8WellPseudoImage <- function(DT, pr, prDisplay){
   #move outliers to maximum displayed value
   DT[[pr]][DT[[pr]]>=quantile(DT[[pr]],probs = highThresh,na.rm=TRUE)] <- as.integer(quantile(DT[[pr]],probs = highThresh,na.rm=TRUE))
   p <- ggplot(DT, aes_string(x="ArrayColumn", y="ArrayRow",colour=pr))+
-    geom_point(size=1)+
+    geom_point(size=rel(.3))+
     scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
     scale_colour_gradient(low = "white", high = "red")+
     guides(colour = guide_legend(prDisplay, keywidth = .5, keyheight = .5))+
     ggtitle(paste("\n\n",prDisplay,"for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
-    xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.5)),plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
-    facet_wrap(~Well, ncol=4)
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.title.x = element_text(size=rel(.5)),
+          plot.title = element_text(size = rel(.8)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.4)),legend.title=element_text(size = rel(.3)))+
+    facet_wrap(~Well_Ligand, ncol=4)
 }
 
 create8WellHistograms <- function(DT, pr, prDisplay, binwidth = diff(quantile(DT[[pr]],probs = c(0,.98),na.rm=TRUE))/50, upperProb = .99, ncol = 4) {
@@ -26,7 +31,12 @@ create8WellHistograms <- function(DT, pr, prDisplay, binwidth = diff(quantile(DT
     scale_x_continuous(limits = quantile(DT[[pr]],probs = c(0,upperProb),na.rm=TRUE))+
     ggtitle(paste("\n\n",prDisplay,"in",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
     xlab(prDisplay)+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
+    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),
+          axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), 
+          plot.title = element_text(size = rel(.5)),
+          strip.text = element_text(size = rel(.5)),
+          legend.text=element_text(size = rel(.3)),
+          legend.title=element_text(size = rel(.3)))+
     facet_wrap(~Well, ncol=ncol)
 }
 
@@ -68,9 +78,24 @@ plotTotalDAPI <- function(l1, barcodes){
     mDT <- l1[l1$Barcode == barcode]
     mDT <- mDT[mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi > quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi < quantile(mDT$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.98, na.rm=TRUE)]
     mDT <- mDT[,DNAThresh := min(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==2]), by="Well"]
-    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_bar(binwidth = 2)+
+    p <- ggplot(mDT, aes(x=Nuclei_CP_Intensity_IntegratedIntensity_Dapi))+geom_histogram(binwidth = 2)+
       geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
-      facet_wrap(~Ligand, nrow=2, scales="free_x")+
+      facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
+      ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
+      ylab("Count")+xlab("Total Intensity DAPI")+
+      theme(strip.text = element_text(size = 5))
+    suppressWarnings(print(p))
+  }
+}
+
+plotTotalDAPIINCell <- function(l1, barcodes){
+  for (barcode in barcodes){
+    mDT <- l1[l1$Barcode == barcode]
+    mDT <- mDT[mDT$Nuclei_IxANuc > quantile(mDT$Nuclei_IxANuc, probs=.01, na.rm=TRUE) & mDT$Nuclei_IxANuc < quantile(mDT$Nuclei_IxANuc,probs=.98, na.rm=TRUE)]
+    mDT <- mDT[,DNAThresh := min(Nuclei_IxANuc[Nuclei_PA_Cycle_State==2]), by="Well"]
+    p <- ggplot(mDT, aes(x=Nuclei_IxANuc))+geom_histogram(binwidth = 1e+05)+
+      geom_vline(data = mDT, aes(xintercept = DNAThresh), colour = "blue")+
+      facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
       #xlim(0,quantile(mDT$TotalIntensityDAPI,probs=.98, na.rm=TRUE))+
       ggtitle(paste("\n\n","Total DAPI Signal,",barcode))+
       ylab("Count")+xlab("Total Intensity DAPI")+
@@ -79,8 +104,7 @@ plotTotalDAPI <- function(l1, barcodes){
   }
 }
 
-
-plotSCCHeatmapsQAHistograms <- function(l3, barcodes){
+plotSCCHeatmapsQAHistograms <- function(l3, barcodes, lthresh){
   for (barcode in barcodes){
     DT <-l3[l3$Barcode==barcode,]
     #Remove the fiducial entries
@@ -91,15 +115,22 @@ plotSCCHeatmapsQAHistograms <- function(l3, barcodes){
     p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count")
     suppressWarnings(print(p))
     
-    wellScores <- unique(DT[,list(Well, QAScore=sprintf("%.2f",QAScore))])
+    wellScores <- unique(DT[,list(Well_Ligand, QAScore=sprintf("%.2f",QAScore))])
     
     p <- ggplot(DT, aes(x=Spot_PA_LoessSCC))+
       geom_histogram(binwidth=.04)+
       geom_vline(xintercept=lthresh, colour="blue")+
       geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = 2, y = 30, size = rel(3), colour="red")+
-      ggtitle(paste("\n\n\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Normalized Spot Cell Count")+xlim(0,3)+
-      theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.x = element_text( size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.title.y = element_text( size=rel(.5)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))+
-      facet_wrap(~Well, ncol=4)
+      ggtitle(paste("\n\n","QA on Loess Model of Spot Cell Count for",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Loess Normalized Spot Cell Count")+xlim(0,3)+
+      theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)),
+            axis.title.x = element_text( size=rel(.5)),
+            axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)),
+            axis.title.y = element_text( size=rel(.5)),
+            plot.title = element_text(size = rel(.8)),
+            strip.text = element_text(size = rel(.5)),
+            legend.text=element_text(size = rel(.3)),
+            legend.title=element_text(size = rel(.3)))+
+      facet_wrap(~Well_Ligand, ncol=4)
     suppressWarnings(print(p))
   }
 }
@@ -123,19 +154,51 @@ filterl4 <- function(dt,lowQALigands){
   
   #Define features for clustering
   fv <- paste("^Barcode","MEP",
-              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_RZSNorm",
-              "Nuclei_CP_AreaShape_Area_RZSNorm",
-              "Nuclei_CP_AreaShape_Eccentricity_RZSNorm",
-              "Nuclei_CP_AreaShape_Perimeter_RZSNorm",
-              "Nuclei_CP_Intensity_MedianIntensity_Dapi_RZSNorm",
-              "Spot_PA_SpotCellCount_RZSNorm",
-              "Nuclei_PA_AreaShape_Neighbors_RZSNorm",
-              "Nuclei_PA_Cycle_DNA2NProportion_RZSNorm$",
-              "Nuclei_CP_Intensity_MedianIntensity_Edu_RZSNorm",
-              "Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_RZSNorm",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19_RZSNorm",
-              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5_RZSNorm",
-              "Cytoplasm_PA_Intensity_LineageRatio_RZSNorm$",
+              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker_Norm",
+              "Nuclei_CP_AreaShape_Area_Norm",
+              "Nuclei_CP_AreaShape_Eccentricity_Norm",
+              "Nuclei_CP_AreaShape_Perimeter_Norm",
+              "Nuclei_CP_Intensity_MedianIntensity_Dapi_Norm",
+              "Spot_PA_SpotCellCount_Norm",
+              "Nuclei_PA_AreaShape_Neighbors_Norm",
+              "Nuclei_PA_Cycle_DNA2NProportion_Norm$",
+              "Nuclei_CP_Intensity_MedianIntensity_Edu_Norm",
+              "Nuclei_PA_Gated_EduPositiveProportion_Norm_Norm",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19_Norm",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5_Norm",
+              "Cytoplasm_PA_Intensity_LineageRatio_Norm$",
+              sep="$|^")
+  
+  fv <- grep(fv, colnames(l4QA), value = TRUE)
+  #Create numeric feature vectors datatable
+  fvDT <- l4QA[,fv,with = FALSE]
+  return(fvDT)
+}
+
+filterl4RUV3 <- function(dt,lowQALigands){
+  #Remove failed QA wells
+  l4QA<- dt[!dt$Ligand %in% lowQALigands]
+  
+  setkey(l4QA, "ECMp")
+  l4QA <- l4QA[!"blank"]
+  l4QA <- l4QA[!"fiducial"]
+  l4QA <- l4QA[,grep("Center_X|Center_Y|Center_Theta",colnames(l4QA),value = TRUE, invert = TRUE), with = FALSE]
+  
+  #Define features for clustering
+  fv <- paste("^Barcode","MEP",
+              "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerRUV3Loess",
+              "Nuclei_CP_AreaShape_AreaRUV3Loess",
+              "Nuclei_CP_AreaShape_EccentricityRUV3Loess",
+              "Nuclei_CP_AreaShape_PerimeterRUV3Loess",
+              "Nuclei_CP_Intensity_MedianIntensity_DapiLog2RUV3Loess",
+              "Spot_PA_SpotCellCountRUV3Loess",
+              "Nuclei_PA_AreaShape_NeighborsRUV3Loess",
+              "Nuclei_PA_Cycle_DNA2NProportionRUV3Loess$",
+              "Nuclei_CP_Intensity_MedianIntensity_EduLog2RUV3Loess",
+              "Nuclei_PA_Gated_EduPositiveProportionLogitRUV3LoessRUV3Loess",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT19Log2RUV3Loess",
+              "Cytoplasm_CP_Intensity_MedianIntensity_KRT5Log2RUV3Loess",
+              "Cytoplasm_PA_Intensity_LineageRatioLog2RUV3Loess$",
               sep="$|^")
   
   fv <- grep(fv, colnames(l4QA), value = TRUE)
@@ -148,7 +211,7 @@ plotSCCRobustZScores <- function(dt, thresh = 3){
   #Filter our FBS MEPs then plot spot cell count robust Z scores
   #browser()
   dt <- dt[!grepl("FBS",dt$MEP)]
-  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_RZSNorm_RobustZ))+geom_bar(binwidth = .1)+
+  p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount_Norm_RobustZ))+geom_histogram(binwidth = .1)+
     geom_vline(xintercept = c(-thresh,thresh), colour = "blue")+
     ggtitle(paste("\n\n","MEP Normalized Spot Cell Count Robust Z Scores Distribution"))+
     ylab("Count")+xlab("Normalized Spot Cell Count Robust Z Scores")+
@@ -249,7 +312,7 @@ createMEMATestRawData <- function(cellLine, ss, nrRows, nrCols){
   imageNumbers <- unlist(lapply(1:nrRows, function(x, nrCols){
     xseq <- (x-1)*20+(1:nrCols)
   }, nrCols = nrCols))
-
+  
   
   cellLineFiles <- dir(paste(".",cellLine,ss,"RawData","v1", sep = "/"),
                        pattern = ".csv",full.names = TRUE)
@@ -302,3 +365,21 @@ heatmapFromFBS <- function(DT, title = NULL, cols = plateCol, activeThresh = .95
             RowSideColors=cols[activeFV$Barcode], colRow = cols[activeFV$Barcode], na.rm = TRUE)
   return(activeFV)
 }
+
+dfZoom <- function(x, min=.02, max=1){
+  minMax <- quantile(unlist(x), probs=c(min,max), na.rm=TRUE)
+  cl <- t(apply(x,1, function(c){
+    c[c<minMax[1]] <- minMax[1]
+    c[c>minMax[2]] <- minMax[2]
+    return(c)
+  }))
+  return(data.frame(cl))
+}
+
+fvZoom <- function(x, min=.02, max=1){
+  minMax <- quantile(unlist(x), probs=c(min,max), na.rm=TRUE)
+  x[x<minMax[1]] <- minMax[1]
+  x[x>minMax[2]] <- minMax[2]
+  return(x)
+}
+
