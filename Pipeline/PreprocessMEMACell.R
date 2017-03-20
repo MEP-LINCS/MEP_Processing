@@ -27,8 +27,8 @@ processCellCommandLine <- function(x, useAnnotMetadata=TRUE, useSynapse=TRUE,
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00751",TRUE,"v2",TRUE) #MCF10A_Neratinib_2
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00771",TRUE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00765",TRUE,"v2",TRUE)
-callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641", TRUE, TRUE, "v2", TRUE)
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00850",TRUE,FALSE,"v2",TRUE)
+#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641", TRUE, TRUE, "v2", TRUE)
+callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00831",TRUE,FALSE,"v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01610",FALSE,"v1",TRUE)
 # callParams <- processCellCommandLine(commandArgs(trailingOnly = TRUE))
 
@@ -132,7 +132,7 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 cDT <- gateCells(cDT)
 
 # Write the annotated cell level files to disk
-ofname <- paste0(path, barcode, "_", "Level1.tsv")
+ofname <- paste0(path, barcode,"/Analysis/",barcode, "_", "Level1.tsv")
 if(useSynapse){
   annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
   synFile <- File(ofname, parentId=annotatedFolder@properties$id)

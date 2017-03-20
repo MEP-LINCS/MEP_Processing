@@ -16,10 +16,10 @@ processSpotCommandLine <- function(x, rawDataVersion="v2", verbose="FALSE"){
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00655","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00765","v2",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
-#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
+callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00831","v2",TRUE)
 #callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01204","v1",TRUE)
 #callParams <- processSpotCommandLine("/lincs/share/lincs_user/lincs96well/LI9V01610","v1",TRUE)
-callParams <- processSpotCommandLine(commandArgs(trailingOnly = TRUE))
+#callParams <- processSpotCommandLine(commandArgs(trailingOnly = TRUE))
 barcodePath <-callParams[[1]]
 rawDataVersion <-callParams[[2]]
 verbose <- as.logical(callParams[[3]])
@@ -38,7 +38,7 @@ library(stringr)
 
 #Read in the plate's cell level data and annotations
 cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
-annotations <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1Annotations.tsv"),header = FALSE)
+#annotations <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1Annotations.tsv"),header = FALSE)
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
@@ -76,15 +76,15 @@ fwrite(data.table(spotDT), paste0(barcodePath, "/Analysis/", barcode,"_","Level2
 if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
 
 #Write the File Annotations for Synapse to tab-delimited file
-write.table(c(
-  CellLine = annotations$V2[annotations$V1=="CellLine"],
-  Preprocess = annotations$V2[annotations$V1=="Preprocess"],
-  DataType = annotations$V2[annotations$V1=="DataType"],
-  Consortia = annotations$V2[annotations$V1=="Consortia"],
-  Drug = annotations$V2[annotations$V1=="Drug"],
-  Segmentation = annotations$V2[annotations$V1=="Segmentation"],
-  StainingSet = annotations$V2[annotations$V1=="StainingSet"],
-  Level = "Spot"),
-  paste0(barcodePath, "/Analysis/", barcode,"_","Level2Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+# write.table(c(
+#   CellLine = annotations$V2[annotations$V1=="CellLine"],
+#   Preprocess = annotations$V2[annotations$V1=="Preprocess"],
+#   DataType = annotations$V2[annotations$V1=="DataType"],
+#   Consortia = annotations$V2[annotations$V1=="Consortia"],
+#   Drug = annotations$V2[annotations$V1=="Drug"],
+#   Segmentation = annotations$V2[annotations$V1=="Segmentation"],
+#   StainingSet = annotations$V2[annotations$V1=="StainingSet"],
+#   Level = "Spot"),
+#   paste0(barcodePath, "/Analysis/", barcode,"_","Level2Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
 if(verbose) message(paste("Elapsed time:", Sys.time()-functionStartTime, "\n"))
 
