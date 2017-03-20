@@ -1,0 +1,3 @@
+##Raw EdU Signal QA
+
+This staining set includes EdU which incorporates into newly synthesized DNA during the end of the experiment. 
