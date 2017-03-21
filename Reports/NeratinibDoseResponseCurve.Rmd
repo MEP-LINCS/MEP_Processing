@@ -1,0 +1,140 @@
+---
+title: "Neratinib Dose Response Curve"
+author: "Mark Dane"
+date: "3/14/2017"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    source_code: embed
+---
+
+
+
+```{r "setup", include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+
+#Author: Mark Dane, copyright 2015-2017
+
+library(MEMA)
+library(ggplot2)
+library(stringr)
+
+
+path <- "/lincs/share/lincs_user/study"
+studyName <- "Neratinib_Dose_Response_Curve"
+#Parked code
+# boundSCC01 <- function(x){
+#   x/max(x)
+# }
+
+#Park sigmoidal code fit
+# dt <- dt[,Spot_PA_SpotCellCountBound := boundSCC01(Spot_PA_SpotCellCount), by="Ligand"]
+# dt <- dt[,Drug1ConcLog10 := log10(Drug1Conc)]
+# modf <- fortify(glm(Spot_PA_SpotCellCountBound~Drug1ConcLog10,data=dt, family=binomial(link = "logit")))
+
+#Fit a sigmoidal function
+# p <- ggplot(dt, aes(x=log10(Drug1Conc), y=Spot_PA_SpotCellCount, colour=Ligand))+
+#   geom_point()+
+#   labs(x="Drug Concentration (log10)",
+#        y="Raw Spot Cell Count",
+#        title="Neratinib Drug Responses\n with Different Ligands")
+# p <- p + geom_point(data=modf, aes(x = Drug1ConcLog10, y = .fitted))
+# 
+# p <- p + geom_point(data=l4[ECMp=="COL1"&Drug=="DMSO",], aes(x=Drug1Conc ,y=Spot_PA_SpotCellCount), shape="+", size=rel(6))
+# p
+```
+
+
+```{r readWriteLevel3and4Data, echo=FALSE}
+
+l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+
+#Write out a subset of the level 3 and level 4 data
+level3Cols <- str_subset(colnames(l3),"Barcode|Well|Spot|MEP|ECM|Ligand|Drug|Nuclei_PA_Gated_EdUPositiveProportion")
+level3Cols <- level3Cols[!str_detect(level3Cols,"Norm|QA|_SE|Loess|Perimeter")]
+fwrite(l3[,level3Cols,with=FALSE], paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3Subset.tsv"), sep = "\t", quote=FALSE)
+#Write out a subset of the level 3 and level 4 data
+level4Cols <- str_subset(colnames(l4),"Barcode|Well|Spot|MEP|ECM|Ligand|Drug|Nuclei_PA_Gated_EdUPositiveProportion")
+level4Cols <- level4Cols[!str_detect(level4Cols,"Norm|QA|_SE|Loess|Perimeter")]
+fwrite(l4[,level4Cols,with=FALSE], paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4Subset.tsv"), sep = "\t", quote=FALSE)
+
+```
+
+###Experiment Overview
+
+```{r drugConcLayout, fig.width=5,fig.height=5}
+
+dt <- unique(l3[,.(Well, Drug1Conc,Ligand, Barcode, ECMp,Spot_PA_SpotCellCount, Nuclei_PA_Gated_EdUPositiveProportion, ArrayRow, ArrayColumn)])
+dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
+dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("B","A"))
+dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
+
+for(barcode in unique(dt$Barcode)){
+  DT <- dt[Barcode==barcode,]
+  p <- create8WellPseudoImage(DT, pr = "Spot_PA_SpotCellCount",prDisplay = "Spot Cell Count")
+print(p)
+}
+
+p <- ggplot(dt, aes(x =WellCol, y=WellRow, label=factor(Drug1Conc)))+
+  geom_text()+
+  labs(x="Well Column", y="Well Row",title="Drug Concentrations in Each Well\n(nmolar)")
+
+p
+```
+
+
+***
+This experiment used `r length(unique(l3$Barcode))` `r length(unique(l3$Well))` well plates containing `r length(unique(l3$Ligand))-1` ligands plus PBS and `r length(unique(l3$Drug))-1` drug at `r length(unique(l3$Drug1Conc))-1` concentrations plus DMSO.
+
+
+###Cell Count and EdU+ Drug Response Curves - Compare cell responses to different drug doses and ligands on collagen 1 spots.
+
+
+```{r drugResponseCurves, fig.width=9,fig.height=9}
+
+#Add error bars to summarized replicate data
+dt <- l4[ECMp=="COL1",]
+dt <- dt[dt$Drug=="neratinib",]
+dt$Drug_Ligand <-paste(dt$Drug,dt$Ligand,sep="_")
+p <- ggplot(dt, aes(x=log10(Drug1Conc), y=Spot_PA_SpotCellCount, colour=Ligand))+
+  geom_point()+
+  labs(x="Drug Concentration (log nM)",
+       y="Raw Spot Cell Count",
+       title="Cell Count Neratinib Drug Responses\n with Different Ligands+COL1")
+p <- p + geom_point(data=l4[ECMp=="COL1"&Drug=="DMSO",], aes(x=Drug1Conc ,y=Spot_PA_SpotCellCount), shape=17, size=rel(3), alpha=.6)
+p <- p + geom_errorbar(aes(ymin=Spot_PA_SpotCellCount-Spot_PA_SpotCellCount_SE, ymax=Spot_PA_SpotCellCount+Spot_PA_SpotCellCount_SE, colour=Ligand), width=.1)
+p <- p + stat_smooth(se=FALSE, span=.9)
+p <- p + annotate("text",x=log10(32),y=10,label="32nM", colour="blue")
+p <- p + annotate("text",x=log10(64),y=0,label="64nM", colour="blue")
+p <- p + geom_vline(xintercept = log10(32), alpha = .2, colour="blue")
+p <- p + geom_vline(xintercept = log10(64), alpha = .2, colour="blue")
+p
+
+
+p <- ggplot(dt, aes(x=log10(Drug1Conc), y=Nuclei_PA_Gated_EdUPositiveProportion, colour=Ligand))+
+  geom_point()+
+  labs(x="Drug Concentration (log nM)",
+       y="EdU+ Proportion",
+       title="EdU+ Responses to Neratinib\n with Different Ligands+COL1")
+p <- p + geom_point(data=l4[ECMp=="COL1"&Drug=="DMSO",], aes(x=Drug1Conc ,y=Nuclei_PA_Gated_EdUPositiveProportion), shape=17, size=rel(3), alpha=.6)
+p <- p + geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportion-Nuclei_PA_Gated_EdUPositiveProportion_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportion+Nuclei_PA_Gated_EdUPositiveProportion_SE, colour=Ligand), width=.1)
+p <- p + stat_smooth(se=FALSE, span=.9)
+p <- p + geom_point(data=l4[ECMp=="COL1"&Drug=="DMSO",], aes(x=Drug1Conc ,y=Nuclei_PA_Gated_EdUPositiveProportion), shape=17, size=rel(3), alpha=.6)
+p <- p + annotate("text",x=log10(32),y=.01,label="32nM", colour="blue")
+p <- p + annotate("text",x=log10(64),y=-.01,label="64nM", colour="blue")
+p <- p + geom_vline(xintercept = log10(32), alpha = .2, colour="blue")
+p <- p + geom_vline(xintercept = log10(64), alpha = .2, colour="blue")
+p
+
+```
+
+***
+Compare the spot cell counts and EdU+ proportions in the collagen 1 spots paired with different ligands and neratinib drug concentrations. 
+
+The triangles are the DMSO values. Error bars are the standard error from the ~100 replicate collagen 1 spots. All replicates are spots from the same well, there are no replicate wells.
+
+Previous experiments established the GR50 for neratinib in MCF10A cells to be concentration of 64nM. The MCF10A_Neratinib_2 experiment used a concentration of  32nM.
+
+

@@ -26,7 +26,9 @@ processLevel3CommandLine <- function(x, path, k=256, verbose="FALSE"){
 #callParams <- processLevel3CommandLine(c("HMEC240L_SS4", "/lincs/share/lincs_user",256,TRUE))
 #callParams <- processLevel3CommandLine(c("HMEC122L_SS4", "/lincs/share/lincs_user",256,TRUE))
 #callParams <- processLevel3CommandLine(c("Neratinib_Dose_Response_Curve", "/lincs/share/lincs_user",256,TRUE))
-callParams <- processLevel3CommandLine(commandArgs(trailingOnly = TRUE))
+callParams <- processLevel3CommandLine(c("MCF10A_Cell_Titrate_8", "/lincs/share/lincs_user",0,TRUE))
+
+#callParams <- processLevel3CommandLine(commandArgs(trailingOnly = TRUE))
 studyName <-callParams[[1]]
 path <-callParams[[2]]
 k <- as.integer(callParams[[3]])
@@ -59,19 +61,19 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
 if(verbose) message(paste("Writing level 3 file to disk\n"))
 fwrite(data.table(slDT), paste0(path, "/study/",studyName, "/Annotated/", studyName,"_Level3.tsv"), sep = "\t", quote=FALSE)
 
-#Write the File Annotations for Synapse to tab-delimited file
-annotations <- fread(paste0(path,"/",unique(slDT$Barcode)[1],"/Analysis/",unique(slDT$Barcode)[1],"_Level2Annotations.tsv"),header = FALSE)
-
-write.table(c(
-  CellLine = annotations$V2[annotations$V1=="CellLine"],
-  Preprocess = annotations$V2[annotations$V1=="Preprocess"],
-  DataType = annotations$V2[annotations$V1=="DataType"],
-  Consortia = annotations$V2[annotations$V1=="Consortia"],
-  Drug = annotations$V2[annotations$V1=="Drug"],
-  Segmentation = annotations$V2[annotations$V1=="Segmentation"],
-  StainingSet = annotations$V2[annotations$V1=="StainingSet"],
-  Level = "3"),
-  paste0(path,"/study/",studyName, "/Annotated/", studyName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+# #Write the File Annotations for Synapse to tab-delimited file
+# annotations <- fread(paste0(path,"/",unique(slDT$Barcode)[1],"/Analysis/",unique(slDT$Barcode)[1],"_Level2Annotations.tsv"),header = FALSE)
+# 
+# write.table(c(
+#   CellLine = annotations$V2[annotations$V1=="CellLine"],
+#   Preprocess = annotations$V2[annotations$V1=="Preprocess"],
+#   DataType = annotations$V2[annotations$V1=="DataType"],
+#   Consortia = annotations$V2[annotations$V1=="Consortia"],
+#   Drug = annotations$V2[annotations$V1=="Drug"],
+#   Segmentation = annotations$V2[annotations$V1=="Segmentation"],
+#   StainingSet = annotations$V2[annotations$V1=="StainingSet"],
+#   Level = "3"),
+#   paste0(path,"/study/",studyName, "/Annotated/", studyName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
 
 message(paste("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n"))
 
