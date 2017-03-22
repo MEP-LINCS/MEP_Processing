@@ -2,38 +2,64 @@
 
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
-# 2/2017
 
-library(synapseClient)
-library(MEMA)
-library(parallel)
-library(stringr)
-library(dplyr)
+suppressPackageStartupMessages(library(synapseClient))
+suppressPackageStartupMessages(library(MEMA))
+suppressPackageStartupMessages(library(parallel))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(optparse))
 
-processCellCommandLine <- function(x, useAnnotMetadata=TRUE, useSynapse=TRUE,
-                                   rawDataVersion="v2", verbose="FALSE"){
-  if(length(x)==0) stop("There must be a barcodePath argument in the command line call")
-  barcodePath <- x[1]
-  if (length(x) > 1) useAnnotMetadata <- x[2]
-  if (length(x) > 1) useSynapse <- x[3]
-  if (length(x) > 1) rawDataVersion <- x[4]
-  if (length(x) > 1) verbose <- x[5]
-  
-  list(barcodePath, useAnnotMetadata, useSynapse, rawDataVersion, verbose)
+#' Get the command line arguments and options
+#' @return A list with options and args elements
+#'@export
+getCommandLineArgs <- function(){
+  option_list <- list(
+    make_option(c("-v", "--verbose"), action="store_true", default=TRUE,
+                help="Print extra output [default]"),
+    make_option(c("-q", "--quietly"), action="store_false",
+                dest="verbose", help="Print little output"),
+    make_option(c("-a", "--AnnotMetadata"), action="store_true", default=TRUE,
+                help="use metadata from the An! database  [default]"),
+    make_option(c("-e", "--ExcelMetadata"), action="store_false",
+                dest="AnnotMetadata", help="use metadata from excel files"),
+    make_option(c("-s", "--Synapse"), action="store_true", default=TRUE,
+                help="use Synpase for file accesses  [default]"),
+    make_option(c("-l", "--localServer"), action="store_false",
+                dest="Synapse", help="use a local server for file access"),
+    make_option(c("-w", "--writeFiles"), action="store_true", default=TRUE,
+                help="write output files to disk  [default]"),
+    make_option(c("-n", "--noWriteFiles"), action="store_false",
+                dest="writeFiles", help="do not write output to disk"),
+    make_option(c("-r", "--RawDataVersion"), type="character", default="v2",
+                help="Raw data version from local server [default \"%default\"]")
+  )
+  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  arguments <- parse_args(parser, positional_arguments = 1)
 }
 
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00641", TRUE, FALSE, "v2", TRUE)
-callParams <- processCellCommandLine("/lincs/share/lincs_user/LI8X00642",TRUE,TRUE,"v2",TRUE)
-# callParams <- processCellCommandLine(commandArgs(trailingOnly = TRUE))
+###Debug
+#Specify the command line options
+cl <-list(options=list(AnnotMetadata=TRUE,
+                       verbose=TRUE,
+                       Synapse=TRUE,
+                       rawDataVersion="v2",
+                       writeFiles=TRUE),
+          args="/lincs/share/lincs_user/LI8X00641")
+cl <- getCommandLineArgs()
+#####
 
-barcodePath <- callParams[[1]]
-useAnnotMetadata <- as.logical(callParams[[2]])
-useSynapse <- as.logical(callParams[[3]])
-rawDataVersion <- callParams[[4]]
-verbose <- as.logical(callParams[[5]])
+opt <- cl$options
+barcodePath <- cl$args
+
+barcodePath <- cl$args
+useAnnotMetadata <- opt$AnnotMetadata
+verbose <- opt$verbose
+useSynapse <- opt$Synapse
+rawDataVersion <- opt$rawDataVersion
+writeFiles <- opt$writeFiles
 
 if(useSynapse) synapseLogin()
-
 
 scriptStartTime <- Sys.time()
 
@@ -124,26 +150,27 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 # Gate cells where possible
 cDT <- gateCells(cDT)
 
-# Write the annotated cell level files to disk
-ofname <- paste0(path, barcode, "/Analysis/",barcode,"_", "Level1.tsv")
-if(useSynapse){
-  annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
-  synFile <- File(ofname, parentId=annotatedFolder@properties$id)
-  synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
-                                     Preprocess = "v1.8",
-                                     DataType = "Quanititative Imaging",
-                                     Consortia = "MEP-LINCS",
-                                     Drug = unique(cDT$Drug),
-                                     Segmentation = rawDataVersion,
-                                     StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
-                                     Level = "1")
-  
-  synFile <- synStore(synFile,
-                      used=c(dataBWInfo$id, metadataTable$id),
-                      forceVersion=FALSE)
-  
-} else {
-  fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
+if(writeFiles){  # Write the annotated cell level files to Synapse or disk
+  ofname <- paste0(path, barcode, "/Analysis/",barcode,"_", "Level1.tsv")
+  if(useSynapse){
+    annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
+    synFile <- File(ofname, parentId=annotatedFolder@properties$id)
+    synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
+                                       Preprocess = "v1.8",
+                                       DataType = "Quanititative Imaging",
+                                       Consortia = "MEP-LINCS",
+                                       Drug = unique(cDT$Drug),
+                                       Segmentation = rawDataVersion,
+                                       StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+                                       Level = "1")
+    
+    synFile <- synStore(synFile,
+                        used=c(dataBWInfo$id, metadataTable$id),
+                        forceVersion=FALSE)
+    
+  } else {
+    fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
+  }
 }
 
 if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
