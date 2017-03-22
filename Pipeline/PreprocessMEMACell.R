@@ -38,21 +38,22 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 1)
 }
 
-###Debug
 #Specify the command line options
+###Debug
 cl <-list(options=list(AnnotMetadata=TRUE,
                        verbose=TRUE,
                        Synapse=TRUE,
                        rawDataVersion="v2",
                        writeFiles=TRUE),
           args="/lincs/share/lincs_user/LI8X00641")
+####
 cl <- getCommandLineArgs()
-#####
+
+barcodePath <- cl$args
+barcode <- gsub(".*/", "", barcodePath)
+path <- gsub(barcode, "", barcodePath)
 
 opt <- cl$options
-barcodePath <- cl$args
-
-barcodePath <- cl$args
 useAnnotMetadata <- opt$AnnotMetadata
 verbose <- opt$verbose
 useSynapse <- opt$Synapse
@@ -62,9 +63,6 @@ writeFiles <- opt$writeFiles
 if(useSynapse) synapseLogin()
 
 scriptStartTime <- Sys.time()
-
-barcode <- gsub(".*/", "", barcodePath)
-path <- gsub(barcode, "", barcodePath)
 
 if (verbose) message(paste("Processing plate:", barcode, "at", path, "\n"))
 
