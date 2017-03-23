@@ -3,30 +3,17 @@
 #author: "Mark Dane"
 # 2/1/2017
 
-#' Get the command line arguments and options
-#' @return A list with options and args elements
-#'@export
-getCommandLineArgs <- function(){
+# Get the command line arguments and options
+# returns a list with options and args elements
+getL2CommandLineArgs <- function(){
   option_list <- list(
-    make_option(c("-v", "--verbose"), action="store_true", default=TRUE,
-                help="Print extra output [default]"),
-    make_option(c("-q", "--quietly"), action="store_false",
-                dest="verbose", help="Print little output"),
-    make_option(c("-a", "--AnnotMetadata"), action="store_true", default=TRUE,
-                help="use metadata from the An! database  [default]"),
-    make_option(c("-e", "--ExcelMetadata"), action="store_false",
-                dest="AnnotMetadata", help="use metadata from excel files"),
-    make_option(c("-s", "--Synapse"), action="store_true", default=TRUE,
-                help="use Synpase for file accesses  [default]"),
-    make_option(c("-l", "--localServer"), action="store_false",
-                dest="Synapse", help="use a local server for file access"),
-    make_option(c("-w", "--writeFiles"), action="store_true", default=TRUE,
-                help="write output files to disk  [default]"),
-    make_option(c("-n", "--noWriteFiles"), action="store_false",
-                dest="writeFiles", help="do not write output to disk"),
-    make_option(c("-r", "--RawDataVersion"), type="character", default="v2",
-                help="Raw data version from local server [default \"%default\"]")
-  )
+    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                help="Print extra output"),
+    make_option(c("-l", "--local"), action="store_true", default=FALSE,
+                help="Use a local server instead of Synpase for file accesses"),
+    make_option(c("-w", "--writeFiles"), action="store_true", default=FALSE,
+                help="Write output files to disk")
+    )
   parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 1)
 }
@@ -36,17 +23,12 @@ library(parallel)#use multiple cores for faster processing
 library(stringr)
 suppressPackageStartupMessages(library(optparse))
 
-
-#Specify the command line options
-###Debug
-cl <-list(options=list(AnnotMetadata=TRUE,
-                       verbose=TRUE,
-                       Synapse=FALSE,
-                       rawDataVersion="v2",
+cl <-list(options=list(verbose=TRUE,
+                       local=FALSE,
                        writeFiles=TRUE),
           args="/lincs/share/lincs_user/LI8X00641")
 ####
-cl <- getCommandLineArgs()
+cl <- getL2CommandLineArgs()
 
 barcodePath <- cl$args
 barcode <- gsub(".*/", "", barcodePath)
@@ -54,7 +36,7 @@ path <- gsub(barcode, "", barcodePath)
 
 opt <- cl$options
 verbose <- opt$verbose
-useSynapse <- opt$Synapse
+useSynapse <- !opt$local
 writeFiles <- opt$writeFiles
 
 if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n"))
@@ -62,14 +44,12 @@ functionStartTime<- Sys.time()
 startTime<- Sys.time()
 seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
 
-
-#Read in the plate's cell level data and annotations
+#Read in the plate's cell level data
 if(useSynapse){
   stop("Synapse not supported in level 2 yet")
 } else {
   cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
 }
-#annotations <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1Annotations.tsv"),header = FALSE)
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]

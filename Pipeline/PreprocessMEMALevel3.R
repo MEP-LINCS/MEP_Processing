@@ -14,23 +14,16 @@ library(readr)
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(optparse))
 
-#' Get the command line arguments and options
-#' @return A list with options and args elements
-#'@export
+# Get the command line arguments and options
+# returns a list with options and args elements
 getL3CommandLineArgs <- function(){
   option_list <- list(
-    make_option(c("-v", "--verbose"), action="store_true", default=TRUE,
-                help="Print extra output [default]"),
-    make_option(c("-q", "--quietly"), action="store_false",
-                dest="verbose", help="Print little output"),
-    make_option(c("-s", "--Synapse"), action="store_true", default=TRUE,
-                help="use Synpase for file accesses  [default]"),
-    make_option(c("-l", "--localServer"), action="store_false",
-                dest="Synapse", help="use a local server for file access"),
-    make_option(c("-w", "--writeFiles"), action="store_true", default=TRUE,
-                help="write output files to disk  [default]"),
-    make_option(c("-n", "--noWriteFiles"), action="store_false",
-                dest="writeFiles", help="do not write output to disk"),
+    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                help="Print extra output"),
+    make_option(c("-l", "--local"), action="store_true", default=FALSE,
+                help="Use a local server instead of Synpase for file accesses"),
+    make_option(c("-w", "--writeFiles"), action="store_true", default=FALSE,
+                help="Write output files to disk"),
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
                 metavar="number")
@@ -41,25 +34,25 @@ getL3CommandLineArgs <- function(){
 
 #Specify the command line options
 ###Debug
-cl <-list(options=list(k=256,
-                       verbose=TRUE,
-                       Synapse=FALSE,
-                       writeFiles=FALSE),
-          args=c("HMEC122L_SS1", "/lincs/share/lincs_user"))
+cl <-list(options=list(verbose=TRUE,
+                       local=TRUE,
+                       writeFiles=FALSE,
+                       k=256),
+          args=c("HMEC122L_SS1", "/lincs/share/lincs_user")
+          )
 ####
-
-startTime <- Sys.time()
-#Get and decode command line arguments and options
 cl <- getL3CommandLineArgs()
+
 studyName <- cl$args[1]
 path <- cl$args[2]
 
 opt <- cl$options
-k <- opt$k
 verbose <- opt$verbose
-useSynapse <- opt$Synapse
+useSynapse <- !opt$local
 writeFiles <- opt$writeFiles
+k <- opt$k
 
+startTime <- Sys.time()
 
 #Read the annotated data for all plates in the study
 if(useSynapse){
@@ -95,7 +88,7 @@ if(writeFiles){
   } else {
     fwrite(data.table(slDT), paste0(path, "/study/",studyName, "/Annotated/", studyName,"_Level3.tsv"), sep = "\t", quote=FALSE)
   }
-
+  
 }
 message(paste("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n"))
 

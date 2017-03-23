@@ -3,35 +3,26 @@
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
 
-suppressPackageStartupMessages(library(synapseClient))
-suppressPackageStartupMessages(library(MEMA))
-suppressPackageStartupMessages(library(parallel))
-suppressPackageStartupMessages(library(stringr))
+library(synapseClient)
+library(MEMA)
+library(parallel)
+library(stringr)
 suppressPackageStartupMessages(library(dplyr))
-suppressPackageStartupMessages(library(optparse))
+library(optparse)
 
-#' Get the command line arguments and options
-#' @return A list with options and args elements
-#'@export
+# Get the command line arguments and options
+# returns a list with options and args elements
 getCommandLineArgs <- function(){
   option_list <- list(
-    make_option(c("-v", "--verbose"), action="store_true", default=TRUE,
-                help="Print extra output [default]"),
-    make_option(c("-q", "--quietly"), action="store_false",
-                dest="verbose", help="Print little output"),
-    make_option(c("-a", "--AnnotMetadata"), action="store_true", default=TRUE,
-                help="use metadata from the An! database  [default]"),
-    make_option(c("-e", "--ExcelMetadata"), action="store_false",
-                dest="AnnotMetadata", help="use metadata from excel files"),
-    make_option(c("-s", "--Synapse"), action="store_true", default=TRUE,
-                help="use Synpase for file accesses  [default]"),
-    make_option(c("-l", "--localServer"), action="store_false",
-                dest="Synapse", help="use a local server for file access"),
-    make_option(c("-w", "--writeFiles"), action="store_true", default=TRUE,
-                help="write output files to disk  [default]"),
-    make_option(c("-n", "--noWriteFiles"), action="store_false",
-                dest="writeFiles", help="do not write output to disk"),
-    make_option(c("-r", "--RawDataVersion"), type="character", default="v2",
+    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                help="Print extra output"),
+    make_option(c("-e", "--excelMetadata"), action="store_true", default=FALSE,
+                help="Get metadata from Excel files instead of from the An! database"),
+    make_option(c("-l", "--local"), action="store_true", default=FALSE,
+                help="Use a local server instead of Synpase for file accesses"),
+    make_option(c("-w", "--writeFiles"), action="store_true", default=FALSE,
+                help="Write output files to disk"),
+    make_option(c("-r", "--rawDataVersion"), type="character", default="v2",
                 help="Raw data version from local server [default \"%default\"]")
   )
   parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
@@ -40,11 +31,11 @@ getCommandLineArgs <- function(){
 
 #Specify the command line options
 ###Debug
-cl <-list(options=list(AnnotMetadata=TRUE,
-                       verbose=TRUE,
-                       Synapse=TRUE,
-                       rawDataVersion="v2",
-                       writeFiles=TRUE),
+cl <-list(options=list(verbose=TRUE,
+                       excelMetadata=FALSE,
+                       local=FALSE,
+                       writeFiles=TRUE,
+                       rawDataVersion="v2"),
           args="/lincs/share/lincs_user/LI8X00641")
 ####
 cl <- getCommandLineArgs()
@@ -54,11 +45,11 @@ barcode <- gsub(".*/", "", barcodePath)
 path <- gsub(barcode, "", barcodePath)
 
 opt <- cl$options
-useAnnotMetadata <- opt$AnnotMetadata
 verbose <- opt$verbose
-useSynapse <- opt$Synapse
-rawDataVersion <- opt$rawDataVersion
+useAnnotMetadata <- !opt$excelMetadata
+useSynapse <- !opt$local
 writeFiles <- opt$writeFiles
+rawDataVersion <- opt$rawDataVersion
 
 if(useSynapse) synapseLogin()
 
@@ -149,6 +140,7 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 cDT <- gateCells(cDT)
 
 if(writeFiles){  # Write the annotated cell level files to Synapse or disk
+  if(verbose) message("Writing cell level data to disk\n")
   ofname <- paste0(path, barcode, "/Analysis/",barcode,"_", "Level1.tsv")
   if(useSynapse){
     annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
