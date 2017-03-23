@@ -81,7 +81,7 @@ metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
 #Gather filenames and metadata of level 0 files
 if(useSynapse){
-  q <- sprintf("select id,name,Barcode,Level,Well,StainingSet,Location from syn7800478 WHERE Level='0' AND Barcode='%s'",
+  q <- sprintf("select id,name,Barcode,Level,Well,StainingSet,Location,Study from syn7800478 WHERE Level='0' AND Barcode='%s'",
                barcode)
   rawFiles <- synTableQuery(q)
   dataBWInfo <- rawFiles@values
@@ -146,6 +146,8 @@ if(writeFiles){  # Write the annotated cell level files to Synapse or disk
     annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn4215176"))
     synFile <- File(ofname, parentId=annotatedFolder@properties$id)
     synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
+                                       Barcode = barcode,
+                                       Study = unique(cDT$Study),
                                        Preprocess = "v1.8",
                                        DataType = "Quanititative Imaging",
                                        Consortia = "MEP-LINCS",
