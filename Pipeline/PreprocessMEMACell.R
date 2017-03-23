@@ -143,7 +143,7 @@ if(writeFiles){  # Write the annotated cell level files to Synapse or disk
   if(verbose) message("Writing cell level data to disk\n")
   ofname <- paste0(path, barcode, "/Analysis/",barcode,"_", "Level1.tsv")
   if(useSynapse){
-    annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn8466337"))
+    annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn4215176"))
     synFile <- File(ofname, parentId=annotatedFolder@properties$id)
     synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                        Preprocess = "v1.8",
