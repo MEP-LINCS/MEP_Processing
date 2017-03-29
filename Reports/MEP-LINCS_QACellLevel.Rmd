@@ -13,7 +13,7 @@ library(RColorBrewer)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-sampleProportion <- .1
+sampleProportion <- .2
 ```
 
 ```{r readLevel1Data}
@@ -223,18 +223,6 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
 }
 
-```
-
-
-```{r gatedKRT5Ligandboxplots, fig.width=10,fig.height=4, eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT5","Cytoplasm_PA_Gated_KRT19Positive"),colnames(l1S)))==0}
-
-p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5), colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
-  geom_boxplot(outlier.colour = NA)+
-  ggtitle(paste("KRT5 Intensities by KRT19 State and Ligand"))+
-  guides(colour=guide_legend(title="KRT19+", override.aes = list(alpha = 1, size=1)))+
-  ylab("Median KRT5 Intensity\nLog2")+xlab("Ligand")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(.5)),axis.title.x = element_text(size = rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.y = element_text(size = rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)), strip.text = element_text(size = rel(.5)))
-suppressWarnings(print(p))
 ```
 
 
