@@ -795,7 +795,7 @@ The loess model of a MEMA is the mean value of a weighted version of each spot's
 
 A MEMA's QA score is derived from the loess model of the control-well-normalized values by calculating the proportion of spots in low signal regions(LSR). A threshold for classifying spots as LSR is based on the median of each plate's control well. To have higher scores reflect increasing quality, the MEMA QA score is defined as the proportion of non-LSR spots to total spots. This value will be 1 for MEMAs with no low signal regions and approach 0 as the number of LSR spots increases.
 
-Below are plots showing data from well B01 from plate LI8X00110 from LINCS staining set 2. The LSR spots are those to the left of the blue vertical line at the threshold value of `r wellQAThresh` in the histogram. 
+In the plots below, the LSR spots are those to the left of the blue vertical line at the threshold value of `r wellQAThresh` in the histogram. 
 
 
 ```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4}
