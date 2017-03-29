@@ -20,13 +20,11 @@ getCommandLineArgs <- function(){
                 help="Get metadata from Excel files instead of from the An! database"),
     make_option(c("-l", "--local"), action="store_true", default=FALSE,
                 help="Use a local server instead of Synpase for file accesses"),
-    make_option(c("-w", "--writeFiles"), action="store_true", default=FALSE,
-                help="Write output files to disk"),
     make_option(c("-r", "--rawDataVersion"), type="character", default="v2",
                 help="Raw data version from local server [default \"%default\"]")
   )
   parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
-  arguments <- parse_args(parser, positional_arguments = 1)
+  arguments <- parse_args(parser, positional_arguments = 2)
 }
 
 #Specify the command line options
@@ -34,21 +32,21 @@ getCommandLineArgs <- function(){
 cl <-list(options=list(verbose=TRUE,
                        excelMetadata=FALSE,
                        local=FALSE,
-                       writeFiles=TRUE,
                        rawDataVersion="v2"),
-          args="/lincs/share/lincs_user/LI8X00641")
+          args=c("/lincs/share/lincs_user/LI8X00641",
+                 "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level1.tsv"))
 ####
 cl <- getCommandLineArgs()
 
-barcodePath <- cl$args
+barcodePath <- cl$args[1]
 barcode <- gsub(".*/", "", barcodePath)
 path <- gsub(barcode, "", barcodePath)
+ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
 useAnnotMetadata <- !opt$excelMetadata
 useSynapse <- !opt$local
-writeFiles <- opt$writeFiles
 rawDataVersion <- opt$rawDataVersion
 
 if(useSynapse) synapseLogin()
@@ -60,8 +58,7 @@ if (verbose) message(paste("Processing plate:", barcode, "at", path, "\n"))
 if (useAnnotMetadata) {
   #Build metadata file name list
   if(useSynapse){
-    metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",
-                         barcode)
+    metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",barcode)
     metadataTable <- synTableQuery(metadataq)@values
     metadataFiles <- lapply(metadataTable$id, synGet)
     metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
@@ -139,30 +136,25 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 # Gate cells where possible
 cDT <- gateCells(cDT)
 
-if(writeFiles){  # Write the annotated cell level files to Synapse or disk
-  if(verbose) message("Writing cell level data to disk\n")
-  ofname <- paste0(path, barcode, "/Analysis/",barcode,"_", "Level1.tsv")
-  if(useSynapse){
-    annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn4215176"))
-    synFile <- File(ofname, parentId=annotatedFolder@properties$id)
-    synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
-                                       Barcode = barcode,
-                                       Study = unique(cDT$Study),
-                                       Preprocess = "v1.8",
-                                       DataType = "Quanititative Imaging",
-                                       Consortia = "MEP-LINCS",
-                                       Drug = unique(cDT$Drug),
-                                       Segmentation = rawDataVersion,
-                                       StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
-                                       Level = "1")
-    
-    synFile <- synStore(synFile,
-                        used=c(dataBWInfo$id, metadataTable$id),
-                        forceVersion=FALSE)
-    
-  } else {
-    fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
-  }
+if(verbose) message("Writing cell level data\n")
+fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
+if(useSynapse){
+  annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn4215176"))
+  synFile <- File(ofname, parentId=annotatedFolder@properties$id)
+  synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
+                                     Barcode = barcode,
+                                     Study = unique(cDT$Study),
+                                     Preprocess = "v1.8",
+                                     DataType = "Quanititative Imaging",
+                                     Consortia = "MEP-LINCS",
+                                     Drug = unique(cDT$Drug),
+                                     Segmentation = rawDataVersion,
+                                     StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+                                     Level = "1")
+  
+  synFile <- synStore(synFile,
+                      used=c(dataBWInfo$id, metadataTable$id),
+                      forceVersion=FALSE)
 }
 
 if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
