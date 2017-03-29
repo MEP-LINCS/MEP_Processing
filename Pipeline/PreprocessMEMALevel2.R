@@ -10,12 +10,10 @@ getL2CommandLineArgs <- function(){
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
     make_option(c("-l", "--local"), action="store_true", default=FALSE,
-                help="Use a local server instead of Synpase for file accesses"),
-    make_option(c("-w", "--writeFiles"), action="store_true", default=FALSE,
-                help="Write output files to disk")
-    )
+                help="Use a local server instead of Synpase for file accesses")
+  )
   parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
-  arguments <- parse_args(parser, positional_arguments = 1)
+  arguments <- parse_args(parser, positional_arguments = 2)
 }
 
 library(MEMA)#merge, annotate and normalize functions
@@ -24,20 +22,20 @@ library(stringr)
 suppressPackageStartupMessages(library(optparse))
 
 cl <-list(options=list(verbose=TRUE,
-                       local=FALSE,
-                       writeFiles=TRUE),
-          args="/lincs/share/lincs_user/LI8X00641")
+                       local=TRUE),
+          args=c("/lincs/share/lincs_user/LI8X00641",
+                 "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level2.tsv"))
 ####
 cl <- getL2CommandLineArgs()
 
-barcodePath <- cl$args
+barcodePath <- cl$args[1]
 barcode <- gsub(".*/", "", barcodePath)
 path <- gsub(barcode, "", barcodePath)
+ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
 useSynapse <- !opt$local
-writeFiles <- opt$writeFiles
 
 if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n"))
 functionStartTime<- Sys.time()
@@ -81,18 +79,15 @@ spotDT <- QASpotData(spotDT, lthresh = .6)
 #Merge in Omero imageID links
 spotDT <- merge(spotDT,getOmeroIDs(barcodePath),by=c("WellIndex","ArrayRow","ArrayColumn"))
 
-if(writeFiles){
-  if(verbose) message("Writing spot level data to disk\n")
-  writeTime<-Sys.time()
-  if(useSynapse){
-    stop("Synapse not supported in level 2 yet")
-  } else {
-    fwrite(data.table(spotDT), paste0(barcodePath, "/Analysis/", barcode,"_","Level2.tsv"), sep = "\t", quote=FALSE)
-  }
- 
-  if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
+
+if(verbose) message("Writing spot level data\n")
+writeTime<-Sys.time()
+fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
+
+if(useSynapse){
+  stop("Synapse not supported in level 2 yet")
 }
 
-
+if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
 if(verbose) message(paste("Elapsed time:", Sys.time()-functionStartTime, "\n"))
 
