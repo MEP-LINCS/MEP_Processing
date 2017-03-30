@@ -9,13 +9,7 @@ library(MEMA)
 library(magrittr)
 library(parallel)
 library(ggplot2)
-# library("grid")
-# library("knitr")
-# library("gplots")
- library("RColorBrewer")
-# library(DT)
-# library(d3heatmap)
-# library(plotly)
+library(RColorBrewer)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -30,25 +24,17 @@ l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),ver
 l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
 
 k <- unique(l3$k)
+CellLine <- unique(l3$CellLine)
+StainingSet <- unique(l3$StainingSet)
 wellQAThresh <- unique(l3$QA_lowWellQAThreshold)
 lowRegionCellCountThreshold <- unique(l3$QA_lowRegionCellCountThreshold)
 lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
-annotations <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3Annotations.tsv"),header = FALSE)
-CellLine = annotations$V2[annotations$V1=="CellLine"]
-Preprocess = annotations$V2[annotations$V1=="Preprocess"]
-DataType = annotations$V2[annotations$V1=="DataType"]
-Consortia = annotations$V2[annotations$V1=="Consortia"]
-Drug = annotations$V2[annotations$V1=="Drug"]
-Segmentation = annotations$V2[annotations$V1=="Segmentation"]
-StainingSet = annotations$V2[annotations$V1=="StainingSet"]
-Level = annotations$V2[annotations$V1=="Level"]
 
 #Use imageIDs to add URLs
-if(!Segmentation=="v1"){
   l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
-}
+
 barcodes <- unique(l3$Barcode)
 l3 <- l3[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 
@@ -63,7 +49,7 @@ l3 <- l3[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 This report provides Quality Assessment (QA) of the `r studyName` MEP-LINCS Microenvironment Microarray (MEMA) data. After QA filtering, there are `r nrow(l4[!grepl("PBS|Fiducial",l4$ECMp),][!grepl("FBS",l4$Ligand)])` Microenvironment Perturbations (MEPs) that are pairwise combinations of `r length(unique(l4$ECMp[!grepl("PBS|Fiducial",l4$ECMp)]))` ECM proteins and `r length(unique(l4$Ligand[!grepl("FBS",l4$Ligand)]))` ligands or growth factors.  
 
 ###Introduction
-The MEP-LINCS `r CellLine` `r StainingSet` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set channels are `r  combine_words(gsub("Endpoint","",grep("Endpoint",colnames(l3),value=TRUE)))`. The endpoints are `r combine_words(unique(l3[,grep("Endpoint",colnames(l3),value=TRUE), with=FALSE]))`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The Cell Profiler Pipeline version `r Segmentation` performed the segmentation and the analysis pipeline version is `r Preprocess`.
+The MEP-LINCS `r CellLine` `r StainingSet` experiment was performed with cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set channels are `r  combine_words(gsub("Endpoint","",grep("Endpoint",colnames(l3),value=TRUE)))`. The endpoints are `r combine_words(unique(l3[,grep("Endpoint",colnames(l3),value=TRUE), with=FALSE]))`. Color images of the cells at each spot were gathered on a Nikon automated microscope.  
 
 Intensity, position and morphology data are gathered for the nucleus and cytoplasm of each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
 
@@ -795,7 +781,7 @@ The loess model of a MEMA is the mean value of a weighted version of each spot's
 
 A MEMA's QA score is derived from the loess model of the control-well-normalized values by calculating the proportion of spots in low signal regions(LSR). A threshold for classifying spots as LSR is based on the median of each plate's control well. To have higher scores reflect increasing quality, the MEMA QA score is defined as the proportion of non-LSR spots to total spots. This value will be 1 for MEMAs with no low signal regions and approach 0 as the number of LSR spots increases.
 
-Below are plots showing data from well B01 from plate LI8X00110 from LINCS staining set 2. The LSR spots are those to the left of the blue vertical line at the threshold value of `r wellQAThresh` in the histogram. 
+In the plots below, the LSR spots are those to the left of the blue vertical line at the threshold value of `r wellQAThresh` in the histogram. 
 
 
 ```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4}

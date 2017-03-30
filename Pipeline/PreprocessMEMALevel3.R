@@ -1,7 +1,7 @@
-#title: "MEP-LINCs Preprocessing"
+#!/usr/bin/env Rscript
+
 #author: "Mark Dane"
 # 2/2017
-
 
 library(MEMA)#merge, annotate and normalize functions
 library(parallel)#use multiple cores for faster processing
@@ -10,33 +10,57 @@ library(ruv)
 library(stringr)
 library(tidyr)
 library(readr)
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(optparse))
 
-processLevel3CommandLine <- function(x, path, k=256, verbose="FALSE"){
-  if(length(x)<2) stop("There must be studyName and path arguments in the command line call.")
-  studyName <- x[1]
-  path <- x[2]
-  if((length(x)>2)) k <- x[3]
-  if((length(x)>3)) verbose <- x[4]
-  list(studyName, path, k, verbose)
+# Get the command line arguments and options
+# returns a list with options and args elements
+getL3CommandLineArgs <- function(){
+  option_list <- list(
+    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                help="Print extra output"),
+    make_option(c("-l", "--local"), type="character", default=NULL,
+                help="Path to local input data directory if not using Synpase."),
+    make_option(c("-k", "--k"), type="integer", default=256,
+                help="Number of factors to use in RUV normalization [default %default]",
+                metavar="number")
+  )
+  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-#callParams <- processLevel3CommandLine(c("MCF10A_DMSO_2", "/lincs/share/lincs_user",256,TRUE))
-#callParams <- processLevel3CommandLine(c("MCF10A_Neratinib_2", "/lincs/share/lincs_user",256,TRUE))
-#callParams <- processLevel3CommandLine(c("HMEC240L_SS4", "/lincs/share/lincs_user",256,TRUE))
-#callParams <- processLevel3CommandLine(c("HMEC122L_SS4", "/lincs/share/lincs_user",256,TRUE))
-#callParams <- processLevel3CommandLine(c("Neratinib_Dose_Response_Curve", "/lincs/share/lincs_user",256,TRUE))
-callParams <- processLevel3CommandLine(c("MCF10A_Cell_Titrate_8", "/lincs/share/lincs_user",0,TRUE))
+#Specify the command line options
+###Debug
+cl <-list(options=list(verbose=TRUE,
+                       local="/lincs/share/lincs_user",
+                       k=256),
+          args=c("HMEC122L_SS1",
+                 "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv")
+)
+####
+cl <- getL3CommandLineArgs()
 
-#callParams <- processLevel3CommandLine(commandArgs(trailingOnly = TRUE))
-studyName <-callParams[[1]]
-path <-callParams[[2]]
-k <- as.integer(callParams[[3]])
-verbose <- as.logical(callParams[[4]])
+studyName <- cl$args[1]
+ofname <- cl$args[2]
+
+opt <- cl$options
+verbose <- opt$verbose
+if(is.null(opt$local)){
+  useSynapse <- TRUE
+} else {
+  useSynapse <- FALSE
+  path <- opt$local
+}
+k <- opt$k
+
 startTime <- Sys.time()
 
 #Read the annotated data for all plates in the study
-slDT <- getSpotLevelData(studyName, path)
+if(useSynapse){
+  stop("Synapse not supported for level 3 data yet ")
+} else {
+  slDT <- getSpotLevelData(studyName, path)
+}
 
 signalsMinimalMetadata <- grep("_SE",grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",colnames(slDT), value=TRUE), value=TRUE, invert=TRUE)
 
@@ -59,21 +83,11 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
                         lowWellQAThreshold = .7)
 
 if(verbose) message(paste("Writing level 3 file to disk\n"))
-fwrite(data.table(slDT), paste0(path, "/study/",studyName, "/Annotated/", studyName,"_Level3.tsv"), sep = "\t", quote=FALSE)
+fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 
-# #Write the File Annotations for Synapse to tab-delimited file
-# annotations <- fread(paste0(path,"/",unique(slDT$Barcode)[1],"/Analysis/",unique(slDT$Barcode)[1],"_Level2Annotations.tsv"),header = FALSE)
-# 
-# write.table(c(
-#   CellLine = annotations$V2[annotations$V1=="CellLine"],
-#   Preprocess = annotations$V2[annotations$V1=="Preprocess"],
-#   DataType = annotations$V2[annotations$V1=="DataType"],
-#   Consortia = annotations$V2[annotations$V1=="Consortia"],
-#   Drug = annotations$V2[annotations$V1=="Drug"],
-#   Segmentation = annotations$V2[annotations$V1=="Segmentation"],
-#   StainingSet = annotations$V2[annotations$V1=="StainingSet"],
-#   Level = "3"),
-#   paste0(path,"/study/",studyName, "/Annotated/", studyName,"_","Level3Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+if(useSynapse){
+  stop("Synapse not supported for level 3 data yet ")
+}
 
 message(paste("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n"))
 

@@ -1,44 +1,55 @@
-#title: "MEP-LINCS Preprocessing"
-#author: "Mark Dane"
-# 2/1/2017
+#!/usr/bin/env Rscript
 
-processSpotCommandLine <- function(x, rawDataVersion="v2", verbose="FALSE"){
-  if(length(x)==0) stop("There must be a barcodePath argument in the command line call")
-  barcodePath <- x[1]
-  if((length(x)>1)) rawDataVersion <- x[2]
-  if((length(x)>1)) verbose <- x[3]
-  list(barcodePath,rawDataVersion,verbose)
+#author: "Mark Dane"
+
+# Get the command line arguments and options
+# returns a list with options and args elements
+getL2CommandLineArgs <- function(){
+  option_list <- list(
+    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                help="Print extra output"),
+    make_option(c("-l", "--local"), type="character", default=NULL,
+                help="Path to local input data directory if not using Synpase.")
+  )
+  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-#Debug: To be deleted
-#Issues: 
-#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00771","v2",TRUE)
-#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00655","v2",TRUE)
-#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00765","v2",TRUE)
-#callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00850","v2",TRUE)
-callParams <- processSpotCommandLine("/lincs/share/lincs_user/LI8X00831","v2",TRUE)
-#callParams <- processCellCommandLine("/lincs/share/lincs_user/LI9V01204","v1",TRUE)
-#callParams <- processSpotCommandLine("/lincs/share/lincs_user/lincs96well/LI9V01610","v1",TRUE)
-#callParams <- processSpotCommandLine(commandArgs(trailingOnly = TRUE))
-barcodePath <-callParams[[1]]
-rawDataVersion <-callParams[[2]]
-verbose <- as.logical(callParams[[3]])
+library(MEMA)#merge, annotate and normalize functions
+library(parallel)#use multiple cores for faster processing
+library(stringr)
+suppressPackageStartupMessages(library(optparse))
 
-barcode <- gsub(".*/","",barcodePath)
-path <- gsub(barcode,"",barcodePath)
-if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n"))
+cl <-list(options=list(verbose=TRUE,
+                       local="/lincs/share/lincs_user/LI8X00641/Analysis"),
+          args=c("LI8X00641",
+                 "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level2.tsv"))
+####
+cl <- getL2CommandLineArgs()
+
+barcode <- cl$args[1]
+ofname <- cl$args[2]
+
+opt <- cl$options
+verbose <- opt$verbose
+if(is.null(opt$local)){
+  useSynapse <- TRUE
+} else {
+  useSynapse <- FALSE
+  path <- opt$local
+}
+
+if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"\n"))
 functionStartTime<- Sys.time()
 startTime<- Sys.time()
 seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
 
-#library(limma)#read GAL file and strsplit2
-library(MEMA)#merge, annotate and normalize functions
-library(parallel)#use multiple cores for faster processing
-library(stringr)
-
-#Read in the plate's cell level data and annotations
-cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
-#annotations <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1Annotations.tsv"),header = FALSE)
+#Read in the plate's cell level data
+if(useSynapse){
+  stop("Synapse not supported in level 2 yet")
+} else {
+  cDT <- fread(paste0(path,"/",barcode,"_Level1.tsv"))
+}
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
@@ -68,23 +79,16 @@ if(exists("proportions")) {
 spotDT <- QASpotData(spotDT, lthresh = .6)
 
 #Merge in Omero imageID links
-spotDT <- merge(spotDT,getOmeroIDs(barcodePath),by=c("WellIndex","ArrayRow","ArrayColumn"))
+spotDT <- merge(spotDT,getOmeroIDs(path, barcode),by=c("WellIndex","ArrayRow","ArrayColumn"))
 
-if(verbose) message("Writing spot level data to disk\n")
+if(verbose) message("Writing spot level data\n")
 writeTime<-Sys.time()
-fwrite(data.table(spotDT), paste0(barcodePath, "/Analysis/", barcode,"_","Level2.tsv"), sep = "\t", quote=FALSE)
-if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
+fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 
-#Write the File Annotations for Synapse to tab-delimited file
-# write.table(c(
-#   CellLine = annotations$V2[annotations$V1=="CellLine"],
-#   Preprocess = annotations$V2[annotations$V1=="Preprocess"],
-#   DataType = annotations$V2[annotations$V1=="DataType"],
-#   Consortia = annotations$V2[annotations$V1=="Consortia"],
-#   Drug = annotations$V2[annotations$V1=="Drug"],
-#   Segmentation = annotations$V2[annotations$V1=="Segmentation"],
-#   StainingSet = annotations$V2[annotations$V1=="StainingSet"],
-#   Level = "Spot"),
-#   paste0(barcodePath, "/Analysis/", barcode,"_","Level2Annotations.tsv"), sep = "\t",col.names = FALSE, quote=FALSE)
+if(useSynapse){
+  stop("Synapse not supported in level 2 yet")
+}
+
+if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
 if(verbose) message(paste("Elapsed time:", Sys.time()-functionStartTime, "\n"))
 

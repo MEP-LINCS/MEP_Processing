@@ -1,75 +1,38 @@
 
 ```{r "setup", include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8,echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
 
 library(MEMA)
 library(magrittr)
+library(stringr)
 library(parallel)
 library(ggplot2)
-# library("grid")
-# library("knitr")
-# library("gplots")
- library("RColorBrewer")
-# library(DT)
-# library(d3heatmap)
-# library(plotly)
-# library(readr)
-# library(stringr)
-
+library(RColorBrewer)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-sampleProportion <- .1
-
-
+sampleProportion <- .2
 ```
 
-```{r readLevel1SubsetData}
-
+```{r readLevel1Data}
 barcodes <-getBarcodes(studyName)
-l1SDTL <- lapply(barcodes, function(barcode, path){
+l1DTL <- lapply(barcodes, function(barcode, path){
   sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_Level1.tsv"),verbose = FALSE, showProgress = FALSE)
   set.seed(42)
   sd <- sd[sample(1:nrow(sd), size = .1*nrow(sd),replace = FALSE),]
 }, path=path)
-l1S <- rbindlist(l1SDTL)
-
-annotations <- fread(paste0(path,"/",barcodes[1],"/Analysis/",barcodes[1],"_Level1Annotations.tsv"),header = FALSE,verbose = FALSE, showProgress = FALSE)
-CellLine = annotations$V2[annotations$V1=="CellLine"]
-Preprocess = annotations$V2[annotations$V1=="Preprocess"]
-DataType = annotations$V2[annotations$V1=="DataType"]
-Consortia = annotations$V2[annotations$V1=="Consortia"]
-Drug = annotations$V2[annotations$V1=="Drug"]
-Segmentation = annotations$V2[annotations$V1=="Segmentation"]
-StainingSet = annotations$V2[annotations$V1=="StainingSet"]
-Level = annotations$V2[annotations$V1=="Level"]
-plateType <- paste0(length(unique(l1S$Well)),"Well")
-nrPlateRow <- length(unique(gsub("[[:digit:]]","",l1S$Well)))
+l1 <- rbindlist(l1DTL)
+set.seed(42)
+l1S <- l1[sample(1:nrow(l1), sampleProportion*nrow(l1), replace = FALSE),]
 
 l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
 l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
-# 
-# #Set a threshold for filtering wells on their QA score
-# wellQAThresh <- 0.7
-# 
-# #TODO: Read this from Level 3 data
-# lthresh <- 0.6
-# 
-# #Number of PCS components to use
-# nrPCs <- 9
-# 
-# #Z score threshold for extreme spot cell count
-# SCCZscoreThresh <- 3
-# 
-# #Spot cell count threshold for HF dataset
-# HFSCCThresh <- 20
-# 
-# #Replicate count threshold for HF Dataset
-# HFRepThresh <- 3
+#Determine number of rows in the plate for figures
+nrPlateRow <- length(unique(str_extract(l1S$Well,"[[:alpha:]]")))
+CellLine <- unique(l1S$CellLine)
 
 ```
 
@@ -81,9 +44,9 @@ l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barc
 This report covers the cell-level data for the `r studyName` dataset. There are additional reports for the spot and MEP QA and the analysis of this staining set. 
 
 ##Introduction
-The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The  channels are `r  combine_words(gsub("Endpoint","",grep("Endpoint",colnames(l1S),value=TRUE)))`. The endpoints are `r combine_words(unique(l1S[,grep("Endpoint",colnames(l1S),value=TRUE), with=FALSE]))`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r Segmentation` performed the segmentation and the analysis pipeline is `r Preprocess`.
+The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The  channels are `r  combine_words(gsub("Endpoint","",grep("Endpoint",colnames(l1S),value=TRUE)))`. The endpoints are `r combine_words(unique(l1S[,grep("Endpoint",colnames(l1S),value=TRUE), with=FALSE]))`. Color images of the cells at each spot were gathered on a Nikon automated microscope.
 
-Most of the histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset.
+The histograms and scatterplots that display cell level data are from a randomly sampled subset of the full dataset.
 
 <br>
 
@@ -97,10 +60,8 @@ The plots below are of a randomly sampled subset of the cell-level data.
 <br>
 
 ```{r rawDAPIPlots, fig.width=3.7,fig.height=1.5*nrPlateRow}
-
 binwidth=.04
 cummulativeMaxCount<-0
-#Determine how to set a common scale for all figures
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
@@ -262,18 +223,6 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
 }
 
-```
-
-
-```{r gatedKRT5Ligandboxplots, fig.width=10,fig.height=4, eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT5","Cytoplasm_PA_Gated_KRT19Positive"),colnames(l1S)))==0}
-
-p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5), colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
-  geom_boxplot(outlier.colour = NA)+
-  ggtitle(paste("KRT5 Intensities by KRT19 State and Ligand"))+
-  guides(colour=guide_legend(title="KRT19+", override.aes = list(alpha = 1, size=1)))+
-  ylab("Median KRT5 Intensity\nLog2")+xlab("Ligand")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(.5)),axis.title.x = element_text(size = rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.title.y = element_text(size = rel(.5)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)), strip.text = element_text(size = rel(.5)))
-suppressWarnings(print(p))
 ```
 
 
