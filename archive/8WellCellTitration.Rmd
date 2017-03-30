@@ -1,0 +1,76 @@
+---
+title: "MCF10A Cell Titrate 8"
+author: "Mark Dane"
+date: "3/16/2017"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    source_code: embed
+---
+
+
+
+```{r "setup", include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+
+#Author: Mark Dane, copyright 2015-2017
+
+library(MEMA)
+library(ggplot2)
+library(stringr)
+library(scales)
+
+
+path <- "/lincs/share/lincs_user/study"
+studyName <- "MCF10A_Cell_Titrate_8"
+
+```
+
+
+```{r readWriteLevel3and4Data, echo=FALSE}
+
+l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+
+#Manually add the plating density metadata
+l3$PlatingDensity <- paste0(l3$Well,"PlDensity")
+l4$PlatingDensity <- paste0(l4$Well,"PlDensity")
+
+```
+
+###Experiment Overview
+
+```{r cellCountLayout, fig.width=12,fig.height=8}
+
+dt <- unique(l3[,.(Well, Ligand, Barcode, ECMp, PlatingDensity, Spot_PA_SpotCellCount, ArrayRow, ArrayColumn)])
+dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
+dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("H","G","F","E","D","C","B","A"))
+dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
+
+p <- ggplot(l3, aes(x=ArrayColumn, y=ArrayRow, colour=Spot_PA_SpotCellCount))+
+  geom_point(size=rel(2))+
+  scale_y_reverse()+
+  scale_x_continuous(breaks= c(min(l3$ArrayColumn),round(mean(c(min(l3$ArrayColumn),max(l3$ArrayColumn)))),max(l3$ArrayColumn)))+
+  scale_colour_gradient(low = "white", high = "red")+
+  guides(colour = guide_legend("Spot Cell Count", keywidth = .5, keyheight = .5))+
+  ggtitle(paste("Spot Cell Count for",unique(l3$CellLine), "cells in plate",unique(l3$Barcode)))+
+  xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))+
+  facet_wrap(~Well, ncol=4)
+ p
+ 
+ p <- ggplot(l3, aes(x=Well, y=Spot_PA_SpotCellCount))+
+ geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+  guides(colour = guide_legend("Spot Cell Count", keywidth = .5, keyheight = .5))+
+  labs(x = "Well", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(l3$CellLine), "cells in plate",unique(l3$Barcode)))+
+ theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
+ p <- p +  geom_jitter(aes(),size=rel(.1),alpha=.2)
+
+ p
+ 
+ 
+```
+
+
+***
+This experiment used `r length(unique(l3$Barcode))` `r length(unique(l3$Well))` well plates.
