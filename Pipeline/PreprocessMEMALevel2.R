@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 
 #author: "Mark Dane"
-# 2/1/2017
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -9,8 +8,8 @@ getL2CommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-l", "--local"), action="store_true", default=FALSE,
-                help="Use a local server instead of Synpase for file accesses")
+    make_option(c("-l", "--local"), type="character", default=NULL,
+                help="Path to local input data directory if not using Synpase.")
   )
   parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
@@ -22,22 +21,25 @@ library(stringr)
 suppressPackageStartupMessages(library(optparse))
 
 cl <-list(options=list(verbose=TRUE,
-                       local=TRUE),
-          args=c("/lincs/share/lincs_user/LI8X00641",
+                       local="/lincs/share/lincs_user/LI8X00641/Analysis"),
+          args=c("LI8X00641",
                  "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level2.tsv"))
 ####
 cl <- getL2CommandLineArgs()
 
-barcodePath <- cl$args[1]
-barcode <- gsub(".*/", "", barcodePath)
-path <- gsub(barcode, "", barcodePath)
+barcode <- cl$args[1]
 ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
-useSynapse <- !opt$local
+if(is.null(opt$local)){
+  useSynapse <- TRUE
+} else {
+  useSynapse <- FALSE
+  path <- opt$local
+}
 
-if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"at",barcodePath,"\n"))
+if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"\n"))
 functionStartTime<- Sys.time()
 startTime<- Sys.time()
 seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
@@ -46,7 +48,7 @@ seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillar
 if(useSynapse){
   stop("Synapse not supported in level 2 yet")
 } else {
-  cDT <- fread(paste0(barcodePath,"/Analysis/",barcode,"_Level1.tsv"))
+  cDT <- fread(paste0(path,"/",barcode,"_Level1.tsv"))
 }
 
 #Count the cells at each spot at the cell level as needed by createl3
@@ -75,10 +77,19 @@ if(exists("proportions")) {
 
 #Set a threshold for the loess well level QA Scores
 spotDT <- QASpotData(spotDT, lthresh = .6)
-
+#####
+getOmeroIDs <- function (path, barcode) 
+{
+  dt <- fread(paste0(path, "/",barcode, "_imageIDs.tsv"))[,list(WellName, Row, Column, ImageID)]
+  dt[, `:=`(WellIndex, as.integer(gsub(".*_Well", "", WellName)))]
+  setnames(dt, "Row", "ArrayRow")
+  setnames(dt, "Column", "ArrayColumn")
+  dt[, `:=`(WellName, NULL)]
+  return(dt)
+}
+#####
 #Merge in Omero imageID links
-spotDT <- merge(spotDT,getOmeroIDs(barcodePath),by=c("WellIndex","ArrayRow","ArrayColumn"))
-
+spotDT <- merge(spotDT,getOmeroIDs(path, barcode),by=c("WellIndex","ArrayRow","ArrayColumn"))
 
 if(verbose) message("Writing spot level data\n")
 writeTime<-Sys.time()

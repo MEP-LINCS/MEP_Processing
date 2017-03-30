@@ -18,8 +18,8 @@ getCommandLineArgs <- function(){
                 help="Print extra output"),
     make_option(c("-e", "--excelMetadata"), action="store_true", default=FALSE,
                 help="Get metadata from Excel files instead of from the An! database"),
-    make_option(c("-l", "--local"), action="store_true", default=FALSE,
-                help="Use a local server instead of Synpase for file accesses"),
+    make_option(c("-l", "--local"), type="character", default=NULL,
+                help="Path to local input data directory if not using Synpase. Must contain a subdirectory named by the value of the rawDataVersion command line argument."),
     make_option(c("-r", "--rawDataVersion"), type="character", default="v2",
                 help="Raw data version from local server [default \"%default\"]")
   )
@@ -31,29 +31,32 @@ getCommandLineArgs <- function(){
 ###Debug
 cl <-list(options=list(verbose=TRUE,
                        excelMetadata=FALSE,
-                       local=FALSE,
+                       local="/lincs/share/lincs_user/LI8X00641/Analysis",
                        rawDataVersion="v2"),
-          args=c("/lincs/share/lincs_user/LI8X00641",
+          args=c("LI8X00641",
                  "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level1.tsv"))
 ####
 cl <- getCommandLineArgs()
 
-barcodePath <- cl$args[1]
-barcode <- gsub(".*/", "", barcodePath)
-path <- gsub(barcode, "", barcodePath)
+barcode <- cl$args[1]
 ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
 useAnnotMetadata <- !opt$excelMetadata
-useSynapse <- !opt$local
+if(is.null(opt$local)){
+  useSynapse <- TRUE
+} else {
+  useSynapse <- FALSE
+  path <- opt$local
+}
 rawDataVersion <- opt$rawDataVersion
 
 if(useSynapse) synapseLogin()
 
 scriptStartTime <- Sys.time()
 
-if (verbose) message(paste("Processing plate:", barcode, "at", path, "\n"))
+if (verbose) message(paste("Processing plate:", barcode, "\n"))
 
 if (useAnnotMetadata) {
   #Build metadata file name list
@@ -63,13 +66,13 @@ if (useAnnotMetadata) {
     metadataFiles <- lapply(metadataTable$id, synGet)
     metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
   } else {
-    metadataFiles <- list(annotMetadata=paste0(barcodePath,"/Analysis/",barcode,"_an2omero.csv"))
+    metadataFiles <- list(annotMetadata=paste0(path,"/",barcode,"_an2omero.csv"))
   }
   
 } else {
-  metadataFiles <- list(logMetadata = dir(paste0(path,barcode,"/Analysis"),pattern = "xml",full.names = TRUE),
-                        spotMetadata = dir(paste0(barcodePath,"/Analysis"),pattern = "gal",full.names = TRUE),
-                        wellMetadata =  dir(paste0(path,barcode,"/Analysis"),pattern = "xlsx",full.names = TRUE)
+  metadataFiles <- list(logMetadata = dir(path,pattern = "xml",full.names = TRUE),
+                        spotMetadata = dir(path,pattern = "gal",full.names = TRUE),
+                        wellMetadata =  dir(path,pattern = "xlsx",full.names = TRUE)
   )
 }
 
@@ -90,10 +93,10 @@ if(useSynapse){
   cellDataFilePaths <- unlist(lapply(res, getFileLocation))
   dataBWInfo$Path <- cellDataFilePaths
 } else {
-  cellDataFilePaths <- dir(paste0(barcodePath,"/Analysis/",rawDataVersion), full.names = TRUE)
+  cellDataFilePaths <- dir(paste0(path,"/",rawDataVersion), full.names = TRUE)
   if(length(cellDataFilePaths)==0) stop("No raw data files found")
   dataBWInfo <- data.table(Path=cellDataFilePaths,
-                           Well=gsub("_","",str_extract(dir(paste0(barcodePath,"/Analysis/",rawDataVersion)),"_.*_")),
+                           Well=gsub("_","",str_extract(dir(paste0(path,"/",rawDataVersion)),"_.*_")),
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
 }
 if(length(cellDataFilePaths) == 0) stop("No raw data files found")

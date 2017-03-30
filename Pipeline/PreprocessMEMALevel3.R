@@ -3,7 +3,6 @@
 #author: "Mark Dane"
 # 2/2017
 
-
 library(MEMA)#merge, annotate and normalize functions
 library(parallel)#use multiple cores for faster processing
 library(RUVnormalize)
@@ -20,10 +19,8 @@ getL3CommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-l", "--local"), action="store_true", default=FALSE,
-                help="Use a local server instead of Synpase for file accesses"),
-    make_option(c("-w", "--writeFiles"), action="store_true", default=FALSE,
-                help="Write output files to disk"),
+    make_option(c("-l", "--local"), type="character", default=NULL,
+                help="Path to local input data directory if not using Synpase."),
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
                 metavar="number")
@@ -35,21 +32,25 @@ getL3CommandLineArgs <- function(){
 #Specify the command line options
 ###Debug
 cl <-list(options=list(verbose=TRUE,
-                       local=TRUE,
-                       writeFiles=FALSE,
+                       local="/lincs/share/lincs_user",
                        k=256),
-          args=c("HMEC122L_SS1", "/lincs/share/lincs_user")
-          )
+          args=c("HMEC122L_SS1",
+                 "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv")
+)
 ####
 cl <- getL3CommandLineArgs()
 
 studyName <- cl$args[1]
-path <- cl$args[2]
+ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
-useSynapse <- !opt$local
-writeFiles <- opt$writeFiles
+if(is.null(opt$local)){
+  useSynapse <- TRUE
+} else {
+  useSynapse <- FALSE
+  path <- opt$local
+}
 k <- opt$k
 
 startTime <- Sys.time()
@@ -81,15 +82,13 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
                         lowRegionCellCountThreshold = 0.4,
                         lowWellQAThreshold = .7)
 
-if(writeFiles){
-  if(verbose) message(paste("Writing level 3 file to disk\n"))
-  if(useSynapse){
-    stop("Synapse not supported for level 3 data yet ")
-  } else {
-    fwrite(data.table(slDT), paste0(path, "/study/",studyName, "/Annotated/", studyName,"_Level3.tsv"), sep = "\t", quote=FALSE)
-  }
-  
+if(verbose) message(paste("Writing level 3 file to disk\n"))
+fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
+
+if(useSynapse){
+  stop("Synapse not supported for level 3 data yet ")
 }
+
 message(paste("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n"))
 
 
