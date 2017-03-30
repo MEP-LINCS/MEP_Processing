@@ -77,17 +77,7 @@ if(exists("proportions")) {
 
 #Set a threshold for the loess well level QA Scores
 spotDT <- QASpotData(spotDT, lthresh = .6)
-#####
-getOmeroIDs <- function (path, barcode) 
-{
-  dt <- fread(paste0(path, "/",barcode, "_imageIDs.tsv"))[,list(WellName, Row, Column, ImageID)]
-  dt[, `:=`(WellIndex, as.integer(gsub(".*_Well", "", WellName)))]
-  setnames(dt, "Row", "ArrayRow")
-  setnames(dt, "Column", "ArrayColumn")
-  dt[, `:=`(WellName, NULL)]
-  return(dt)
-}
-#####
+
 #Merge in Omero imageID links
 spotDT <- merge(spotDT,getOmeroIDs(path, barcode),by=c("WellIndex","ArrayRow","ArrayColumn"))
 
