@@ -49,24 +49,43 @@ ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
-if(is.null(opt$local)){
-  useSynapse <- TRUE
-} else {
+
+if(file.exists(opt$inputPath)){
   useSynapse <- FALSE
-  path <- opt$local
+} else {
+  useSynapse <- TRUE
 }
+
 k <- opt$k
 
 startTime <- Sys.time()
 
 #Read the annotated data for all plates in the study
 if(useSynapse){
-  stop("Synapse not supported for level 3 data yet ")
+  suppressMessages(synapseLogin())
+  level <- "2"
+  levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Barcode="%s" AND Level="%s"',
+                        opt$inputPath, barcode, level)
+  levelRes <- synTableQuery(levelQuery)
+  
+  if (nrow(levelRes@values) > 1) {
+    stop(sprintf("Found more than one Level %s file for barcode %s", level, barcode))
+  }
+  
+  rawDataVersion <- levelRes@values$rawDataVersion
+  
+  dataPath <- getFileLocation(synGet(levelRes@values$id))
+  
 } else {
-  slDT <- getSpotLevelData(studyName, path)
+  dataPath <- opt$inputPath
 }
 
-signalsMinimalMetadata <- grep("_SE",grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",colnames(slDT), value=TRUE), value=TRUE, invert=TRUE)
+slDT <- getSpotLevelData(studyName, dataPath)
+
+signalsMinimalMetadata <- grep("_SE",
+                               grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",
+                                    colnames(slDT), value=TRUE), 
+                               value=TRUE, invert=TRUE)
 
 #RUVLoess normalize all signals
 if(!k==0){
