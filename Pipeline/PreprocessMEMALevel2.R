@@ -17,7 +17,7 @@ getL2CommandLineArgs <- function(){
     make_option(c("-l", "--local"), type="character", default=NULL,
                 help="Path to local input data directory if not using Synpase.")
   )
-  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] barcode file", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
