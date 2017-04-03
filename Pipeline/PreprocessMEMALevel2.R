@@ -5,6 +5,7 @@
 library(MEMA)
 library(parallel)
 library(stringr)
+suppressPackageStartupMessages(library(synapseClient))
 suppressPackageStartupMessages(library(optparse))
 
 # Get the command line arguments and options
