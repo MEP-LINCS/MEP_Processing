@@ -62,14 +62,16 @@ startTime <- Sys.time()
 
 #Read the annotated data for all plates in the study
 if(useSynapse){
+  suppressPackageStartupMessages(library(synapseClient))
   suppressMessages(synapseLogin())
   level <- "2"
-  levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Barcode="%s" AND Level="%s"',
-                        opt$inputPath, barcode, level)
+  levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Study="%s" AND Level="%s"',
+                        opt$inputPath, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   
   if (nrow(levelRes@values) > 1) {
-    stop(sprintf("Found more than one Level %s file for barcode %s", level, barcode))
+    stop(sprintf("Found more than one Level %s file for Study %s: %s", 
+                 level, studyName, paste(levelRes@values$id, collapse=",")))
   }
   
   rawDataVersion <- levelRes@values$rawDataVersion
@@ -78,6 +80,7 @@ if(useSynapse){
   
 } else {
   dataPath <- opt$inputPath
+  rawDataVersion <- opt$rawDataVersion
 }
 
 slDT <- getSpotLevelData(studyName, dataPath)
@@ -108,8 +111,23 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
 if(verbose) message(paste("Writing level 3 file to disk\n"))
 fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 
-if(useSynapse){
-  stop("Synapse not supported for level 3 data yet ")
+if(!is.null(opt$synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
+  synFile <- File(ofname, parentId=opt$synapseStore)
+  synSetAnnotations(synFile) <- list(CellLine = unique(slDT$CellLine),
+                                     # Barcode = barcode,
+                                     Study = unique(slDT$Study),
+                                     Preprocess = "v1.8",
+                                     DataType = "Quanititative Imaging",
+                                     Consortia = "MEP-LINCS",
+                                     Drug = unique(slDT$Drug),
+                                     Segmentation = rawDataVersion,
+                                     StainingSet = gsub("Layout.*","",unique(slDT$StainingSet)),
+                                     Level = "3")
+  
+  synFile <- synStore(synFile,
+                      used=c(levelRes@values$id),
+                      forceVersion=FALSE)
 }
 
 message(paste("Elapsed time to normalize ",studyName, Sys.time()-startTime, "\n"))
