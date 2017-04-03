@@ -5,6 +5,7 @@
 library(MEMA)
 library(parallel)
 library(stringr)
+suppressPackageStartupMessages(library(synapseClient))
 suppressPackageStartupMessages(library(optparse))
 
 # Get the command line arguments and options
@@ -13,53 +14,59 @@ getL2CommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-l", "--local"), type="character", default=NULL,
-                help="Path to local input data directory if not using Synpase.")
+    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
+                help="Path to local input data directory or Synapse ID for a File View."),
+    make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
+                help="Store output file in Synapse directory (provide Synapse ID of Folder to store)."),
+    make_option(c("-r", "--rawDataVersion"), type="character", default=NULL,
+                help="Raw data version [default \"%default\"]")
+    
   )
-  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] barcode file", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-cl <-list(options=list(verbose=TRUE),
-          args=c("LI8X00641",
-                 "/tmp/LI8X00641_Level2.tsv"))
+# cl <-list(options=list(verbose=TRUE),
+#           args=c("LI8X00641",
+#                  "/tmp/LI8X00641_Level2.tsv"))
 ####
-## cl <- getL2CommandLineArgs()
+cl <- getL2CommandLineArgs()
 
 barcode <- cl$args[1]
 ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
-if(is.null(opt$local)){
-  useSynapse <- TRUE
-} else {
+
+if(file.exists(opt$inputPath)){
   useSynapse <- FALSE
-  path <- opt$local
+} else {
+  useSynapse <- TRUE
 }
 
-if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"\n"))
+if (verbose) message(sprintf("Summarizing cell to spot data for plate %s", barcode))
 functionStartTime<- Sys.time()
 startTime<- Sys.time()
 seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
 
 #Read in the plate's cell level data
 if (useSynapse) {
-  synapseLogin()
-  fileViewId <- 'syn7494072'
+  suppressMessages(synapseLogin())
   level <- "1"
-  levelQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND Level="%s"',
-                         fileViewId, barcode, level)
+  levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Barcode="%s" AND Level="%s"',
+                        opt$inputPath, barcode, level)
   levelRes <- synTableQuery(levelQuery)
-
+  
   if (nrow(levelRes@values) > 1) {
     stop(sprintf("Found more than one Level 1 file for barcode %s", barcode))
   }
+
+  rawDataVersion <- levelRes@values$rawDataVersion
   
   dataPath <- getFileLocation(synGet(levelRes@values$id))
 
   imageIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ImageID"',
-                        fileViewId, barcode)
+                          opt$inputPath, barcode)
   imageIdRes <- synTableQuery(imageIdQuery)
   
   if (nrow(imageIdRes@values) > 1) {
@@ -69,8 +76,9 @@ if (useSynapse) {
   imageIdPath <- getFileLocation(synGet(imageIdRes@values$id))
   
   } else {
-  dataPath <- paste0(path,"/",barcode,"_Level1.tsv")
-  imageIdPath <- paste0(path, "/",barcode, "_imageIDs.tsv")
+  dataPath <- paste0(opt$inputPath, "/",barcode, "_Level1.tsv")
+  imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
+  rawDataVersion <- opt$rawDataVersion
 }
 
 cDT <- fread(dataPath)
@@ -107,13 +115,13 @@ spotDT <- QASpotData(spotDT, lthresh = .6)
 spotDT <- merge(spotDT, omeroIds,
                 by=c("WellIndex","ArrayRow","ArrayColumn"))
 
-if(verbose) message("Writing spot level data\n")
+if(verbose) message("Writing spot level data")
 writeTime<-Sys.time()
 fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 
-if(useSynapse){
-  annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn4215176"))
-  synFile <- File(ofname, parentId=annotatedFolder@properties$id)
+if(!is.null(opt$synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
+  synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                      Barcode = barcode,
                                      Study = unique(cDT$Study),
