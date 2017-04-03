@@ -36,11 +36,11 @@ getCommandLineArgs <- function(){
 #Specify the command line options
 ###Debug
 cl <-list(options=list(verbose=TRUE,
-                       local="/lincs/share/lincs_user",
-                       k=256),
+                       inputPath="syn7494072",
+                       k=256,
+                       synapseStore='syn8555683'),
           args=c("HMEC122L_SS1",
-                 "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv")
-)
+                 "/tmp/HMEC122L_SS1_Level3.tsv"))
 ####
 cl <- getCommandLineArgs()
 
@@ -50,7 +50,7 @@ ofname <- cl$args[2]
 opt <- cl$options
 verbose <- opt$verbose
 
-if(file.exists(opt$inputPath)){
+if(file.exists(cl$options$inputPath)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
@@ -66,24 +66,30 @@ if(useSynapse){
   suppressMessages(synapseLogin())
   level <- "2"
   levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Study="%s" AND Level="%s"',
-                        opt$inputPath, studyName, level)
+                        cl$options$inputPath, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   
-  if (nrow(levelRes@values) > 1) {
-    stop(sprintf("Found more than one Level %s file for Study %s: %s", 
-                 level, studyName, paste(levelRes@values$id, collapse=",")))
+
+  rawDataVersion <- distinct(levelRes@values$rawDataVersion)
+  
+  if (length(rawDataVersion) > 1) {
+    stop("Different raw data versions present: %s", paste(rawDataVersion, collapse=","))
   }
   
-  rawDataVersion <- levelRes@values$rawDataVersion
-  
-  dataPath <- getFileLocation(synGet(levelRes@values$id))
+  dataPaths <- lapply(levelRes@values$id,
+                      function(x) getFileLocation(synGet(x)))
   
 } else {
-  dataPath <- opt$inputPath
+  barcodes <- getBarcodes(studyName)
+  dataPaths <- barcodes %>%
+    lapply(function(barcode, path){
+      paste0(path,"/",barcode,"/Analysis/",barcode,"_Level2.tsv")
+    }, path=opt$inputPath)
+    
   rawDataVersion <- opt$rawDataVersion
 }
 
-slDT <- getSpotLevelData(studyName, dataPath)
+slDT <- getSpotLevelData(dataPaths)
 
 signalsMinimalMetadata <- grep("_SE",
                                grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",
@@ -111,8 +117,8 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
 if(verbose) message(paste("Writing level 3 file to disk\n"))
 fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 
-if(!is.null(opt$synapseStore)) {
-  if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
+if(!is.null(cl$options$synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(slDT$CellLine),
                                      # Barcode = barcode,
