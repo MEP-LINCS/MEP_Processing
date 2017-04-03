@@ -19,13 +19,17 @@ getL3CommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-l", "--local"), type="character", default=NULL,
-                help="Path to local input data directory if not using Synpase."),
+    make_option(c("-r", "--rawDataVersion"), type="character", default=NULL,
+                help="Raw data version [default \"%default\"]"),
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
-                metavar="number")
+                metavar="number"),
+    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
+                help="Path to local input data directory or Synapse ID for a File View."),
+    make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
+                help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
   )
-  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] STUDY OUTPUTFILE", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
