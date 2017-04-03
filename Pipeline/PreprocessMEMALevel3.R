@@ -15,7 +15,7 @@ suppressPackageStartupMessages(library(optparse))
 
 # Get the command line arguments and options
 # returns a list with options and args elements
-getL3CommandLineArgs <- function(){
+getCommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
@@ -42,7 +42,7 @@ cl <-list(options=list(verbose=TRUE,
                  "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv")
 )
 ####
-cl <- getL3CommandLineArgs()
+cl <- getCommandLineArgs()
 
 studyName <- cl$args[1]
 ofname <- cl$args[2]
