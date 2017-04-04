@@ -105,10 +105,10 @@ if(useSynapse){
   cellDataFilePaths <- unlist(lapply(res, getFileLocation))
   dataBWInfo$Path <- cellDataFilePaths
 } else {
-  cellDataFilePaths <- dir(paste0(path,"/",rawDataVersion), full.names = TRUE)
+  cellDataFilePaths <- dir(paste0(cl$options$inputPath,"/",rawDataVersion), full.names = TRUE)
   if(length(cellDataFilePaths)==0) stop("No raw data files found")
   dataBWInfo <- data.table(Path=cellDataFilePaths,
-                           Well=gsub("_","",str_extract(dir(paste0(path,"/",rawDataVersion)),"_.*_")),
+                           Well=gsub("_","",str_extract(dir(paste0(cl$options$inputPath,"/",rawDataVersion)),"_.*_")),
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
 }
 if(length(cellDataFilePaths) == 0) stop("No raw data files found")
