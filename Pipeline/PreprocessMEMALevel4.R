@@ -53,9 +53,13 @@ if(useSynapse){
                         cl$options$inputPath, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   
+  if (nrow(levelRes@values) > 1) {
+    stop(sprintf("Found more than one Level %s file for Study %s", level, studyName))
+  }
+  
   dataPath <- getFileLocation(synGet(levelRes@values$id))
 } else {
-  dataPaths <- opt$inputPath
+  dataPaths <- cl$options$inputPath
 }
 
 l3DT <- fread(dataPath)
