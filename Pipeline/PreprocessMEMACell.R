@@ -148,7 +148,7 @@ if(useSynapse){
                                      Barcode = barcode,
                                      Study = unique(cDT$Study),
                                      Preprocess = "v1.8",
-                                     DataType = "Quanititative Imaging",
+                                     DataType = "Quantitative Imaging",
                                      Consortia = "MEP-LINCS",
                                      Drug = unique(cDT$Drug),
                                      Segmentation = rawDataVersion,
