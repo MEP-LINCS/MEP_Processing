@@ -19,8 +19,6 @@ getCommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-r", "--rawDataVersion"), type="character", default=NULL,
-                help="Raw data version [default \"%default\"]"),
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
                 metavar="number"),
@@ -65,16 +63,9 @@ if(useSynapse){
   suppressPackageStartupMessages(library(synapseClient))
   suppressMessages(synapseLogin())
   level <- "2"
-  levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Study="%s" AND Level="%s"',
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
                         cl$options$inputPath, studyName, level)
   levelRes <- synTableQuery(levelQuery)
-  
-
-  rawDataVersion <- distinct(levelRes@values$rawDataVersion)
-  
-  if (length(rawDataVersion) > 1) {
-    stop("Different raw data versions present: %s", paste(rawDataVersion, collapse=","))
-  }
   
   dataPaths <- lapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
@@ -85,8 +76,6 @@ if(useSynapse){
     lapply(function(barcode, path){
       paste0(path,"/",barcode,"/Analysis/",barcode,"_Level2.tsv")
     }, path=opt$inputPath)
-    
-  rawDataVersion <- opt$rawDataVersion
 }
 
 slDT <- getSpotLevelData(dataPaths)
@@ -121,14 +110,13 @@ if(!is.null(cl$options$synapseStore)) {
   if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(slDT$CellLine),
-                                     # Barcode = barcode,
-                                     Study = unique(slDT$Study),
-                                     Preprocess = "v1.8",
-                                     DataType = "Quanititative Imaging",
-                                     Consortia = "MEP-LINCS",
-                                     Drug = unique(slDT$Drug),
-                                     Segmentation = rawDataVersion,
-                                     StainingSet = gsub("Layout.*","",unique(slDT$StainingSet)),
+                                     Study = unique(levelRes@values$Study),
+                                     Preprocess = unique(levelRes@values$Preprocess),
+                                     DataType = unique(levelRes@values$DataType),
+                                     Consortia = unique(levelRes@values$Consortia),
+                                     Drug = unique(levelRes@values$Drug),
+                                     Segmentation = unique(levelRes@values$Segmentation),
+                                     StainingSet = unique(levelRes@values$StainingSet),
                                      Level = "3")
   
   synFile <- synStore(synFile,

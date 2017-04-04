@@ -26,7 +26,8 @@ getL2CommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-# cl <-list(options=list(verbose=TRUE),
+# cl <-list(options=list(verbose=TRUE,
+#                        inputPath="syn7494072"),
 #           args=c("LI8X00641",
 #                  "/tmp/LI8X00641_Level2.tsv"))
 ####
@@ -53,7 +54,7 @@ seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillar
 if (useSynapse) {
   suppressMessages(synapseLogin())
   level <- "1"
-  levelQuery <- sprintf('SELECT id,rawDataVersion from %s WHERE Barcode="%s" AND Level="%s"',
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,DataType,Study,Consortia,StainingSet,CellLine,Drug from %s WHERE Barcode="%s" AND Level="%s"',
                         opt$inputPath, barcode, level)
   levelRes <- synTableQuery(levelQuery)
   
@@ -61,8 +62,6 @@ if (useSynapse) {
     stop(sprintf("Found more than one Level 1 file for barcode %s", barcode))
   }
 
-  rawDataVersion <- levelRes@values$rawDataVersion
-  
   dataPath <- getFileLocation(synGet(levelRes@values$id))
 
   imageIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ImageID"',
@@ -122,15 +121,15 @@ fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 if(!is.null(opt$synapseStore)) {
   if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
   synFile <- File(ofname, parentId=opt$synapseStore)
-  synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
+  synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
                                      Barcode = barcode,
-                                     Study = unique(cDT$Study),
-                                     Preprocess = "v1.8",
-                                     DataType = "Quanititative Imaging",
-                                     Consortia = "MEP-LINCS",
-                                     Drug = unique(cDT$Drug),
-                                     Segmentation = rawDataVersion,
-                                     StainingSet = gsub("Layout.*","",unique(cDT$StainingSet)),
+                                     Study = levelRes@values$Study,
+                                     Preprocess = levelRes@values$Preprocess,
+                                     DataType = levelRes@values$DataType,
+                                     Consortia = levelRes@values$Consortia,
+                                     Drug = levelRes@values$Drug,
+                                     Segmentation = levelRes@values$Segmentation,
+                                     StainingSet = levelRes@values$StainingSet,
                                      Level = "2")
   
   synFile <- synStore(synFile,
