@@ -34,19 +34,30 @@ ofname <- cl$args[2]
 
 opt <- cl$options
 verbose <- opt$verbose
-if(is.null(opt$local)){
-  useSynapse <- TRUE
-} else {
+if(file.exists(cl$options$inputPath)){
   useSynapse <- FALSE
-  ifname <- opt$local
+} else {
+  useSynapse <- TRUE
 }
 
 startTime <- Sys.time()
 if(useSynapse){
-  stop("Synapse not supported for level 4 data yet")
+  suppressPackageStartupMessages(library(synapseClient))
+  suppressMessages(synapseLogin())
+  
+  level <- "3"
+  
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
+                        cl$options$inputPath, studyName, level)
+  levelRes <- synTableQuery(levelQuery)
+  
+  dataPath <- getFileLocation(synGet(levelRes@values$id))
 } else {
-  l3DT <- fread(ifname)
+  dataPaths <- opt$inputPath
 }
+
+l3DT <- fread(dataPath)
+
 #Summarize to the MEP_Drug level
 mepDT <- preprocessLevel4(l3DT,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
 #Add in the barcodes for each MEP_Drug
