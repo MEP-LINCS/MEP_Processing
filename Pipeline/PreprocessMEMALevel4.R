@@ -13,7 +13,9 @@ getL4CommandLineArgs <- function(){
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
     make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
-                help="Path to local input data directory or Synapse ID for a File View.")
+                help="Path to local input data directory or Synapse ID for a File View."),
+    make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
+                help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
   )
   parser <- OptionParser(usage = "%prog [options] STUDY OUTPUTFILE", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
