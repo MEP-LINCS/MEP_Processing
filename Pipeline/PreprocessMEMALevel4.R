@@ -72,8 +72,22 @@ mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < 3
 
 fwrite(mepDT, file=ofname, sep = "\t", quote=FALSE)
 if(verbose) message("Writing level 4 file to disk\n")
-if(useSynapse){
-  stop("Synpase not supported in level 4 data yet")
+if(!is.null(cl$options$synapseStore)){
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
+  synFile <- File(ofname, parentId=cl$options$synapseStore)
+  synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
+                                     Study = levelRes@values$Study,
+                                     Preprocess = levelRes@values$Preprocess,
+                                     DataType = levelRes@values$DataType,
+                                     Consortia = levelRes@values$Consortia,
+                                     Drug = levelRes@values$Drug,
+                                     Segmentation = levelRes@values$Segmentation,
+                                     StainingSet = levelRes@values$StainingSet,
+                                     Level = "4")
+  
+  synFile <- synStore(synFile,
+                      used=c(levelRes@values$id),
+                      forceVersion=FALSE)
 }
 if(verbose) message(paste("Elapsed time for ",studyName, "is", Sys.time()-startTime, "\n"))
 
