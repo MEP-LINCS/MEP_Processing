@@ -34,8 +34,7 @@ cl <- getL4CommandLineArgs()
 studyName <- cl$args[1]
 ofname <- cl$args[2]
 
-opt <- cl$options
-verbose <- opt$verbose
+verbose <- cl$options$verbose
 if(file.exists(cl$options$inputPath)){
   useSynapse <- FALSE
 } else {
