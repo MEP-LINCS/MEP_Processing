@@ -12,17 +12,17 @@ getL4CommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-l", "--local"), type="character", default=NULL,
-                help="Full path to local input file if not using Synpase.")
+    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
+                help="Path to local input data directory or Synapse ID for a File View.")
   )
-  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] STUDY OUTPUTFILE", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
 #Specify the command line options
 ###Debug
 cl <-list(options=list(verbose=TRUE,
-                       local="/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv"),
+                       inputPath="/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv"),
           args=c("HMEC122L_SS1",
                  "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level4.tsv")
 )
