@@ -46,12 +46,19 @@ ofname <- cl$args[2]
 opt <- cl$options
 verbose <- opt$verbose
 useAnnotMetadata <- !opt$excelMetadata
+
+if(file.exists(cl$options$inputPath)){
+  useSynapse <- FALSE
+} else {
+  useSynapse <- TRUE
+}
+
 if(is.null(opt$local)){
   useSynapse <- TRUE
 } else {
   useSynapse <- FALSE
-  path <- opt$local
 }
+
 rawDataVersion <- opt$rawDataVersion
 
 if(useSynapse) synapseLogin()
@@ -68,13 +75,16 @@ if (useAnnotMetadata) {
     metadataFiles <- lapply(metadataTable$id, synGet)
     metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
   } else {
-    metadataFiles <- list(annotMetadata=paste0(path,"/",barcode,"_an2omero.csv"))
+    metadataFiles <- list(annotMetadata=paste0(cl$options$inputPath,"/",barcode,"_an2omero.csv"))
   }
   
 } else {
-  metadataFiles <- list(logMetadata = dir(path,pattern = "xml",full.names = TRUE),
-                        spotMetadata = dir(path,pattern = "gal",full.names = TRUE),
-                        wellMetadata =  dir(path,pattern = "xlsx",full.names = TRUE)
+  metadataFiles <- list(logMetadata = dir(cl$options$inputPath,
+                                          pattern = "xml",full.names = TRUE),
+                        spotMetadata = dir(cl$options$inputPath,
+                                           pattern = "gal",full.names = TRUE),
+                        wellMetadata =  dir(cl$options$inputPath,
+                                            pattern = "xlsx",full.names = TRUE)
   )
 }
 
