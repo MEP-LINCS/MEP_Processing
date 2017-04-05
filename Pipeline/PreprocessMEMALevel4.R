@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #author: "Mark Dane"
-# 2/2017
+# 2017
 
 library(MEMA)
 suppressPackageStartupMessages(library(optparse))
@@ -19,21 +19,13 @@ getL4CommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-#Specify the command line options
-###Debug
-cl <-list(options=list(verbose=TRUE,
-                       local="/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv"),
-          args=c("HMEC122L_SS1",
-                 "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level4.tsv")
-)
-####
+#Get the command line arguments and options
 cl <- getL4CommandLineArgs()
-
 studyName <- cl$args[1]
 ofname <- cl$args[2]
-
 opt <- cl$options
 verbose <- opt$verbose
+
 if(is.null(opt$local)){
   useSynapse <- TRUE
 } else {
@@ -47,6 +39,7 @@ if(useSynapse){
 } else {
   l3DT <- fread(ifname)
 }
+
 #Summarize to the MEP_Drug level
 mepDT <- preprocessLevel4(l3DT,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
 #Add in the barcodes for each MEP_Drug
