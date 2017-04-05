@@ -36,6 +36,14 @@ lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
   l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
 
+#Shorten reagent names for display
+l3$Ligand <- gsub("-.*","",l3$Ligand)
+l4$Ligand <- gsub("-.*","",l4$Ligand)
+l3$ECMp <- gsub("_.*","",l3$ECMp)
+l4$ECMp <- gsub("_.*","",l4$ECMp)
+l3$ECMp <- MEMA:::compressHA(l3$ECMp)
+l4$ECMp <- MEMA:::compressHA(l4$ECMp)
+l3$MEP <- paste(l3$ECMp,l3$Ligand,sep="_")
 barcodes <- unique(l3$Barcode)
 l3 <- l3[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 
