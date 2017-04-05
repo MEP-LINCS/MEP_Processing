@@ -46,7 +46,7 @@ CellLine =unique(l4$CellLine)
 <br>
 
 ##Introduction  
-The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. 
+The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The analyzed endpoints include DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. 
 
 Intensity, position and morphology data are gathered for each cell, merged with the experiment metadata, normalized with `r unique(l3$NormMethod)`, filtered and summarized. 
 
@@ -65,7 +65,7 @@ l3F <- l3F[l3F$QAScore>wellQAThresh]
 l3KeepNames <- grep("Barcode|Omero|CellLine|MEP|ECMp|Drug|Ligand|Array|QA|Barcode|Spot_PA_SpotCellCount|Nuclei_PA_Gated_EdUPositiveProportion|Cytoplasm_PA_Intensity_LineageRatio|Nuclei_PA_Cycle_DNA2NProportion|Spot_PA_ReplicateCount|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Cytoplasm_CP_Intensity_MedianIntensity_KRT|Nestin",colnames(l3),value=TRUE)
 l3F <- l3F[,l3KeepNames, with=FALSE]
 
-l4F <- preprocessLevel4(l3F,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin","Nestin","Caspase"))
+l4F <- preprocessLevel4(l3F[,grep("Omero",colnames(l3F), value=TRUE, invert=TRUE), with=FALSE],  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin","Nestin","Caspase"))
 #Add in the barcodes for each MEP_Drug
 l4F <- addBarcodes(dt3 = l3F, dt4 = l4F)
 
@@ -87,7 +87,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountNorm), y = Spot_PA_Spot
   geom_errorbar(aes(ymin=Spot_PA_SpotCellCountNorm-Spot_PA_SpotCellCountNorm_SE, ymax=Spot_PA_SpotCellCountNorm+Spot_PA_SpotCellCountNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized Spot Cell Count")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized Spot Cell Count (Full dataset)")
+  ggtitle("MEPs Ordered by Normalized Spot Cell Count")
 
 p <- p + geom_point(aes(y=Spot_PA_SpotCellCountNorm),colour = "darkblue", alpha = .5)
 
@@ -128,7 +128,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Cycle_DNA2NProportionNorm), y = Nu
   geom_errorbar(aes(ymin=Nuclei_PA_Cycle_DNA2NProportionNorm-Nuclei_PA_Cycle_DNA2NProportionNorm_SE, ymax=Nuclei_PA_Cycle_DNA2NProportionNorm+Nuclei_PA_Cycle_DNA2NProportionNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized DNA 2N Proportion Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized DNA Proportion (Full dataset)")
+  ggtitle("MEPs Ordered by Normalized DNA Proportion")
 
 p <- p + geom_point(aes(y=Nuclei_PA_Cycle_DNA2NProportionNorm),colour = "blue", alpha = .5)
 
@@ -172,7 +172,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoT
   xlab("MEP")+ylab("Normalized MitoTracker Intensity Ratio")+
   geom_point(colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized MitoTracker Intensity with SE Bars (Full dataset)")
+  ggtitle("MEPs Ordered by Normalized MitoTracker Intensity with SE Bars")
 
 ggplotly(p)
 ```
@@ -225,14 +225,14 @@ rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
 
-try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
 
 ```
 
 
 ```{r EdUBoxplotsFull, fig.width=12, fig.height=5, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
 
-p <- ggplot(l4F, aes(x=Ligand, y=plogis(Nuclei_PA_Gated_EdUPositiveProportionNorm)))+
+p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionNorm))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
   coord_cartesian(ylim = c(0,.5))+
   guides(colour=FALSE)+
@@ -339,7 +339,7 @@ try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 dt <- l4
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = plogis(Nuclei_PA_Gated_EdUPositiveProportionNorm), colour = Ligand))+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = Nuclei_PA_Gated_EdUPositiveProportionNorm), colour = Ligand)+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("Lineage Ratio")+ylab("EdU Proliferation")+
