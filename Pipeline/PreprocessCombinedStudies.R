@@ -1,7 +1,7 @@
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
-# 3/2017
-
+# 2017
+## Example Command line call Rscript PreprocessCombinedStudies.R --verbose --inputPath syn7494072 --synapseStore syn5713302 HMEC122L_SS1 HMEC 122L_SS4
 library(MEMA)#merge, annotate and normalize functions
 library(parallel)#use multiple cores for faster processing
 library(RUVnormalize)
@@ -10,47 +10,111 @@ library(stringr)
 library(tidyr)
 library(readr)
 library(dplyr)
+suppressPackageStartupMessages(library(optparse))
+suppressPackageStartupMessages(library(synapseClient))
 
-#Command line args are positional and gathered as a character lost
-#
-processCommonSignalCommandLine <- function(x, path, k=256, verbose="FALSE"){
-  if(length(x)<2) stop("There must be studyName List and path arguments in the command line call.")
-  studyNameList <- x[1]
-  path <- x[2]
-  if((length(x)>2)) k <- x[3]
-  if((length(x)>3)) verbose <- x[4]
-  list(studyNameList, path, k, verbose)
+getCSCommandLineArgs <- function(){
+  option_list <- list(
+    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                help="Print extra output"),
+    make_option(c("-k", "--k"), type="integer", default=256,
+                help="Number of factors to use in RUV normalization [default %default]",
+                metavar="number"),
+    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
+                help="Path to local input data directory or Synapse ID for a File View."),
+    make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
+                help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
+  )
+  parser <- OptionParser(usage = "%prog [options] barcode file", option_list=option_list)
+  arguments <- parse_args(parser, positional_arguments = c(2, 3))
 }
 
-#callParams <- processCommonSignalCommandLine(c("HMEC122L_SS1,HMEC122L_SS4", "/lincs/share/lincs_user",256,TRUE))
-callParams <- processCommonSignalCommandLine(commandArgs(trailingOnly = TRUE))
-studyNameList <-lapply(unlist(str_split(callParams[[1]],",")), function(x){
-  return(x)
-})
-path <-callParams[[2]]
-k <- as.integer(callParams[[3]])
-verbose <- as.logical(callParams[[4]])
+###Debug
+cl <-list(options=list(verbose=TRUE,
+                       inputPath="syn7494072",
+                       k=256,
+                       synapseStore='syn5713302'),
+          args=c("HMEC122L_SS1","HMEC122L_SS4"))
+####
+#Get the command line arguments and options
+cl <- getCSCommandLineArgs()
+#Convert the command line arguments to a list of study names
+studyNameList <- as.list(cl$args)
+#Parse the command line options
+opt <- cl$options
+verbose <- opt$verbose
+k <- opt$k
+
 startTime <- Sys.time()
+suppressMessages(synapseLogin())
+#Get annotations from the level 3 files
+annotations <- rbindlist(lapply(studyNameList, function(studyName){
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
+                        cl$options$inputPath, studyName, 3)
+  levelRes <- synTableQuery(levelQuery)
+  levelRes@values
+}))
+#Check if any annotations contain more than one value 
+if(nrow(unique(annotations[,.(Study,Segmentation,Preprocess,DataType,Consortia,Drug)]))>1) stop("Cannot comnbine studies with mixed annotations")
+#Read the level 2 files for the studies
+level <- "2"
+dataPathsL <- lapply(studyNameList, function(studyName){
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
+                        cl$options$inputPath, studyName, level)
+  levelRes <- synTableQuery(levelQuery)
+  dataPaths <- sapply(levelRes@values$id,
+                      function(x) getFileLocation(synGet(x)))
+})
 
 #RUV and loess normalize the common DAPI signals
-l3 <- preprocessCommonSignalsLevel3(studyNameList, path, k, verbose)
+l3 <- preprocessCommonSignalsLevel3(paths = dataPathsL, k, verbose)
+
 #Get the level 3 raw and normalized data
-l3L <- lapply(studyNameList, function(studyName){
-  dt <- fread(unique(paste0(path,"/study/",studyName,"/Annotated/",studyName,"_Level3.tsv")), showProgress = FALSE)
+level <- "3"
+dataPathsL3 <- lapply(studyNameList, function(studyName){
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
+                        cl$options$inputPath, studyName, level)
+  levelRes <- synTableQuery(levelQuery)
+  dataPaths <- sapply(levelRes@values$id,
+                      function(x) getFileLocation(synGet(x)))
+})
+l3L <- lapply(dataPathsL3, function(dataPathL3){
+  dt <- fread(unique(paste0(dataPathL3)), showProgress = FALSE)
   return(dt)
 })
-#Make a list of datatables containing the staining set specific columns with BW and Spot
+
+#Make a list of datatables containing the staining set specific columns and BW and Spot
 sssL <- lapply(l3L, function(dt, l3){
   specificColumns <- c("BW","Spot",setdiff(colnames(dt),colnames(l3)))
   dt[,specificColumns, with=FALSE]
 },l3=l3)
 sssDT <- rbindlist(sssL, fill=TRUE)
+#merge the common signals and the staining set specific signals
 l3C <-sssDT[l3,on=c("BW","Spot")]
 
-#Write the normalized level3  data to disk
+#Write the normalized level3 data to disk
 message("Writing level 3 combined data to disk\n")
 studyNameSSC <- gsub("_.*","_SSC",studyNameList[[1]])
-write.table(l3C, paste0(path,"/study/",studyNameSSC,"/Annotated/",studyNameSSC,"_Level3.tsv"), sep = "\t",row.names = FALSE, quote=FALSE)
+if(verbose) message(paste("Writing level 3 file to disk\n"))
+ofname <- paste0("/tmp/",studyNameSSC,"_Level3.tsv")
+fwrite(l3C, file = ofname, sep = "\t", quote=FALSE)
+
+if(!is.null(cl$options$synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
+  synFile <- File(ofname, parentId=opt$synapseStore)
+  synSetAnnotations(synFile) <- list(CellLine = unique(annotations$CellLine),
+                                     Segmentation = unique(annotations$Segmentation),
+                                     Preprocess = unique(annotations$Preprocess),
+                                     DataType = unique(annotations$DataType),
+                                     Consortia = unique(annotations$Consortia),
+                                     Drug = unique(annotations$Drug),
+                                     Study = studyNameSSC,
+                                     StainingSet = "SSC",
+                                     Level = "3")
+  synFile <- synStore(synFile,
+                      used=names(unlist(dataPathsL)),
+                      forceVersion=FALSE)
+}
 
 #Summarize to the MEP_Drug_Drug1Conc level
 mepDT <- preprocessLevel4(l3C[,grep("Endpoint|StainingSet|395nm|488nm|555nm|640nm|750nm|1An$|2An$|3An$|LigandSet",colnames(l3C),value=TRUE,invert=TRUE), with=FALSE],seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
@@ -63,5 +127,24 @@ mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < 3
 
 message("Writing level 4 file to disk\n")
 write.table(mepDT, paste0(path,"/study/",studyNameSSC,"/Annotated/",studyNameSSC,"_Level4.tsv"), sep = "\t",row.names = FALSE, quote=FALSE)
+ofname <- paste0("/tmp/",studyNameSSC,"_Level4.tsv")
+fwrite(mepDT, file = ofname, sep = "\t", quote=FALSE)
+
+if(!is.null(cl$options$synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
+  synFile <- File(ofname, parentId=opt$synapseStore)
+  synSetAnnotations(synFile) <- list(CellLine = unique(annotations$CellLine),
+                                     Segmentation = unique(annotations$Segmentation),
+                                     Preprocess = unique(annotations$Preprocess),
+                                     DataType = unique(annotations$DataType),
+                                     Consortia = unique(annotations$Consortia),
+                                     Drug = unique(annotations$Drug),
+                                     Study = studyNameSSC,
+                                     StainingSet = "SSC",
+                                     Level = "4")
+  synFile <- synStore(synFile,
+                      used=names(unlist(dataPathsL)),
+                      forceVersion=FALSE)
+}
 
 message("Running time:",Sys.time()-startTime)
