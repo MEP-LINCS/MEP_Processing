@@ -575,16 +575,17 @@ suppressWarnings(print(p))
 A Principal Component Analysis can be used to evaluate the normalization process for plate and well effects.  
 
 ```{r createPCAModel}
+dt <- l4F
 nrPCs <- 9
 ###PCA Unbiased Analysis  
-PCFVNames <- grep("Norm|Loess",colnames(l4),value=TRUE)
+PCFVNames <- grep("Norm|Loess",colnames(dt),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ|Method",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4, scale= TRUE)
+l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = dt, scale= TRUE)
 
 #Extract the first PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4$Barcode, MEP = l4$MEP)
+l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)
 
 #Convert to dataframe for use in D3heatmap
 l4pcvDT <- data.frame(l4pcvDT)
