@@ -20,8 +20,8 @@ renderAnalysisReport <- function(path, studyName){
 }
 
 path <- "/lincs/share/lincs_user"
-studyName="HMEC122L_SS1"
+studyName="MCF10A_MEMA_V2"
 #tmp <- renderQACellReport(path, studyName)
 path <- "/lincs/share/lincs_user/study"
-#tmp <- renderQASpotMEPReport(path, studyName)
+tmp <- renderQASpotMEPReport(path, studyName)
 tmp <- renderAnalysisReport(path, studyName)
