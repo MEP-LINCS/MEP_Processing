@@ -30,13 +30,13 @@ getCommandLineArgs <- function(){
 }
 
 #Specify the command line options
-###Debug
-cl <-list(options=list(verbose=TRUE,
-                       excelMetadata=FALSE,
-                       local="/lincs/share/lincs_user/LI8X00641/Analysis",
-                       rawDataVersion="v2"),
-          args=c("LI8X00641",
-                 "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level1.tsv"))
+# ###Debug
+# cl <-list(options=list(verbose=TRUE,
+#                        excelMetadata=FALSE,
+#                        local="/lincs/share/lincs_user/LI8X00641/Analysis",
+#                        rawDataVersion="v2"),
+#           args=c("LI8X00641",
+#                  "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level1.tsv"))
 ####
 cl <- getCommandLineArgs()
 
@@ -70,7 +70,8 @@ if (verbose) message(paste("Processing plate:", barcode, "\n"))
 if (useAnnotMetadata) {
   #Build metadata file name list
   if(useSynapse){
-    metadataq <- sprintf("select id from syn8466225 WHERE DataType='Metadata' AND Barcode='%s'",barcode)
+    metadataq <- sprintf("select id from %s WHERE DataType='Metadata' AND Barcode='%s'",
+                         cl$options$inputPath, barcode)
     metadataTable <- synTableQuery(metadataq)@values
     metadataFiles <- lapply(metadataTable$id, synGet)
     metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
@@ -93,8 +94,8 @@ metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
 #Gather filenames and metadata of level 0 files
 if(useSynapse){
-  q <- sprintf("select id,name,Barcode,Level,Well,StainingSet,Location,Study from syn7800478 WHERE Level='0' AND Barcode='%s'",
-               barcode)
+  q <- sprintf("select id,Barcode,Level,Well,StainingSet,Location,Study from %s WHERE Level='0' AND Barcode='%s'",
+               cl$options$inputPath, barcode)
   rawFiles <- synTableQuery(q)
   dataBWInfo <- rawFiles@values
   
@@ -153,9 +154,8 @@ cDT <- gateCells(cDT)
 
 if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
-if(useSynapse){
-  annotatedFolder <- synStore(Folder(name='Annotated', parentId="syn4215176"))
-  synFile <- File(ofname, parentId=annotatedFolder@properties$id)
+if(!is.null(cl$options$synapseStore)){
+  synFile <- File(ofname, parentId=cl$options$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                      Barcode = barcode,
                                      Study = unique(cDT$Study),
