@@ -29,8 +29,6 @@ ofname <- cl$args[2]
 
 verbose <- cl$options$verbose
 if(file.exists(cl$options$inputPath)){
-
-
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
