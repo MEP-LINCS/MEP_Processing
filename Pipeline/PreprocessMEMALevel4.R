@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #author: "Mark Dane"
-# 2/2017
+# 2017
 
 library(MEMA)
 suppressPackageStartupMessages(library(optparse))
@@ -21,6 +21,7 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
+
 #Specify the command line options
 cl <- getCommandLineArgs()
 studyName <- cl$args[1]
@@ -28,6 +29,8 @@ ofname <- cl$args[2]
 
 verbose <- cl$options$verbose
 if(file.exists(cl$options$inputPath)){
+
+
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE

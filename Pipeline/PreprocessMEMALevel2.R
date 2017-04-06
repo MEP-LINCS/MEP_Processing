@@ -10,7 +10,7 @@ suppressPackageStartupMessages(library(optparse))
 
 # Get the command line arguments and options
 # returns a list with options and args elements
-getL2CommandLineArgs <- function(){
+getCommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
@@ -26,19 +26,11 @@ getL2CommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-# cl <-list(options=list(verbose=TRUE,
-#                        inputPath="syn7494072"),
-#           args=c("LI8X00641",
-#                  "/tmp/LI8X00641_Level2.tsv"))
-####
-cl <- getL2CommandLineArgs()
-
+cl <- getCommandLineArgs()
 barcode <- cl$args[1]
 ofname <- cl$args[2]
-
 opt <- cl$options
 verbose <- opt$verbose
-
 if(file.exists(opt$inputPath)){
   useSynapse <- FALSE
 } else {
