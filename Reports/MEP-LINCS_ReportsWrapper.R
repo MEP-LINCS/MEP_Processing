@@ -27,6 +27,9 @@ renderSSCAnalysisReports <- function(studyName, path){
 }
 
 path <- "/lincs/share/lincs_user"
+
+
+#tmp <- renderQACellReport(path, studyName)
 studyNames <- c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3")
 
 #res <- lapply(studyNames, renderQACellReport, path=path)

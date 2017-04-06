@@ -32,16 +32,20 @@ getCommandLineArgs <- function(){
 }
 
 #Specify the command line options
+
 cl <- getCommandLineArgs()
+
 studyName <- cl$args[1]
 ofname <- cl$args[2]
 opt <- cl$options
 verbose <- opt$verbose
+
 if(file.exists(cl$options$inputPath)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
 }
+
 k <- opt$k
 
 startTime <- Sys.time()

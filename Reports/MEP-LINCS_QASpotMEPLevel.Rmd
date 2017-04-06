@@ -10,6 +10,7 @@ library(magrittr)
 library(parallel)
 library(ggplot2)
 library(RColorBrewer)
+library(d3heatmap)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -35,6 +36,14 @@ lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
   l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
 
+#Shorten reagent names for display
+l3$Ligand <- gsub("-.*","",l3$Ligand)
+l4$Ligand <- gsub("-.*","",l4$Ligand)
+l3$ECMp <- gsub("_.*","",l3$ECMp)
+l4$ECMp <- gsub("_.*","",l4$ECMp)
+l3$ECMp <- MEMA:::compressHA(l3$ECMp)
+l4$ECMp <- MEMA:::compressHA(l4$ECMp)
+l3$MEP <- paste(l3$ECMp,l3$Ligand,sep="_")
 barcodes <- unique(l3$Barcode)
 l3 <- l3[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 
@@ -53,17 +62,17 @@ The MEP-LINCS `r CellLine` `r StainingSet` experiment was performed with cells g
 
 Intensity, position and morphology data are gathered for the nucleus and cytoplasm of each cell, merged with the experiment metadata, normalized, filtered and summarized. The dataset is organized into the four LINCS imaging categories as follows:
 
-Level 1 - Raw, annotated cell level data  
-Level 2 - Normalized, annotated cell data  
-Level 3 - Normalized, annotated data summarized to the spot level  
-Level 4 - Normalized, annotated data summarized to the replicate (MEP) level  
+Level 1 - Raw annotated cell level data  
+Level 2 - Raw annotated spot level data  
+Level 3 - Raw and normalized annotated spot level data  
+Level 4 - Raw and normalized replicate (MEP) level data  
 
 The data merging and analysis is done in R using open source software and is available at the GitHub repository https://github.com/MEP-LINCS/MEP_LINCS. 
 
 <br>
 
 ###QA Scoring of the dataset
-Each well is scored for even cell seeding according to the count of the DAPI-stained nuclei. A detailed explanation of the QA method is in the supplemental material. In brief, cell counts at the spot level and locally-averaged neighborhoods are used to score the wells and filter the dataset. QA Scores range from 0 to 1 and represent the proportion of the spots that have at least one cell and are not in low cell count neighborhoods.
+Each well is scored for even cell seeding according to the count of the DAPI-stained nuclei. A detailed explanation of the QA method is in the supplemental material. In brief, cell counts per spot and locally-averaged neighborhoods are used to score the wells and filter the dataset. QA Scores range from 0 to 1 and represent the proportion of the spots that have at least one cell and are not in low cell count neighborhoods.
 
 The following plots are pseudo images of each MEMA's spot cell count along with histograms of the loess model with its QA score. 
 
@@ -105,7 +114,7 @@ for (barcode in barcodes){
 <br>
 
 ###Spot Cell Count Boxplots
-Boxplots of the spot cell counts show the values stratified by plate and well. The blue line shows the dataset median. Each boxplot summarizes data from ~700 spots.     
+Boxplots of the spot cell counts show the values stratified by plate, well and ligand. The blue lines show the dataset median. Each boxplot summarizes data from ~700 spots.     
 
 ```{r SCCBoxplots, fig.height=5}
 
@@ -181,7 +190,7 @@ print(p)
 ```{r, child='MEP-LINCS_EdUText.Rmd', eval="Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(l3)}
 ```
 
-<br>
+
 
 ```{r rawEdUBoxplots, fig.height=5,  eval="Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(l3)}
 
@@ -223,7 +232,6 @@ print(p)
 ```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT5","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l3)))==0}
 ```
 
-<br>
 
 
 
@@ -238,7 +246,7 @@ p <- p + geom_hline(yintercept = median(l3$Cytoplasm_CP_Intensity_MedianIntensit
 print(p)
 
 ```
-<br>
+
 
 
 
@@ -255,11 +263,11 @@ print(p)
 ```
 
 
-```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd',eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT14","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l3)))==0}
+```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd', eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT14","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l3)))==0}
 
 ```
 
-<br>
+
 
 ```{r rawKrt14Boxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_KRT14" %in% colnames(l3)}
 
@@ -273,7 +281,7 @@ print(p)
 
 ```
 
-<br>
+
 
 
 ```{r rawKrt19Boxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_KRT19" %in% colnames(l3)}
@@ -289,7 +297,6 @@ print(p)
 ```
 
 
-<br>
 
 ```{r Filtering}
 #Remove the fiducial and blank data
@@ -319,8 +326,8 @@ l4F$Barcode[grepl(",",l4F$Barcode)] <- "Multiple"
 ```
 
 
-###Spot Cell Count QA
-The following figures show the raw and then normalized spot cell count values organized first by barcode and then by ligand. The barcode is replaced by the label "Multiple" when the values come from replicates that are in more than one plate.  
+###Spot Cell Count Normalization
+The following figures show the effects of the normalization. The data are organized first by barcode and then by ligand. The barcode is replaced by the label "Multiple" when the values come from replicates that are in more than one plate.  
 
 
 ```{r SCC_responseFull, fig.width=8,  fig.height=10, echo=FALSE, eval="Spot_PA_SpotCellCountNorm" %in% colnames(l4F)}
@@ -370,6 +377,8 @@ if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(l4F)))){
 suppressWarnings(print(p))
 ```
 
+###Curated Signals
+Depending on the staining set, selected signals are stratfied first by ligand and then by ECM protein. Each ligand boxplot contains data from pairing with all ECM proteins while each ECM protein boxplot conatins data from pairing with all ligands.   
 
 ```{r, fig.width=8,  fig.height=3.5}
 dt <- l4F
@@ -393,7 +402,7 @@ suppressWarnings(print(p))
 ```{r MitoTrackerHistogram, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
 
 setkey(l4,"Ligand")
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+geom_histogram(binwidth = .01)+
+p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+geom_histogram(binwidth = .1)+
   #geom_vline(xintercept = c(-2,2), colour = "blue")+
   ggtitle(paste("\n\n","MEP Normalized, MitoTracker Intensity Distribution"))+
   ylab("Count")+xlab("Normalized, MitoTracker Intensity")+
@@ -505,7 +514,9 @@ suppressWarnings(print(p))
 
 
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval="Cytoplasm_PA_Intensity_LineageRatioNorm" %in% colnames(l3)}
+
+```{r, child='MEP-LINCS_LineageText.Rmd', eval="Cytoplasm_PA_Intensity_LineageRatioNorm" %in% colnames(l3)}
+
 ```
 
 ```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}
@@ -567,16 +578,18 @@ suppressWarnings(print(p))
 ###PCA Analysis
 A Principal Component Analysis can be used to evaluate the normalization process for plate and well effects.  
 
-```{r, eval=FALSE}
+```{r createPCAModel}
+dt <- l4F
+nrPCs <- 9
 ###PCA Unbiased Analysis  
-PCFVNames <- grep("Norm|Loess",colnames(l4F),value=TRUE)
-PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
+PCFVNames <- grep("Norm|Loess",colnames(dt),value=TRUE)
+PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ|Method",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4F, scale= TRUE)
+l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = dt, scale= TRUE)
 
 #Extract the first PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
+l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)
 
 #Convert to dataframe for use in D3heatmap
 l4pcvDT <- data.frame(l4pcvDT)
@@ -585,7 +598,7 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 
 ```
 
-```{r PCAHeatmap, fig.height=8, fig.width=7, eval=FALSE}
+```{r PCAHeatmap, fig.height=8, fig.width=7}
 #Plot the heat map of the entire dataset
 d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
@@ -596,42 +609,42 @@ var <- l4PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
 barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main  = paste("PCA Scree Plot"))
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Barcode)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4F$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4$Barcode)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Barcode)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4$Barcode)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Well)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Well)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Well")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4F$Well)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4$Well)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Well")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Well)) +
+p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4$Well)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Well")+
   theme(legend.text=element_text(size = 6))+
@@ -639,7 +652,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4F$Well)) +
 print(p)
 
 if(grepl("SS1",StainingSet)){
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTrackerNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTrackerNorm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Total MitoTracker")+
     theme(legend.text=element_text(size = 6))+
@@ -647,7 +660,7 @@ if(grepl("SS1",StainingSet)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cells_CP_AreaShape_PerimeterNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cells_CP_AreaShape_PerimeterNorm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Perimeter ProportionStatus")+
     theme(legend.text=element_text(size = 6))+
@@ -655,7 +668,7 @@ if(grepl("SS1",StainingSet)){
   print(p)
 } else if (ss=="SS2|SSA"){
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Nuclei_CP_Intensity_MedianIntensity_EdURUVLoess)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Nuclei_CP_Intensity_MedianIntensity_EdURUVLoess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Median Intensity EdU")+
     theme(legend.text=element_text(size = 6))+
@@ -664,7 +677,7 @@ if(grepl("SS1",StainingSet)){
 } else if (ss=="SS3|SS4"){
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4F$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -672,21 +685,21 @@ if(grepl("SS1",StainingSet)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4F$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4F$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4F$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -696,39 +709,7 @@ if(grepl("SS1",StainingSet)){
 }
 ```
 
-```{r PCADatatable, cache=FALSE, eval=FALSE}
-datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5))
-#Extract the selectedPCs of each MEP into a matrix
 
-```
-
-
-
-```{r, eval=FALSE}
-
-
-###PCA Unbiased Analysis  on raw l3 data
-
-
-PCFVNames <- grep("Norm|Loess",colnames(l3F),value=TRUE)
-PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ",PCFVNames,invert = TRUE, value = TRUE)
-PCFVNames <- gsub("RUVLoess","", PCFVNames)
-tmp <- grep()
-
-#Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = l4F, scale= TRUE)
-
-#Extract the first PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
-
-#Convert to dataframe for use in D3heatmap
-l4pcvDT <- data.frame(l4pcvDT)
-rownames(l4pcvDT) <- l4pcvDT$MEP
-l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
-
-```
-
-<br>
 
 ##Supplemental Material
 

@@ -30,11 +30,21 @@ wellQAThresh <- unique(l3$QA_lowWellQAThreshold)
 lowRegionCellCountThreshold <- unique(l3$QA_lowRegionCellCountThreshold)
 lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
 barcodes <- sort(unique(l3$Barcode))
-CellLine =unique(l4$CellLine)
+annotations <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3Annotations.tsv"),header = FALSE)
+CellLine = annotations$V2[annotations$V1=="CellLine"]
+Preprocess = annotations$V2[annotations$V1=="Preprocess"]
+DataType = annotations$V2[annotations$V1=="DataType"]
+Consortia = annotations$V2[annotations$V1=="Consortia"]
+Drug = annotations$V2[annotations$V1=="Drug"]
+Segmentation = annotations$V2[annotations$V1=="Segmentation"]
+StainingSet = annotations$V2[annotations$V1=="StainingSet"]
+Level = annotations$V2[annotations$V1=="Level"]
 
+if(!Segmentation=="v1"){
   l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
   l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+}
 
 ```
 
@@ -46,7 +56,7 @@ CellLine =unique(l4$CellLine)
 <br>
 
 ##Introduction  
-The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The analyzed endpoints include DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. 
+The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The `r StainingSet` staining set includes, DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. The CP Pipeline `r Segmentation` performed the segmentation and the analysis pipeline is `r Preprocess`.
 
 Intensity, position and morphology data are gathered for each cell, merged with the experiment metadata, normalized with `r unique(l3$NormMethod)`, filtered and summarized. 
 
@@ -57,6 +67,14 @@ Intensity, position and morphology data are gathered for each cell, merged with 
 setkey(l3,ECMp)
 l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
 
+# #Remove failed QA wells
+# #Read in manually cureated list
+# PoorQualityWells <- read_excel("/graylab/share/dane/MEP-LINCS/PoorQualityWells.xlsx")
+# PoorQualityWells$QA_LowWellQA <- TRUE
+# l3F <- l3F[,QA_LowWellQA :=NULL]
+# l3F <- merge(l3F,PoorQualityWells,by=c("Barcode","Well"),all=TRUE)
+# l3F$QA_LowWellQA[is.na(l3F$QA_LowWellQA)]<-FALSE
+
 #Delete wells that have been flagged for low well quality
 l3F <- l3F[!l3F$QA_LowWellQA]
 l3F <- l3F[l3F$QAScore>wellQAThresh]
@@ -65,12 +83,13 @@ l3F <- l3F[l3F$QAScore>wellQAThresh]
 l3KeepNames <- grep("Barcode|Omero|CellLine|MEP|ECMp|Drug|Ligand|Array|QA|Barcode|Spot_PA_SpotCellCount|Nuclei_PA_Gated_EdUPositiveProportion|Cytoplasm_PA_Intensity_LineageRatio|Nuclei_PA_Cycle_DNA2NProportion|Spot_PA_ReplicateCount|Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker|Cytoplasm_CP_Intensity_MedianIntensity_KRT|Nestin",colnames(l3),value=TRUE)
 l3F <- l3F[,l3KeepNames, with=FALSE]
 
-l4F <- preprocessLevel4(l3F[,grep("Omero",colnames(l3F), value=TRUE, invert=TRUE), with=FALSE],  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin","Nestin","Caspase"))
+l4F <- preprocessLevel4(l3F,  seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin","Nestin","Caspase"))
 #Add in the barcodes for each MEP_Drug
 l4F <- addBarcodes(dt3 = l3F, dt4 = l4F)
 
-
 ```
+
+
 
 
 ##Spot Cell Count Analysis
@@ -87,7 +106,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountNorm), y = Spot_PA_Spot
   geom_errorbar(aes(ymin=Spot_PA_SpotCellCountNorm-Spot_PA_SpotCellCountNorm_SE, ymax=Spot_PA_SpotCellCountNorm+Spot_PA_SpotCellCountNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized Spot Cell Count")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized Spot Cell Count")
+  ggtitle("MEPs Ordered by Normalized Spot Cell Count (Full dataset)")
 
 p <- p + geom_point(aes(y=Spot_PA_SpotCellCountNorm),colour = "darkblue", alpha = .5)
 
@@ -113,6 +132,62 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 <br>
 
+##Interactive Datatables   
+The first datatable below shows the MEP summarized values while the second table shows the spot-level data. The spot-level datatable includes links to the images stored in OHSU's Omero database.  
+
+The tables can be sorted by the values in any column, filtered by any search term and adjusted to display from 5 to 100 rows.  
+
+A useful mining method to use the first table to identify a MEP of interest as this table uses robust methods to summarize the replicates, then view the individual replicate data and images in the second table.  
+
+<br> 
+
+
+```{r SCCTable}
+if(any(grepl("MitoTrackerNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm", "Spot_PA_ReplicateCount")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed MitoTracker Intnsity","Replicate Count")
+} else if(any(grepl("EdUPositiveProportionNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm", "Spot_PA_ReplicateCount")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Replicate Count")
+} else if(any(grepl("EdUPositiveProportionNorm",colnames(l4F)))&
+          any(grepl("MedianIntensity_CaspaseNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm","Nuclei_CP_Intensity_MedianIntensity_CaspaseNorm")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Caspase")
+} else if(any(grepl("EdUPositiveProportionNorm",colnames(l4F)))&
+          any(grepl("NestinNorm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm","Nuclei_CP_Intensity_MedianIntensity_NestinNorm")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed Nestin")
+} else if (any(grepl("EdUPositiveProportionNorm",colnames(l4F)))&
+          any(grepl("KRT5Norm",colnames(l4F)))){
+  colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm","Nuclei_PA_Gated_EdUPositiveProportionNorm","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed EdU+ Prop.","Normed KRT5")
+} else if (any(grepl("LineageRatioNorm",colnames(l4F)))){
+  if (CellLine=="MCF10A"){
+    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_PA_Intensity_LineageRatioNorm", "Spot_PA_ReplicateCount")
+    colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
+  }else{
+    colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount","Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_PA_Intensity_LineageRatioNorm", "Spot_PA_ReplicateCount")
+    colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Normed Lineage Ratio","Replicate Count")
+    
+  }
+} else {
+   colNames <- c("MEP", "ECMp", "Ligand", "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCount", "Nuclei_PA_Cycle_DNA2NProportionNorm", "Spot_PA_ReplicateCount")
+  colNamesDisplay <- c("MEP","ECMp","Ligand","Normed Spot Cell Count ","Spot Cell Count","Normed DNA 2N Prop.","Replicate Count")
+}
+
+dt <- setorder(l4F,-Spot_PA_SpotCellCountNorm)
+datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
+
+colNamesSpots <- c(colNames[1],"ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
+colNamesDisplaySpots <- c(colNamesDisplay[1],"ArrayRow","ArrayColumn","Image Link",colNamesDisplay[2:length(colNamesDisplay)])
+setkey(dt,"Ligand")
+
+dt <- setorder(l3F, -Spot_PA_SpotCellCountNorm)
+datatable(format(dt[,colNamesSpots, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
+
+```
+
+<br>
 
 ##DNA Content Analysis
 
@@ -128,7 +203,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Cycle_DNA2NProportionNorm), y = Nu
   geom_errorbar(aes(ymin=Nuclei_PA_Cycle_DNA2NProportionNorm-Nuclei_PA_Cycle_DNA2NProportionNorm_SE, ymax=Nuclei_PA_Cycle_DNA2NProportionNorm+Nuclei_PA_Cycle_DNA2NProportionNorm_SE), width=.01, colour="black") +
   xlab("MEP")+ylab("Normalized DNA 2N Proportion Ratio")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized DNA Proportion")
+  ggtitle("MEPs Ordered by Normalized DNA Proportion (Full dataset)")
 
 p <- p + geom_point(aes(y=Nuclei_PA_Cycle_DNA2NProportionNorm),colour = "blue", alpha = .5)
 
@@ -172,7 +247,7 @@ p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_CP_Intensity_MedianIntensity_MitoT
   xlab("MEP")+ylab("Normalized MitoTracker Intensity Ratio")+
   geom_point(colour = "green", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized MitoTracker Intensity with SE Bars")
+  ggtitle("MEPs Ordered by Normalized MitoTracker Intensity with SE Bars (Full dataset)")
 
 ggplotly(p)
 ```
@@ -225,14 +300,14 @@ rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
 
-try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
 
 ```
 
 
 ```{r EdUBoxplotsFull, fig.width=12, fig.height=5, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
 
-p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionNorm))+
+p <- ggplot(l4F, aes(x=Ligand, y=plogis(Nuclei_PA_Gated_EdUPositiveProportionNorm)))+
   geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(aes(colour=ECMp),size=rel(.4))+
   coord_cartesian(ylim = c(0,.5))+
   guides(colour=FALSE)+
@@ -339,7 +414,7 @@ try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 dt <- l4
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = Nuclei_PA_Gated_EdUPositiveProportionNorm), colour = Ligand)+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = plogis(Nuclei_PA_Gated_EdUPositiveProportionNorm), colour = Ligand))+
   geom_point(alpha=.5)+
   guides(colour=FALSE)+
   xlab("Lineage Ratio")+ylab("EdU Proliferation")+
@@ -347,6 +422,19 @@ p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = Nuclei_PA_Gat
 (gg <- ggplotly(p))
 ```
 
+##Unbiased Analysis
+
+The unbiased analysis method is:  
+Median summarize the cell level data at each spot  
+Normalize the spot level data using RUV and loess methods  
+Median summarize the normalized replicate spot values to the MEP level  
+Perform hierarchical clustering on a curated feature vector of MEP intensities and morphologies  
+
+The heatmap below is arranged by unsupervised clustering on the euclidean distance between the non-linearly compressed, scaled feature vectors. The rows are MEPs and the columns are the features. The squares are colored by the normalized MEP feature values.  
+
+Clicking and dragging will zoom in on a section. Double clicking on the zoomed image will return to the full heatmap. This enables identifying MEPS that elicit similar responses on endpoints of interest.  
+
+<br> 
 
 ```{r, eval=FALSE}
 
