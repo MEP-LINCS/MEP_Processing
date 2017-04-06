@@ -335,7 +335,7 @@ try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_
 ```
 
 
-```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=any(grepl("LineageRatioNorm",colnames(l4F)))}
+```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(l4)))& any(grepl("Nuclei_PA_Gated_EdUPositiveProportionNorm",colnames(l4)))}
 
 dt <- l4
 
