@@ -8,7 +8,7 @@ suppressPackageStartupMessages(library(optparse))
 
 # Get the command line arguments and options
 # returns a list with options and args elements
-getL4CommandLineArgs <- function(){
+getCommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
@@ -22,15 +22,7 @@ getL4CommandLineArgs <- function(){
 }
 
 #Specify the command line options
-###Debug
-cl <-list(options=list(verbose=TRUE,
-                       inputPath="/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level3.tsv"),
-          args=c("HMEC122L_SS1",
-                 "/lincs/share/lincs_user/study/HMEC122L_SS1/Annotated/HMEC122L_SS1_Level4.tsv")
-)
-####
-cl <- getL4CommandLineArgs()
-
+cl <- getCommandLineArgs()
 studyName <- cl$args[1]
 ofname <- cl$args[2]
 
@@ -58,7 +50,7 @@ if(useSynapse){
   
   dataPath <- getFileLocation(synGet(levelRes@values$id))
 } else {
-  dataPaths <- cl$options$inputPath
+  dataPath <- cl$options$inputPath
 }
 
 l3DT <- fread(dataPath)
