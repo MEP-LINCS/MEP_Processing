@@ -16,31 +16,32 @@ synapseMetadataDir <- "syn7213947"
 #functions
 getFilePaths <- function(x){
   path <-"/lincs/share/lincs_user/study"
-  filePath <- dir(paste0(path,"/",x$Study,"/Reports"), full.names = TRUE) %>%
-    grep(x$Report,.,value=TRUE)
+  filePath <- dir(paste0(path,"/",x[["Study"]],"/Reports"), full.names = TRUE) %>%
+    grep(x[["Report"]],.,value=TRUE)
   return(filePath)
 }
 
 #Define study and report level
 #Select datasets to upload
-studies <- data.frame(Study = tolower(rep(c("MCF10A_SS1",
+studies <- data.frame(Study = rep(c("MCF10A_SS1",
                                         "MCF10A_SS2",
                                         "MCF10A_SS3",
                                         "HMEC122L_SS1",
                                         "HMEC122L_SS4",
                                         "HMEC240L_SS1",
                                         "HMEC240L_SS4"
-),each=3)),
+),each=3),
 Report = c("Cell", "SpotMep", "Analysis"),
-stringsAsFactors=FALSE)[10:12,]
+stringsAsFactors=FALSE)
 
+#Get file paths from lincs server
+studies$FileName <- unlist(apply(studies, 1, getFilePaths))
 
 #get permlink from GitHub
-repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="master")
+repo <- getRepo("MEP-LINCS/MEP_LINCS", ref="branch", refName="develop")
 
 uploadReports <- function(x){
   path <- "/lincs/share/lincs_user/study"
-  dataDir <- paste("../QAReports/")
   dataFile <- unique(data.frame(CellLine=x$CellLine,
                                 Drug=x$Drug,
                                 Preprocess=x$Preprocess,
@@ -58,8 +59,7 @@ uploadReports <- function(x){
   uploadToSynapseReports(dataFile, used=used, parentId=synapseReportDir)
 }
 
-#Get file paths from lincs server
-studies$FileName <- apply(studies, 1, getFilePaths)
+
 
 #Get files used from Synpase
 synIDs <- synQuery(paste("select id, name, Level, CellLine, StainingSet, Study from file where parentId=='",  synapseAnnotatedDataDir,"'"))
