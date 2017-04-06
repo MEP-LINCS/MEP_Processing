@@ -28,19 +28,9 @@ getCommandLineArgs <- function(){
 }
 
 #Specify the command line options
-###Debug
-cl <-list(options=list(verbose=TRUE,
-                       excelMetadata=FALSE,
-                       local="/lincs/share/lincs_user/LI8X00641/Analysis",
-                       rawDataVersion="v2"),
-          args=c("LI8X00641",
-                 "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level1.tsv"))
-####
 cl <- getCommandLineArgs()
-
 barcode <- cl$args[1]
 ofname <- cl$args[2]
-
 opt <- cl$options
 verbose <- opt$verbose
 useAnnotMetadata <- !opt$excelMetadata

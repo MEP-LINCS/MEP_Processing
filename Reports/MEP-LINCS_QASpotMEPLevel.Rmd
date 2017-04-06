@@ -254,7 +254,9 @@ print(p)
 
 ```
 
-```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd', eval=grepl("SS6",StainingSet)}
+
+```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd',eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT14","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l3)))==0}
+
 ```
 
 <br>
@@ -388,7 +390,7 @@ suppressWarnings(print(p))
 
 
 
-```{r MitoTrackerHistogram, eval=grepl("SS1",StainingSet)}
+```{r MitoTrackerHistogram, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
 
 setkey(l4,"Ligand")
 p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+geom_histogram(binwidth = .01)+
@@ -399,7 +401,7 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+g
 suppressWarnings(print(p))
 ```
 
-```{r MitoTrackerByLigand, eval=grepl("SS1",StainingSet)}
+```{r MitoTrackerByLigand, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by Ligand"))+
@@ -409,7 +411,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r MitoTrackerByECMp, eval=grepl("SS1",StainingSet)}
+```{r MitoTrackerByECMp, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
@@ -420,7 +422,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r CaspaseHistogram, eval=grepl("SSD",StainingSet)}
+```{r CaspaseHistogram, eval="Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm" %in% colnames(l4)}
 
 setkey(l4,"Ligand")
 p <- ggplot(l4, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm))+geom_histogram(binwidth = .01)+
@@ -431,7 +433,7 @@ p <- ggplot(l4, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm))+geom_
 suppressWarnings(print(p))
 ```
 
-```{r CaspaseByLigand, eval=grepl("SSD",StainingSet)}
+```{r CaspaseByLigand, eval="Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm" %in% colnames(dt)}
 
 p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("MEP Normalized Caspase Intensity by Ligand"))+
@@ -441,7 +443,7 @@ suppressWarnings(print(p))
 
 ```
 
-```{r CaspaseByECMp, eval=grepl("SSD",StainingSet)}
+```{r CaspaseByECMp, eval="Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm" %in% colnames(dt)}
 
 p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm))+geom_boxplot()+
   ggtitle(paste("MEP Normalized Caspase Intensity by ECM Protein"))+
@@ -452,11 +454,11 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval=grepl("SS2|SS4|SS6|SSA",StainingSet)}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l4F)}
 ```
 
 
-```{r ProliferationHistogramFull, eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l3)}
+```{r ProliferationHistogramFull, eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l4F)}
 
 dt <- l4F
 
@@ -467,7 +469,7 @@ p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportionNorm))+geom_histogram
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationRawHistogram, eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l3)}
+```{r ProliferationRawHistogram, eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l4F)}
 
 dt <- l4F
 
@@ -503,7 +505,7 @@ suppressWarnings(print(p))
 
 
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval=grepl("SS3|SS4",StainingSet)}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval="Cytoplasm_PA_Intensity_LineageRatioNorm" %in% colnames(l3)}
 ```
 
 ```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}
