@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
 # 2017
@@ -25,7 +27,7 @@ getCommandLineArgs <- function(){
     make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
                 help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
   )
-  parser <- OptionParser(usage = "%prog [options] BARCODE OUTPUTFILE", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] STUDY STUDY [STUDY]", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = c(2, 3))
 }
 
