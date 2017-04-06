@@ -1,7 +1,7 @@
 #title: "MEP-LINCs Preprocessing"
 #author: "Mark Dane"
 # 2017
-## Example Command line call Rscript PreprocessCombinedStudies.R --verbose --inputPath syn7494072 --synapseStore syn5713302 HMEC122L_SS1 HMEC 122L_SS4
+
 library(MEMA)#merge, annotate and normalize functions
 library(parallel)#use multiple cores for faster processing
 library(RUVnormalize)
@@ -13,31 +13,24 @@ library(dplyr)
 suppressPackageStartupMessages(library(optparse))
 suppressPackageStartupMessages(library(synapseClient))
 
-getCSCommandLineArgs <- function(){
+getCommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
                 metavar="number"),
-    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
-                help="Path to local input data directory or Synapse ID for a File View."),
+    make_option(c("-i", "--inputSynID"), type="character", default=NULL, metavar="synID",
+                help="Synapse ID for a File View with input data."),
     make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
                 help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
   )
-  parser <- OptionParser(usage = "%prog [options] barcode file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] BARCODE OUTPUTFILE", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = c(2, 3))
 }
 
-###Debug
-cl <-list(options=list(verbose=TRUE,
-                       inputPath="syn7494072",
-                       k=256,
-                       synapseStore='syn5713302'),
-          args=c("HMEC122L_SS1","HMEC122L_SS4"))
-####
 #Get the command line arguments and options
-cl <- getCSCommandLineArgs()
+cl <- getCommandLineArgs()
 #Convert the command line arguments to a list of study names
 studyNameList <- as.list(cl$args)
 #Parse the command line options
@@ -50,17 +43,17 @@ suppressMessages(synapseLogin())
 #Get annotations from the level 3 files
 annotations <- rbindlist(lapply(studyNameList, function(studyName){
   levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
-                        cl$options$inputPath, studyName, 3)
+                        cl$options$inputSynID, studyName, 3)
   levelRes <- synTableQuery(levelQuery)
   levelRes@values
 }))
 #Check if any annotations contain more than one value 
-if(nrow(unique(annotations[,.(Study,Segmentation,Preprocess,DataType,Consortia,Drug)]))>1) stop("Cannot comnbine studies with mixed annotations")
+if(nrow(unique(annotations[,.(Segmentation,Preprocess,DataType,Consortia,Drug)]))>1) stop("Cannot combine studies with mixed annotations")
 #Read the level 2 files for the studies
 level <- "2"
 dataPathsL <- lapply(studyNameList, function(studyName){
   levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
-                        cl$options$inputPath, studyName, level)
+                        cl$options$inputSynID, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   dataPaths <- sapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
@@ -73,7 +66,7 @@ l3 <- preprocessCommonSignalsLevel3(paths = dataPathsL, k, verbose)
 level <- "3"
 dataPathsL3 <- lapply(studyNameList, function(studyName){
   levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
-                        cl$options$inputPath, studyName, level)
+                        cl$options$inputSynID, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   dataPaths <- sapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
@@ -126,7 +119,6 @@ mepDT <- addBarcodes(dt3 = l3C, dt4 = mepDT)
 mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < 3
 
 message("Writing level 4 file to disk\n")
-write.table(mepDT, paste0(path,"/study/",studyNameSSC,"/Annotated/",studyNameSSC,"_Level4.tsv"), sep = "\t",row.names = FALSE, quote=FALSE)
 ofname <- paste0("/tmp/",studyNameSSC,"_Level4.tsv")
 fwrite(mepDT, file = ofname, sep = "\t", quote=FALSE)
 
