@@ -32,19 +32,11 @@ getCommandLineArgs <- function(){
 }
 
 #Specify the command line options
-###Debug
-cl <-list(options=list(verbose=TRUE,
-                       inputPath="syn7494072",
-                       k=256,
-                       synapseStore='syn8555683'),
-          args=c("HMEC122L_SS1",
-                 "/tmp/HMEC122L_SS1_Level3.tsv"))
-####
+
 cl <- getCommandLineArgs()
 
 studyName <- cl$args[1]
 ofname <- cl$args[2]
-
 opt <- cl$options
 verbose <- opt$verbose
 

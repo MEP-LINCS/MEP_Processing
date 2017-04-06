@@ -262,7 +262,9 @@ print(p)
 
 ```
 
+
 ```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd', eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT14","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l3)))==0}
+
 ```
 
 
@@ -512,7 +514,9 @@ suppressWarnings(print(p))
 
 
 
+
 ```{r, child='MEP-LINCS_LineageText.Rmd', eval="Cytoplasm_PA_Intensity_LineageRatioNorm" %in% colnames(l3)}
+
 ```
 
 ```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}

@@ -2,54 +2,78 @@
 
 #author: "Mark Dane"
 
+library(MEMA)
+library(parallel)
+library(stringr)
+suppressPackageStartupMessages(library(synapseClient))
+suppressPackageStartupMessages(library(optparse))
+
 # Get the command line arguments and options
 # returns a list with options and args elements
-getL2CommandLineArgs <- function(){
+getCommandLineArgs <- function(){
   option_list <- list(
     make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
                 help="Print extra output"),
-    make_option(c("-l", "--local"), type="character", default=NULL,
-                help="Path to local input data directory if not using Synpase.")
+    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
+                help="Path to local input data directory or Synapse ID for a File View."),
+    make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
+                help="Store output file in Synapse directory (provide Synapse ID of Folder to store)."),
+    make_option(c("-r", "--rawDataVersion"), type="character", default=NULL,
+                help="Raw data version [default \"%default\"]")
+    
   )
-  parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] barcode file", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-library(MEMA)#merge, annotate and normalize functions
-library(parallel)#use multiple cores for faster processing
-library(stringr)
-suppressPackageStartupMessages(library(optparse))
-
-cl <-list(options=list(verbose=TRUE,
-                       local="/lincs/share/lincs_user/LI8X00641/Analysis"),
-          args=c("LI8X00641",
-                 "/lincs/share/lincs_user/LI8X00641/Analysis/LI8X00641_Level2.tsv"))
-####
-cl <- getL2CommandLineArgs()
-
+cl <- getCommandLineArgs()
 barcode <- cl$args[1]
 ofname <- cl$args[2]
-
 opt <- cl$options
 verbose <- opt$verbose
-if(is.null(opt$local)){
-  useSynapse <- TRUE
-} else {
+if(file.exists(opt$inputPath)){
   useSynapse <- FALSE
-  path <- opt$local
+} else {
+  useSynapse <- TRUE
 }
 
-if (verbose) message(paste("Summarizing cell to spot data for plate",barcode,"\n"))
+if (verbose) message(sprintf("Summarizing cell to spot data for plate %s", barcode))
 functionStartTime<- Sys.time()
 startTime<- Sys.time()
 seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
 
 #Read in the plate's cell level data
-if(useSynapse){
-  stop("Synapse not supported in level 2 yet")
-} else {
-  cDT <- fread(paste0(path,"/",barcode,"_Level1.tsv"))
+if (useSynapse) {
+  suppressMessages(synapseLogin())
+  level <- "1"
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,DataType,Study,Consortia,StainingSet,CellLine,Drug from %s WHERE Barcode="%s" AND Level="%s"',
+                        opt$inputPath, barcode, level)
+  levelRes <- synTableQuery(levelQuery)
+  
+  if (nrow(levelRes@values) > 1) {
+    stop(sprintf("Found more than one Level 1 file for barcode %s", barcode))
+  }
+
+  dataPath <- getFileLocation(synGet(levelRes@values$id))
+
+  imageIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ImageID"',
+                          opt$inputPath, barcode)
+  imageIdRes <- synTableQuery(imageIdQuery)
+  
+  if (nrow(imageIdRes@values) > 1) {
+    stop(sprintf("Found more than one ImageID file for barcode %s", barcode))
+  }
+  
+  imageIdPath <- getFileLocation(synGet(imageIdRes@values$id))
+  
+  } else {
+  dataPath <- paste0(opt$inputPath, "/",barcode, "_Level1.tsv")
+  imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
+  rawDataVersion <- opt$rawDataVersion
 }
+
+cDT <- fread(dataPath)
+omeroIds <- getOmeroIDs(imageIdPath)
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
@@ -79,14 +103,30 @@ if(exists("proportions")) {
 spotDT <- QASpotData(spotDT, lthresh = .6)
 
 #Merge in Omero imageID links
-spotDT <- merge(spotDT,getOmeroIDs(path, barcode),by=c("WellIndex","ArrayRow","ArrayColumn"))
+spotDT <- merge(spotDT, omeroIds,
+                by=c("WellIndex","ArrayRow","ArrayColumn"))
 
-if(verbose) message("Writing spot level data\n")
+if(verbose) message("Writing spot level data")
 writeTime<-Sys.time()
 fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 
-if(useSynapse){
-  stop("Synapse not supported in level 2 yet")
+if(!is.null(opt$synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
+  synFile <- File(ofname, parentId=opt$synapseStore)
+  synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
+                                     Barcode = barcode,
+                                     Study = levelRes@values$Study,
+                                     Preprocess = levelRes@values$Preprocess,
+                                     DataType = levelRes@values$DataType,
+                                     Consortia = levelRes@values$Consortia,
+                                     Drug = levelRes@values$Drug,
+                                     Segmentation = levelRes@values$Segmentation,
+                                     StainingSet = levelRes@values$StainingSet,
+                                     Level = "2")
+  
+  synFile <- synStore(synFile,
+                      used=c(levelRes@values$id, imageIdRes@values$id),
+                      forceVersion=FALSE)
 }
 
 if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
