@@ -89,7 +89,7 @@ l3C <-sssDT[l3,on=c("BW","Spot")]
 
 #Write the normalized level3 data to disk
 message("Writing level 3 combined data to disk\n")
-studyNameSSC <- gsub("_.*","_SSC",studyNameList[[1]])
+studyNameSSC <- gsub("_.*","_ssc",studyNameList[[1]])
 if(verbose) message(paste("Writing level 3 file to disk\n"))
 ofname <- paste0("/tmp/",studyNameSSC,"_Level3.tsv")
 fwrite(l3C, file = ofname, sep = "\t", quote=FALSE)
