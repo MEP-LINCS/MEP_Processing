@@ -1,0 +1,145 @@
+---
+title: "MCF10A EGF Titrate"
+author: "Mark Dane"
+date: "4/10/2017"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    source_code: embed
+---
+
+
+
+```{r "setup", include=FALSE}
+knitr::opts_chunk$set(fig.width=9, fig.height=6,
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+
+#Author: Mark Dane, copyright 2015-2017
+
+library(MEMA)
+library(magrittr)
+library(ggplot2)
+library(stringr)
+library(scales)
+
+
+path <- "/lincs/share/grossse/LI900402/Analysis/LI900402_Main.txt"
+studyName <- "mcf10a_egf_titrate"
+
+```
+
+
+```{r readGateSummarize, echo=FALSE}
+#Get and clean the cell level raw data from the server
+rd <- fread(paste0(path),verbose = FALSE, showProgress = FALSE) %>%
+  convertColumnNames() %>%
+  setnames("Well", "WellIndex")
+#Get the well level data from the server
+md <- MEMA:::getWellMetadata(fn = "/lincs/share/grossse/LI900402/Analysis/LI900402.xlsx")
+#Merge the data and metadata
+cell <- merge(md,rd,by="WellIndex")
+#Gate the EduIntensities into EdU+
+cell$EdUPositive <- 1
+cell$EdUPositive[cell$MeanIntensity650>16] <- 2
+
+cell$CellCycleState <- gateOnlocalMinima(cell$TotalIntensity377)
+cell <- cell[,WellCellCount := .N, by="Well"]
+cell <- cell[,EdUPositiveProportion := sum(EdUPositive==2)/WellCellCount, by="Well"]
+cell <- cell[,DNA2nProportion := sum(CellCycleState==1)/WellCellCount, by="Well"]
+
+#Summarize to the well level
+parameterNames <- grep("Intensity|Elongation|Perimeter|Area|Proportion|Count",colnames(cell),value = TRUE)
+well <- cell[, lapply(.SD, numericMedian), by = "Well",.SDcols = parameterNames] %>%
+  merge(md, by="Well")
+well <- well[,ArrayRow := factor(gsub("[[:digit:]]*","",Well),levels = c("H","G","F","E","D","C","B","A"))]
+well <- well[,ArrayColumn := as.integer(gsub("[[:alpha:]]","",Well))]
+
+```
+
+###Experiment Overview
+
+```{r cellCountLayout}
+
+
+ p <- ggplot(well, aes(x=ArrayColumn, y=as.factor(LigandConc), colour=WellCellCount))+
+  geom_point(size=18)+
+  scale_colour_gradient(low = "white", high = "red")+
+  guides(colour = guide_legend("Well Cell Count", keywidth = .5, keyheight = .5))+
+  ggtitle(paste("Well Cell Count for",studyName))+
+  xlab("")+ylab("EGF Concentration (ng/ml)")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
+ p
+ 
+ p <- ggplot(well, aes(x=ArrayColumn, y=as.factor(LigandConc), colour=EdUPositiveProportion))+
+  geom_point(size=18)+
+  scale_colour_gradient(low = "white", high = "red")+
+  guides(colour = guide_legend("EdU Positive Proportion", keywidth = .5, keyheight = .5))+
+  ggtitle(paste("EdU Positive Proportion for",studyName))+
+  xlab("")+ylab("EGF Concentration (ng/ml)")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
+ p
+ 
+ 
+```
+
+***
+
+###Cell Count and EdU+ Proportion Boxplots
+
+```{r boxplots}
+
+dt <- well
+p <- ggplot(dt, aes(x=as.factor(LigandConc), y=WellCellCount))+
+ geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+  labs(x="EGF Concentration (ng/ml)",
+       y="Well Cell Count",
+       title="Well Cell Count at EGF Concentrations")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+p <- p +  geom_jitter(aes(),size=rel(1),alpha=.5)
+p
+
+p <- ggplot(dt, aes(x=as.factor(LigandConc), y=EdUPositiveProportion))+
+ geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+  labs(x="EGF Concentration (ng/ml)",
+       y="EdU+ Proportion",
+       title="EdU+ Proportion at EGF Concentrations")+
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+p <- p +  geom_jitter(aes(),size=rel(1),alpha=.5)
+p
+```
+
+
+***
+
+###QA Plots
+
+```{r horseshoePlots}
+
+p <- ggplot(cell, aes(x=log2(TotalIntensity377), y=log2(MeanIntensity650), colour=EdUPositive))+
+  geom_point(size=rel(.2), alpha=.2)+
+  labs(x="Total DAPI Intensity (log2)",
+       y= "Mean EDU Intenisty (log2)",
+       title = "Cell Cycle based on EdU and DAPI")+
+  guides(colour=FALSE)+
+    facet_wrap(~LigandConc, labeller = labeller(LigandConc = label_both))
+p
+
+p <- ggplot(cell, aes(x=log2(TotalIntensity377)))+
+  geom_bar(binwidth = .01)+
+  labs(x="Total DAPI Intensity (log2)",
+       y= "count",
+       title = "Histogram of Total DAPI")+
+    facet_wrap(~LigandConc, labeller = labeller(LigandConc = label_both))
+p
+
+p <- ggplot(cell, aes(x=log2(MeanIntensity650)))+
+  geom_histogram(binwidth = .01)+
+  labs(x="Mean EdU Intensity (log2)",
+       y= "count",
+       title = "Histogram of Mean EdU Intensity (log2)")+
+    facet_wrap(~LigandConc, labeller = labeller(LigandConc = label_both))
+p
+```
+
+***
+EGF concentrations are in ng/ml
