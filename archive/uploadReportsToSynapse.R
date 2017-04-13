@@ -98,7 +98,7 @@ uploadReports <- function(x){
 }
 
 #Begin assembling file locations and annotations
-#Get all files in th eprerelease are on Synpase
+#Get all files in the prerelease on Synpase
 synIDs <- synTableQuery(sprintf('SELECT id,Level,StainingSet,Study,CellLine,Drug,Preprocess,Segmentation,DataType,Consortia from %s', synapsePreReleaseView))
 synIDs <- data.frame(synIDs@values)
 #Remove entities without STudy annotation
