@@ -17,12 +17,9 @@ getCommandLineArgs <- function(){
     make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
                 help="Path to local input data directory or Synapse ID for a File View."),
     make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
-                help="Store output file in Synapse directory (provide Synapse ID of Folder to store)."),
-    make_option(c("-r", "--rawDataVersion"), type="character", default=NULL,
-                help="Raw data version [default \"%default\"]")
-    
+                help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
   )
-  parser <- OptionParser(usage = "%prog [options] barcode file", option_list=option_list)
+  parser <- OptionParser(usage = "%prog [options] BARCODE OUTPUTFILE", option_list=option_list)
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
@@ -69,7 +66,6 @@ if (useSynapse) {
   } else {
   dataPath <- paste0(opt$inputPath, "/",barcode, "_Level1.tsv")
   imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
-  rawDataVersion <- opt$rawDataVersion
 }
 
 cDT <- fread(dataPath)
