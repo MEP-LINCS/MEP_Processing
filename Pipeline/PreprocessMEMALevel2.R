@@ -73,7 +73,7 @@ if (useSynapse) {
 }
 
 cDT <- fread(dataPath)
-omeroIds <- getOmeroIDs(imageIdPath)
+if(file.exists(imageIdPath)) omeroIds <- getOmeroIDs(imageIdPath)
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
@@ -100,10 +100,10 @@ if(exists("proportions")) {
 }
 
 #Set a threshold for the loess well level QA Scores
-spotDT <- QASpotData(spotDT, lthresh = .6)
+if(sum(c("ArrayRow","ArrayColumn") %in% colnames(spotDT))==2) spotDT <- QASpotData(spotDT, lthresh = .6)
 
 #Merge in Omero imageID links
-spotDT <- merge(spotDT, omeroIds,
+if(exists("omeroIDs")) spotDT <- merge(spotDT, omeroIds,
                 by=c("WellIndex","ArrayRow","ArrayColumn"))
 
 if(verbose) message("Writing spot level data")
