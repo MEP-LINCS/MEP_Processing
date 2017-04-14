@@ -13,6 +13,7 @@ There are five preprocessing scripts that each read in data and generate the nex
 <br>
 
 ####Raw to Level 1
+
 The PreprocessMEMACell.R script reads in one plate's data and metadata, merges them, gates some of the signals and writes out the results as Level 1 data in a tab-delimited file. The input data comes from an image segmentation pipeline. The metadata data comes from either OHSU's Annot (An!) database or from structured Excel files. The output can be written to the Synapse website or to a local server. Each row in the output file represents data from one cell in the experiment. The columns are either metadata about the cell, intensity and morphology measurements from the segmentation pipeline or derived features computed within the script. Help for the PreprocessMEMACell.R script is:
 
 
@@ -46,6 +47,7 @@ The required BARCODE command line argument identifies the plate to be processed.
 <br>
 
 ####Level 1 to Level 2
+
 PreprocessMEMALevel2.R reads in the Level 1 data and median summarizes it from the cell level to the spot level. Additionally, this script computes the proportions of cells in the gates. Help for the PreprocessMEMALevel2.R script is:  
 
 ```
@@ -71,6 +73,7 @@ The required command line arguments are the same as in PreprocessMEMACell.R.
 <br>
 
 ####Level 2 to Level 3
+
 PreprocessMEMALevel3.R reads in the Level 2 data and normalizes it to create Level 3 data. The RUVLoessResidual normalization method uses the k parameter to determine how many factors of unwanted variation to remove. The raw and normalized, spot-level data are written out in tab-delimited files where each row is a spot. Help for the PreprocessMEMALevel3.R script is:  
 
 ```
@@ -101,6 +104,7 @@ The required STUDY command line argument identifies the MEP-LINCS study to be pr
 <br>
 
 ####Level 3 to Level 4
+
 PreprocessMEMALevel4.R reads in the Level 3 data and median summarizes the replicates to create Level 4 data. The raw and normalized, replicate-level data are written out in tab-delimited files where each row contains values from one microenvironment perturbation or MEP. MEPs are combinations of ligands and ECM proteins, possibly with drugs. Help for the PreprocessMEMALevel4.R script is:  
 
 ```
@@ -127,6 +131,7 @@ The required command line arguments are the same as in PreprocessMEMALevel3.R.
 <br>
 
 ####Combined Staining Sets
+
 All MEP-LINCS datasets include DAPI to identify the nucleii. This generates replicates across the datasets that can be combined to cretae more robust signals. PreprocessCombinedStudies.R reads in the Level 2 data from 2 or 3 studies, normalizes the common intensity and morphology signals and then appends the unique level 3 signals from the rest of the datasets. This Level 3 data is then median summarized across the MEP replicates to create Level 4 data. The raw and normalized, Level 3 and Level 4 data are written out in tab-delimited files as staining set SSC. Help for the PreprocessCombinedStudies.R script is:  
 
 ```
