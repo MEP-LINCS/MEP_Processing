@@ -3,10 +3,12 @@
 This repository holds scripts and utilities to preprocess, QA, normalize and explore Microenvironment Microarray (MEMA) experiments. MEMAs are used in Oregon Health and Science's (OHSU) MEP-LINCS project. An overveiw of the project along with all data and protocols are avilable at https://www.synapse.org/#!Synapse:syn2862345/wiki/72486. These scripts are open souce R code that use the MEMA package available from https://github.com/MEP-LINCS/MEMA.
 
 The MEMA package includes vignettes that demonstrate how to run the pipeline on a subset of the data. The documentation below details how to use the scripts in this repository to genrate a full set of MEP-LINCS datasets and reports.  
+
+The Pipeline folder in the repo contains R and shell scripts used to generate the MEP-LINCS datasets. The Reports folder has R knitr scripts that generate MEP-LINCS QA and Analysis reports. These reports contain interactive elements that help explore the data.  
   
 <br>
   
-#### Preprocessing Scripts
+#### Pipeline Preprocessing Scripts
 
 There are five preprocessing scripts that each read in data and generate the next level. These scripts run from the command line with arguments that control their operation. Help on the scripts arguments is shown when including a -h or --help as a command line argument.
 
@@ -161,7 +163,11 @@ The required command line arguments are two or three study names as described in
 
 <br>
 
+#### Reports
+The \*.Rmd files in the Reports folder of this repo are sourced by the MEP-LINCS_ReportsWrapper.R or MEP-LINCSAnalysisStoryboardWrapper.R scripts when they are executed on a local sever containing the MEP-LINCS datasets. 
 
+#### archive and development
+The scripts in the archive and development folders are used during development and are not part of the formal pipeline release.  
 
 
 		
