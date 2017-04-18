@@ -48,7 +48,7 @@ uploadFileLevel0 <- function(x){
 }
 
 synapseLogin()
-synapseRawDataDir <- "syn8565039"
+synapseRawDataDir <- "syn9611756" #Pre-releaseYr3
 synapseAn2Study <- "syn8440875"
 
 #Select datasets to upload
@@ -75,7 +75,7 @@ datasetAnns <- rbind(
              Study=c("hmec122l_ss1","hmec122l_ss4","hmec122l_ssc"),
              stringsAsFactors=FALSE),
   data.frame(CellLine=rep(c("MCF10A"), 1),
-             StainingSet=c("SSJ"),
+             StainingSet=c("SSL"),
              Drug="none",
              Preprocess="av1.8",
              Segmentation="v2",
@@ -102,9 +102,8 @@ studyDT <- rbindlist(barcodesDT)
 #Add in the dataset annotations
 ssDatasets <- merge(datasetAnns,studyDT, by="Study")
 
-#Get raw data files form the local server
-##Debug select out only mcf10a_ss2
-fnames <- apply(ssDatasets[ssDatasets$Barcode %in% c("LI8X00802","LI8X00803","LI8X00804","LI8X00804"),], 1, function(x){
+#Get raw data files from the local server
+fnames <- apply(ssDatasets[ssDatasets$Barcode %in% c("LI8X00801","LI8X00802","LI8X00803","LI8X00804","LI8X00805","LI8X00806","LI8X00807","LI8X00808"),], 1, function(x){
   data.table(Study=x[["Study"]],
              CellLine=x[["CellLine"]],
              StainingSet =x[["StainingSet"]],
@@ -114,6 +113,7 @@ fnames <- apply(ssDatasets[ssDatasets$Barcode %in% c("LI8X00802","LI8X00803","LI
              Barcode =x[["Barcode"]],
              Path=dir(paste0("/lincs/share/lincs_user/",x[["Barcode"]],"/Analysis/",x[["Segmentation"]]),full.names = TRUE))
 })
+
 fnamesDT <- rbindlist(fnames)
 #Pull well and locations out of filenames
 fnamesDT$Well <- str_extract(fnamesDT$Path,"_[[:alpha:]][[:digit:]]{2}_") %>%

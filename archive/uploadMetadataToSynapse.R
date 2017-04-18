@@ -12,7 +12,7 @@ synapseLogin()
 synapseRawDataDir <- "syn8565039"
 synapseAnnotatedDataDir <- "syn5713302"
 synapseReportDir <- "syn4939350"
-synapseMetadataDir <- "syn7213947"
+synapseMetadataDir <- "syn9611754"
 synapsePreReleaseView <- "syn7494072"
 synapseAn2Study <- "syn8440875"
 
@@ -38,12 +38,21 @@ datasetAnns <- rbind(
              Preprocess="av1.8",
              Segmentation="v2",
              Study=c("hmec122l_ss1","hmec122l_ss4","hmec122l_ssc"),
+             stringsAsFactors=FALSE),
+  data.frame(CellLine=rep(c("MCF10A"), 1),
+             StainingSet=c("SSL"),
+             Drug="none",
+             Preprocess="av1.8",
+             Segmentation="v2",
+             Study=c("mcf10a_mema_v2"),
              stringsAsFactors=FALSE)
 )
 
 datasetAnns$Consortia <- "MEP-LINCS"
 datasetAnns$DataType <- "Metadata"
+datasetAnns$DataType <- "ImageID" #Comment this out if uploading an2omero files
 datasetAnns$Level <- "Metadata"
+datasetAnns$Level <- ""         #Comment this out if uploading an2omero files
 datasetAnns$Activity <- "Annotate Data"
 
 
@@ -64,7 +73,8 @@ studyDT <- rbindlist(barcodesDT)
 ssDatasets <- merge(datasetAnns,studyDT, by="Study")
 
 #Add the file paths on the lincs server
-ssDatasets$FileName <-  paste0("/lincs/share/lincs_user/",ssDatasets$Barcode,"/Analysis/",ssDatasets$Barcode,"_an2omero.csv")
+ssDatasets$FileName <-  paste0("/lincs/share/lincs_user/",ssDatasets$Barcode,"/Analysis/",ssDatasets$Barcode,"_an2omero.csv") #Comment this out if uploading an2omero files
+ssDatasets$FileName <-  paste0("/lincs/share/lincs_user/",ssDatasets$Barcode,"/Analysis/",ssDatasets$Barcode,"_imageIDs.tsv")
 
 #get permlink from GitHub
 repo <- getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="develop")
@@ -89,7 +99,8 @@ uploadToSynapse <- function(x, used, scriptLink, parentId) {
 }
 
 uploadFiles <- function(x){
-  dataFile <- unique(data.frame(Study=x$Study,
+  dataFile <- unique(data.frame(Barcode = x$Barcode,
+                                Study=x$Study,
                                 StainingSet=x$StainingSet,
                                 CellLine=x$CellLine,
                                 Drug=x$Drug,
@@ -105,5 +116,5 @@ uploadFiles <- function(x){
 }
 
 #Upload file with annotations, used files and executed script
-res <- dlply(ssDatasets,"Barcode", uploadFiles)
+res <- dlply(ssDatasets[ssDatasets$Study=="mcf10a_mema_v2",],"Barcode", uploadFiles)
 

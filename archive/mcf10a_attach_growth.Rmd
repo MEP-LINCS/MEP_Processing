@@ -32,19 +32,22 @@ studyNameG <- "MCF10A_Collagen_Growth"
 ```{r readWriteLevel3and4Data, echo=FALSE}
 
 l3A <- fread(paste0(path,"/",studyNameA,"/Annotated/",studyNameA,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
-l3A$Time <- "T16"
-l3A <- l3A[,Spot_PA_ReplicateCount :=NULL]
+l3A$Time <- "T0"
+l3A$Study <- studyNameA
 l3A <- l3A[!grepl("gelatin",l3A$ECMp),]
 l3A <- l3A[!l3A$ECMp=="",]
 l3G <- fread(paste0(path,"/",studyNameG,"/Annotated/",studyNameG,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
 l3G$Time <- "T0"
+l3G$Time[l3G$Barcode=="LI9V01702"] <-"T72"
+l3G$Study <- studyNameG
 l3G <- l3G[!grepl("gelatin",l3G$ECMp),]
 l3G <- l3G[!l3G$ECMp=="",]
-l3G$Time[l3G$Barcode=="LI9V01702"] <- "T72"
 
 l3 <- rbind(l3A,l3G)
-l3$PBSBase <- "Collagen"
-l3$PBSBase[grepl("PBS",l3$ECMp)] <- "PBS"
+
+l3$Base <- "COL1"
+l3$Base[grepl("PBS",l3$ECM1)] <- "PBS"
+l3$MEP_Base <- paste(l3$MEP,l3$Base,sep="_")
 
 ```
 
@@ -53,71 +56,68 @@ l3$PBSBase[grepl("PBS",l3$ECMp)] <- "PBS"
 ```{r cellCountLayout, fig.width=12,fig.height=8}
 
 
+dt <- unique(l3A[,.(Well, Ligand, Barcode, ECMp, Spot_PA_SpotCellCount, CellLine, MEP)])
+dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
+dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("H","G","F","E","D","C","B","A"))
+dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
+
 # p <- ggplot(l3, aes(x=ArrayColumn, y=ArrayRow, colour=Spot_PA_SpotCellCount))+
 #   geom_point(size=rel(2))+
 #   scale_y_reverse()+
-#   scale_x_continuous(breaks= c(min(l3$ArrayColumn),round(mean(c(min(l3$ArrayColumn),max(l3$ArrayColumn)))),max(l3$ArrayColumn)))+
+#   #scale_x_continuous(breaks= c(min(l3$ArrayColumn),round(mean(c(min(l3$ArrayColumn),max(l3$ArrayColumn)))),max(l3$ArrayColumn)))+
 #   scale_colour_gradient(low = "white", high = "red")+
-#   guides(colour = guide_legend("Spot Cell Count")+
+#   guides(colour = guide_legend("Spot Cell Count"))+
 #   ggtitle(paste("Spot Cell Count for",unique(l3$CellLine), "cells in plate",unique(l3$Barcode)))+
 #   xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))+
-#   facet_wrap(~Well, ncol=4)
+#   facet_grid(Barcode~Well)
 #  p
-#  
 
-dt <- unique(l3A[,.(Well, Ligand, Barcode, ECMp, Spot_PA_SpotCellCount, CellLine)])
+
+p <- ggplot(dt, aes(x=MEP, y=Spot_PA_SpotCellCount))+
+  geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+  coord_cartesian(ylim=c(0, 400))+
+  guides(colour = guide_legend("Spot Cell Count"))+
+  labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Counts for",unique(dt$CellLine), "cells in plate",unique(dt$Barcode)))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))
+p <- p +  geom_jitter(aes(),size=rel(.1),alpha=.2)
+p
+
+dt <- unique(l3G[,.(Well, Ligand, Barcode, ECMp, Time, Spot_PA_SpotCellCount, CellLine, MEP)])
 dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
 dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("H","G","F","E","D","C","B","A"))
 dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
 
- p <- ggplot(dt, aes(x=ECMp, y=Spot_PA_SpotCellCount))+
- geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+p <- ggplot(dt, aes(x=MEP, y=Spot_PA_SpotCellCount))+
+  geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+  coord_cartesian(ylim=c(0, 400))+
   guides(colour = guide_legend("Spot Cell Count"))+
-  labs(x = "ECM Protein", y="Spot Cell Count",title=paste("Spot Cell Counts After Overnight for",unique(dt$CellLine), "cells in plate",unique(dt$Barcode)))+
- theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
- p <- p +  geom_jitter(aes(),size=rel(.1),alpha=.2)
+  labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Count After Growth for",unique(dt$CellLine), "cells at Time 0 and 72 hours"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
+  facet_wrap(~Time)
+p <- p +  geom_jitter(aes(),size=rel(.1),alpha=.2)
 
+p
+
+dt <- l3[l3$Barcode=="LI9V01702",]
+  p <- ggplot(dt, aes(x=ECMp, y=Spot_PA_SpotCellCount, colour=factor(Ligand)))+
+ geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
+    coord_cartesian(ylim=c(0, 400))+
+  guides(colour = guide_legend("Ligand"))+
+  labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(l3$CellLine), "cells in the T72 Plate"))+
+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
+    facet_wrap(~Base)
  p
  
- dt <- unique(l3G[,.(Well, Ligand, Barcode, ECMp, Time, Spot_PA_SpotCellCount, CellLine)])
-dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
-dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("H","G","F","E","D","C","B","A"))
-dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
-
- p <- ggplot(dt, aes(x=ECMp, y=Spot_PA_SpotCellCount))+
+ dt <- l3[l3$Barcode=="LI9V01702",]
+   p <- ggplot(dt, aes(x=ECMp, y=Spot_PA_SpotCellCount, colour=factor(Base)))+
  geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
-  guides(colour = guide_legend("Spot Cell Count"))+
-  labs(x = "ECM Protein", y="Spot Cell Count",title=paste("Spot Cell Count After Growth for",unique(dt$CellLine), "cells at Time 0 and 72 hours"))+
- theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
-   facet_wrap(~Time)
- p <- p +  geom_jitter(aes(),size=rel(.1),alpha=.2)
-
+  coord_cartesian(ylim=c(0, 400))+
+  guides(colour = guide_legend("ECMP Base"))+
+  labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(l3$CellLine), "cells in the T72 Plate"))+
+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
+    facet_wrap(~Ligand)
  p
  
-  p <- ggplot(l3, aes(x=ECMp, y=Spot_PA_SpotCellCount, colour=factor(Time)))+
- geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
-  guides(colour = guide_legend("Time"))+
-  labs(x = "ECM Protein", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(l3$CellLine), "cells"))+
- theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
-
- p
- 
-   p <- ggplot(l3, aes(x=factor(Time), y=Spot_PA_SpotCellCount, colour=factor(ECMp)))+
- geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
-  guides(colour = guide_legend("ECMp"))+
-  labs(x = "Incubation Time", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(l3$CellLine), "cells"))+
- theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
-
- p
- 
-    p <- ggplot(l3, aes(x=factor(PBSBase), y=Spot_PA_SpotCellCount, colour=factor(ECMp)))+
- geom_boxplot(fill="transparent", outlier.colour = NA, alpha=.5)+
-  guides(colour = guide_legend("ECMp"))+
-  labs(x = "Base ECM Protein", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(l3$CellLine), "cells"))+
- theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
-      facet_wrap(~Time)
-
- p
  
 ```
 
