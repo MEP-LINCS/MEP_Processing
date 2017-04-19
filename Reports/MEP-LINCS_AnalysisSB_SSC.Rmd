@@ -58,11 +58,25 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
 #Read in the data.table that holds every spot in the cell line
 #and can be used to index to the images
-l3C <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"), showProgress = FALSE)
+#Get the level 3 raw and normalized data
+level <- "3"
+levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
+                        fileViewSynID, studyName, level)
+  levelRes <- synTableQuery(levelQuery)
+  dataPath <- getFileLocation(synGet(levelRes@values$id))
+l3C <- fread(unique(paste0(dataPath)), showProgress = FALSE)
+
 #Add Omero IDs
 l3C <-addOmeroIDs(l3C)
-#Read in the MEP-Level datasset for the cell line
-l4C <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"), showProgress = FALSE)
+
+#Get the level 4 raw and normalized data
+level <- "4"
+levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
+                        fileViewSynID, studyName, level)
+  levelRes <- synTableQuery(levelQuery)
+  dataPath <- getFileLocation(synGet(levelRes@values$id))
+l4C <- fread(unique(paste0(dataPath)), showProgress = FALSE)
+
 cellLine <- gsub("_SSC","",studyName)
 PCAOnly <- TRUE
 if(cellLine=="MCF10A"){
@@ -344,25 +358,20 @@ The scatterplot shows the first 2 principal components of all MEP signals, color
 `r NormNames ` 
 
 
-###MEP PCA Datatable enables sorting MEPs by their principal component values.
-
-```{r MEPPCADatatable}
-
-colNames <- c("MEP","PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9")
-colNamesDisplay <- c("MEP","PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9")
-
-dt <- setorder(dt,PC1)
-datatable(format(dt[, colNames, with=FALSE], digits=2, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
-
-```
-
 
 ```{r tSNEFBS_Data}
 #Need to remove FBS entries that are duplicated after normalization
 l4C$Ligand <- sub("FBS.*","FBS",l4C$Ligand)
 l4C$MEP <- sub("FBS.*","FBS",l4C$MEP)
 l4CU <- unique(l4C)
-data_matrix <- scale(as.matrix(l4CU[,NormNames, with=FALSE]))
+
+findInvalid <- function(dt){
+  unlist(lapply(dt, function(x){
+  any(is.na(x)|var(x)==0)
+}))
+}
+#remove features that contain NA values or have no variance
+data_matrix <- scale(as.matrix(l4CU[,NormNames, with=FALSE][,!findInvalid(l4CU[,NormNames, with=FALSE]),with=FALSE]))
 
 set.seed(1234)
 data_tsne <- Rtsne(data_matrix, perplexity = 15,check_duplicates = FALSE)

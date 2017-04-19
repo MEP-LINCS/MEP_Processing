@@ -23,7 +23,7 @@ l1DTL <- lapply(barcodes, function(barcode, path){
   set.seed(42)
   sd <- sd[sample(1:nrow(sd), size = .1*nrow(sd),replace = FALSE),]
 }, path=path)
-l1 <- rbindlist(l1DTL)
+l1 <- rbindlist(l1DTL, fill=TRUE)
 set.seed(42)
 l1S <- l1[sample(1:nrow(l1), sampleProportion*nrow(l1), replace = FALSE),]
 

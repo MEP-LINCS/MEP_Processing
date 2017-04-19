@@ -17,14 +17,12 @@ library(plotly)
 reAnnotatedDir <- "syn5706203"
 preAnnotatedDir <- "syn5713302"
 
-q <- sprintf("select  id,name,Level,StainingSet,Study,Preprocess from entity WHERE parentId =='%s' AND Level != '1' AND Level != '2' AND Level != 1", reAnnotatedDir)
+q <- sprintf("select  id,name,Level,StainingSet,Study,Preprocess from entity WHERE parentId =='%s' AND Level != '1' AND Level != '2' ", reAnnotatedDir)
 reFiles <- data.table(synQuery(q))
 
 q <- sprintf("select id,name,Level,StainingSet,Study,Preprocess from entity WHERE parentId =='%s' AND Level != '1' AND Level != '2' ", preAnnotatedDir)
 preFiles <- data.table(synQuery(q))
 
-#Define a study to compare signals in released and prerlease datasets
-studyName <- "hmec122l_ss4"
 
 # Download files, or get from cache if already downloaded
 reL4 <- lapply(reFiles$entity.id[tolower(reFiles$entity.Study)==studyName&reFiles$entity.Level=='4'], synGet)
@@ -42,8 +40,10 @@ preL4$Version <- "v1.8"
 #Change the names of signals to be compared to easily ID
 reL4$Spot_PA_SpotCellCountNorm_Release <- 2^reL4$Spot_PA_SpotCellCountLog2RUVLoess
 setnames(preL4, "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCountNorm_Prelease")
-reL4$Nuclei_PA_Gated_EdUPositiveProportionNorm_Release <- plogis(reL4$Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)
-setnames(preL4, "Nuclei_PA_Gated_EdUPositiveProportionNorm", "Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease")
+if("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess" %in% colnames(reL4)){
+  reL4$Nuclei_PA_Gated_EdUPositiveProportionNorm_Release <- plogis(reL4$Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)
+  setnames(preL4, "Nuclei_PA_Gated_EdUPositiveProportionNorm", "Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease")
+}
 
 l4C <- merge(reL4, preL4, by="MEP")
 
@@ -68,8 +68,11 @@ preL3$Version <- "v1.8"
 #Change the names of signals to be compared to easily ID
 reL3$Spot_PA_SpotCellCountNorm_Release <- 2^reL3$Spot_PA_SpotCellCountLog2RUVLoess
 setnames(preL3, "Spot_PA_SpotCellCountNorm", "Spot_PA_SpotCellCountNorm_Prelease")
-reL3$Nuclei_PA_Gated_EdUPositiveProportionNorm_Release <- plogis(reL3$Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)
-setnames(preL3, "Nuclei_PA_Gated_EdUPositiveProportionNorm", "Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease")
+if("Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess" %in% colnames(reL3)){
+  reL3$Nuclei_PA_Gated_EdUPositiveProportionNorm_Release <- plogis(reL3$Nuclei_PA_Gated_EdUPositiveProportionLogitRUVLoess)
+  setnames(preL3, "Nuclei_PA_Gated_EdUPositiveProportionNorm", "Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease")
+}
+
 
 l3C <- merge(reL3, preL3, by=c("Barcode","Well","Spot"))
 reL3$BWS <- paste(reL3$Barcode,reL3$Well,reL3$Spot,sep="_")
@@ -138,26 +141,26 @@ p
 
 if("Nuclei_PA_Gated_EdUPositiveProportion.x" %in% colnames(l3C)){
   p <- ggplot(l3C, aes(x=Nuclei_PA_Gated_EdUPositiveProportion.x, y=Nuclei_PA_Gated_EdUPositiveProportion.x, label=MEP.x))+
-  geom_point()+
-  labs(x="Release EdU Positive Gated Proportion",
-       y="Prerelease EdU Positive Gated Proportion",
-       title="Level 3 EdU Positive Gated Proportion")
-p
-
-p <- ggplot(l3C, aes(x=Nuclei_PA_Gated_EdUPositiveProportionNorm_Release, y=Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease, colour=WellRow))+
-  geom_point(alpha=.5)+
-  labs(x="Release Normalized EdU Positive Gated Proportion",
-       y="Prerelease Normalized EdU Positive Gated Proportion",
-       title="Level 3 Normalized EdU Positive Gated Proportion")
-print(p)
-
-p <- ggplot(l4C, aes(x=Nuclei_PA_Gated_EdUPositiveProportionNorm_Release, y=Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease, colour=Barcode.x))+
-  geom_point(alpha=.4)+
-  labs(x="Release Normalized EdU Positive Gated Proportion",
-       y="Prerelease Normalized EdU Positive Gated Proportion",
-       title="Level 4 Normalized EdU Positive Gated Proportion")
-
-p
+    geom_point()+
+    labs(x="Release EdU Positive Gated Proportion",
+         y="Prerelease EdU Positive Gated Proportion",
+         title="Level 3 EdU Positive Gated Proportion")
+  p
+  
+  p <- ggplot(l3C, aes(x=Nuclei_PA_Gated_EdUPositiveProportionNorm_Release, y=Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease, colour=WellRow))+
+    geom_point(alpha=.5)+
+    labs(x="Release Normalized EdU Positive Gated Proportion",
+         y="Prerelease Normalized EdU Positive Gated Proportion",
+         title="Level 3 Normalized EdU Positive Gated Proportion")
+  print(p)
+  
+  p <- ggplot(l4C, aes(x=Nuclei_PA_Gated_EdUPositiveProportionNorm_Release, y=Nuclei_PA_Gated_EdUPositiveProportionNorm_Prelease, colour=Barcode.x))+
+    geom_point(alpha=.4)+
+    labs(x="Release Normalized EdU Positive Gated Proportion",
+         y="Prerelease Normalized EdU Positive Gated Proportion",
+         title="Level 4 Normalized EdU Positive Gated Proportion")
+  
+  p
 }
 
 ```
