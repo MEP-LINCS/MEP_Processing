@@ -1,0 +1,167 @@
+---
+title: MEP-LINCS MCF10A_MEMA_V2 Ligand Nominations 
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+---
+
+
+```{r "setup", include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+
+#Author: Mark Dane, copyright 2015-2017
+
+library("ggplot2")
+library("data.table")
+library("MEMA")
+library("grid")
+library("knitr")
+library("gplots")
+library("RColorBrewer")
+library(DT)
+library(d3heatmap)
+library(plotly)
+library(readxl)
+library(Rtsne)
+####Debug
+
+path <- "/lincs/share/lincs_user/study"
+studyName <- c("MCF10A_MEMA_V2")
+
+#Setup colors for Barcode and text in all heatmaps
+selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
+plateCol = selDark2(8)
+hmcols<-colorRampPalette(c("blue","white","red"))(16)
+
+l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+
+k <- unique(l3$k)
+wellQAThresh <- unique(l3$QA_lowWellQAThreshold)
+lowRegionCellCountThreshold <- unique(l3$QA_lowRegionCellCountThreshold)
+lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
+barcodes <- sort(unique(l3$Barcode))
+CellLine <- unique(l4$CellLine)
+
+l3$OmeroDetailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+l3$OmeroThumbnailURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+l3$OmeroImageURL <- paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',l3$ImageID,'/"',' target="_blank">Omero</a>')
+
+```
+
+
+
+###Introduction  
+The LINCS `r studyName` experiment was performed with `r CellLine` cells grown in `r length(barcodes)` 8-well plates. The analyzed endpoints include DAPI, `r unique(l4$Endpoint488)`, `r unique(l4$Endpoint555)` and `r unique(l4$Endpoint647)`. Color images of the cells at each spot were gathered on a Nikon automated microscope. 
+
+Intensity, position and morphology data are gathered for each cell, merged with the experiment metadata, normalized with `r unique(l3$NormMethod)`, filtered and summarized. 
+
+
+```{r Filtering}
+
+#Remove the fiducial and blank data
+setkey(l3,ECMp)
+l3F <- l3[!grepl("fiducial|Fiducial|blank|PBS",l3$ECMp),]
+
+```
+
+***
+
+
+###Spot Cell Count Analysis
+
+
+
+
+```{r SCCByMEPFull, fig.width=10, fig.height=6}
+dt <- l3[grepl("COL1",ECMp),]
+p <- ggplot(dt, aes(x=Ligand, y=Spot_PA_SpotCellCount))+
+  geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(size=rel(.4), alpha=.25)+
+  coord_cartesian(ylim = c(0, 400))+
+  xlab("Ligand")+ylab("Raw Spot Cell Count")+
+  ggtitle("Ligand Spot Cell Count Response (Collagen I only)")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_hline(yintercept = median(dt$Spot_PA_SpotCellCount), color="blue")
+
+print(p)
+
+dt <- l3[grepl("COL1",ECMp),]
+p <- ggplot(dt, aes(x=Ligand, y=Spot_PA_SpotCellCountNorm))+
+  geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(size=rel(.4), alpha=.25)+
+  coord_cartesian(ylim = c(0, 400))+
+  xlab("Ligand")+ylab("Normalized Spot Cell Count")+
+  ggtitle("Ligand Normalized Spot Cell Count Response (Collagen I only)")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_hline(yintercept = median(dt$Spot_PA_SpotCellCountNorm), color="blue")
+
+print(p)
+
+```
+
+
+***
+Each dot is a cell count from one Collagen I spot paired with a ligand.  
+
+###EdU Analysis
+
+```{r EdUBoxplotsFull, fig.width=10, fig.height=6}
+
+dt <- l3[grepl("COL1",ECMp),]
+p <- ggplot(dt, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportion))+
+  geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(size=rel(.4), alpha=.25)+
+  coord_cartesian(ylim = c(0, .5))+
+  xlab("Ligand")+ylab("Raw EdU+ Proportion")+
+  ggtitle("Ligand EdU+ Proportion Response (Collagen I only)")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_hline(yintercept = median(dt$Nuclei_PA_Gated_EdUPositiveProportion), color="blue")
+
+print(p)
+
+dt <- l3[grepl("COL1",ECMp),]
+p <- ggplot(dt, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionNorm))+
+  geom_boxplot(outlier.colour = NA, fill=NA)+geom_jitter(size=rel(.4), alpha=.25)+
+  coord_cartesian(ylim = c(0, .5))+
+  xlab("Ligand")+ylab("Normalized EdU+ Proportion")+
+  ggtitle("Ligand Normalized EdU+ Proportion Response (Collagen I only)")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+
+p <- p + geom_hline(yintercept = median(dt$Nuclei_PA_Gated_EdUPositiveProportionNorm), color="blue")
+
+print(p)
+
+```
+
+***
+Each dot is a cell count from one Collagen I spot paired with a ligand.  
+
+
+###tSNE Analysis
+
+```{r createtSNE}
+dt <- l4[grepl("COL1",ECMp),]
+tSNEParameters <- grep("Nuclei_CP_AreaShape",colnames(l4), value=TRUE)
+data_matrix <- scale(as.matrix(l4[,tSNEParameters, with=FALSE]))
+
+set.seed(1234)
+data_tsne <- Rtsne(data_matrix, perplexity = 15)
+dtt <- cbind(dt,data_tsne$Y)
+```
+
+
+```{r plottSNE}
+
+p <- ggplot(dtt, aes_string(x="V1", y="V2", text="ECMp", colour = "Ligand"))+
+  geom_point(size=rel(.7), alpha=.8)+
+  ggtitle(paste("tSNE plot of Nuclear Morphology"))+
+  #scale_colour_gradient(low="black",high="red",oob = scales::squish)+
+  guides(colour =FALSE)
+ggplotly(p)
+
+```
+
+***
+

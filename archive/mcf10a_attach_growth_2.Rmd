@@ -120,7 +120,7 @@ dt1706 <- l3[l3$Barcode=="LI9V01706",]
   guides(colour = guide_legend("Ligand"))+
   labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(dt1706$CellLine), "cells in the T72 Plate"))+
  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
-    facet_wrap(~PlatingDensity,nrow = 8)
+    facet_wrap(~PlatingDensity,nrow = 8, labeller = "label_both")
  p
  
  dt1706 <- l3[l3$Barcode=="LI9V01706",]
@@ -129,7 +129,7 @@ dt1706 <- l3[l3$Barcode=="LI9V01706",]
   guides(colour = guide_legend("Ligand"))+
   labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Count for",unique(dt1706$CellLine), "cells in the T72 Plate"))+
  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
-    facet_wrap(~PlatingDensity,nrow = 8, scales = "free_y")
+    facet_wrap(~PlatingDensity,nrow = 8, scales = "free_y", labeller = "label_both")
  p
  
 dt <- unique(l3[,.(Well, Ligand, Barcode, ECMp, Spot_PA_SpotCellCount, CellLine, MEP, PlatingDensity, Time)])
@@ -143,7 +143,7 @@ p <- ggplot(dt, aes(x=MEP, y=Spot_PA_SpotCellCount))+
   guides(colour = guide_legend("Spot Cell Count"))+
   labs(x = "MEP", y="Spot Cell Count",title=paste("Spot Cell Count After Growth for",unique(dt$CellLine), "cells at Time 0 and 72 hours"))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))+
-  facet_grid(PlatingDensity~Time)
+  facet_grid(PlatingDensity~Time, labeller = "label_both")
 p <- p +  geom_jitter(aes(),size=rel(.1),alpha=.2)
 
 p

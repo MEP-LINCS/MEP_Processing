@@ -1,0 +1,193 @@
+---
+title: "Compare InCell and Cell Profiler Pipelines"
+author: "Mark Dane"
+date: "`r Sys.Date()`"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    source_code: embed
+---
+
+
+
+```{r "setup", include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,
+                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+
+#Author: Mark Dane, copyright 2015-2017
+
+library(MEMA)
+library(ggplot2)
+library(stringr)
+library(scales)
+library(plotly)
+
+
+pathIC <- "/lincs/share/lincs_user/incell96well"
+pathCP <- "/lincs/share/lincs_user"
+barcode <- "LI9V01702"
+studyName <- "MCF10A_Collagen_Growth"
+
+```
+
+
+```{r readData, echo=FALSE}
+
+l1IC <- fread(paste0(pathIC,"/",barcode,"/Analysis/",barcode,"_Level1.tsv"),verbose = FALSE, showProgress = FALSE)
+l1CP <- fread(paste0(pathCP,"/",barcode,"/Analysis/",barcode,"_Level1.tsv"),verbose = FALSE, showProgress = FALSE)
+l1IC$Pipeline <- "InCell"
+l1CP$Pipeline <- "CellProfiler"
+
+l2IC <- fread(paste0(pathIC,"/",barcode,"/Analysis/",barcode,"_Level2.tsv"),verbose = FALSE, showProgress = FALSE)
+l2CP <- fread(paste0(pathCP,"/",barcode,"/Analysis/",barcode,"_Level2.tsv"),verbose = FALSE, showProgress = FALSE)
+l2IC$Pipeline <- "InCell"
+l2CP$Pipeline <- "CellProfiler"
+
+l3IC <- fread(paste0(pathIC,"/study/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l3CP <- fread(paste0(pathCP,"/study/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l3IC$Pipeline <- "InCell"
+l3CP$Pipeline <- "CellProfiler"
+
+l4IC <- fread(paste0(pathIC,"/study/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+l4CP <- fread(paste0(pathCP,"/study/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+l4IC$Pipeline <- "InCell"
+l4CP$Pipeline <- "CellProfiler"
+
+l1 <- rbind(l1IC,l1CP, fill=TRUE)
+l2 <- rbind(l2IC,l2CP, fill=TRUE)
+l3 <- rbind(l3IC,l3CP, fill=TRUE)
+l4 <- rbind(l4IC,l4CP, fill=TRUE)
+
+l1$Base <- "COL1"
+l1$Base[grepl("PBS",l1$ECM1)] <- "PBS"
+l1$MEP_Base <- paste(l1$MEP,l1$Base,sep="_")
+l2$Base <- "COL1"
+l2$Base[grepl("PBS",l2$ECM1)] <- "PBS"
+l2$MEP_Base <- paste(l2$MEP,l2$Base,sep="_")
+l3$Base <- "COL1"
+l3$Base[grepl("PBS",l3$ECM1)] <- "PBS"
+l3$MEP_Base <- paste(l3$MEP,l3$Base,sep="_")
+l4$Base <- "COL1"
+l4$Base[grepl("PBS",l4$ECM1)] <- "PBS"
+l4$MEP_Base <- paste(l4$MEP,l4$Base,sep="_")
+
+addDNANorm <- function(x){
+  xDNA2nMedian <- median(x$Nuclei_CP_Intensity_IntegratedIntensity_Dapi[x$Nuclei_PA_Cycle_State==1])
+  xDNA2nNormed <- x$Nuclei_CP_Intensity_IntegratedIntensity_Dapi/xDNA2nMedian
+}
+
+l1 <- l1[,Nuclei_CP_Intensity_IntegratedIntensity_DapiNorm := addDNANorm(.SD), by="Pipeline", .SDcols=c("Nuclei_CP_Intensity_IntegratedIntensity_Dapi","Nuclei_PA_Cycle_State")]
+
+```
+
+###Histograms
+
+```{r cellCountLayout, fig.width=12,fig.height=8}
+
+dt <- l1[,.(Barcode,Well,Spot,Pipeline,Nuclei_CP_Intensity_IntegratedIntensity_Dapi,Nuclei_CP_Intensity_IntegratedIntensity_DapiNorm,Nuclei_CP_Intensity_MedianIntensity_Dapi,Nuclei_CP_AreaShape_Area)]
+dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
+dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("H","G","F","E","D","C","B","A"))
+dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
+
+p <- ggplot(dt[dt$Well %in% c("A06","B06","C06","D01","D06","E06","F06","G06","H06") & dt$Spot %in% c(1:64),], aes(x=Nuclei_CP_Intensity_IntegratedIntensity_DapiNorm))+
+  geom_histogram(binwidth = .01)+
+  coord_cartesian(xlim=c(0,4))+
+  facet_grid(Well~Pipeline)+
+  ggtitle(paste("Histograms of Normalized Total DAPI for selected wells of",unique(l1$CellLine), "cells in plate",unique(l1$Barcode)))+
+  xlab("Total DAPI")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
+p
+
+p <- ggplot(dt[dt$Well %in% c("A06","B06","C06","D01","D06","E06","F06","G06","H06") & dt$Spot %in% c(1:64),], aes(x=Nuclei_CP_AreaShape_Area))+
+  geom_histogram(binwidth = 10)+
+  #coord_cartesian(xlim=c(0,1e07))+
+  facet_grid(Well~Pipeline)+
+  ggtitle(paste("Histograms of Nuclear Area for selected wells of",unique(l1$CellLine), "cells in plate",unique(l1$Barcode)))+
+  xlab("Nucelar Area")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 5))
+p
+
+```
+
+***
+
+###Spot Cell Count Scatterplot
+
+```{r}
+dt <- l2[,.(Barcode, Well, Spot, MEP, Spot_PA_SpotCellCount,Pipeline, Nuclei_CP_Intensity_IntegratedIntensity_Dapi, Nuclei_CP_Intensity_MedianIntensity_Dapi, Nuclei_CP_AreaShape_Area)]
+dt$Well_Ligand <-paste(dt$Well,dt$Ligand,sep="_")
+dt$Barcode_Well_Spot <-paste(dt$Barcode,dt$Well,dt$Spot,sep="_")
+
+dt$WellRow <- factor(gsub("[[:digit:]]*","",dt$Well),levels = c("H","G","F","E","D","C","B","A"))
+dt$WellCol <- as.integer(gsub("[[:alpha:]]","",dt$Well))
+dtc <- dcast(dt,Barcode_Well_Spot~Pipeline,value.var = c("Spot_PA_SpotCellCount","Nuclei_CP_AreaShape_Area"))
+
+p <- ggplot(dtc, aes(x=Spot_PA_SpotCellCount_CellProfiler, y=Spot_PA_SpotCellCount_InCell, colour=Nuclei_CP_AreaShape_Area_CellProfiler, label=Barcode_Well_Spot))+
+  geom_point(alpha=.8)+
+  labs(x = "SpotCellCount CellProfiler", y="SpotCellCount InCell",title=paste("Comparing Spot Cell Counts for",unique(l4$CellLine), "cells in plate",unique(dt$Barcode)))+
+  guides(colour = guide_legend("Nuclear Area by CP"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))
+ggplotly(p)
+```
+
+***
+These comparisons use the well and spot locations to compare data that comes from the same spot.
+
+
+###Area Scatterplot
+
+```{r}
+p <- ggplot(dtc, aes(x=Nuclei_CP_AreaShape_Area_CellProfiler, y=Nuclei_CP_AreaShape_Area_InCell, label=Barcode_Well_Spot))+
+  geom_point(alpha=.8)+
+  labs(x = "Nuclear Area CellProfiler", y="Nuclear Area InCell",title=paste("Comparing Nuclear Area for",unique(l3$CellLine), "cells in plate",unique(dt$Barcode)))+
+  guides(colour = guide_legend("Nuclear Area by CP"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))
+ggplotly(p)
+
+ 
+```
+
+***
+
+These comparisons use the well and spot locations to compare data that comes from the same spot.
+
+
+###Cell Count MEP Level Comparisons
+
+
+
+```{r}
+dt <- l4[,.(MEP,Spot_PA_SpotCellCount,Pipeline,Nuclei_CP_Intensity_IntegratedIntensity_Dapi,Nuclei_CP_Intensity_MedianIntensity_Dapi,Nuclei_CP_AreaShape_Area)]
+dt <- dt[!(l4$MEP=="_NA"|l4$MEP=="_"),]
+
+dtc <- dcast(dt,MEP~Pipeline,value.var = c("Spot_PA_SpotCellCount","Nuclei_CP_AreaShape_Area"))
+
+
+p <- ggplot(dtc, aes(x=Spot_PA_SpotCellCount_CellProfiler, y=Spot_PA_SpotCellCount_InCell, colour=Nuclei_CP_AreaShape_Area_InCell, label=MEP))+
+  geom_point(alpha=.8)+
+  labs(x = "SpotCellCount CellProfiler", y="SpotCellCount InCell",title=paste("Comparing Spot Cell Counts for",unique(l4$CellLine), "cells in plate",unique(dt$Barcode)))+
+  guides(colour = guide_legend("Nuclear Area by IC"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))
+ggplotly(p)
+
+```
+
+***
+These comparisons use the MEP values to identify data from the same spots.
+
+
+###Area MEP-Level Comparisons
+
+```{r}
+p <- ggplot(dtc, aes(x=Nuclei_CP_AreaShape_Area_CellProfiler, y=Nuclei_CP_AreaShape_Area_InCell, label=MEP))+
+  geom_point(alpha=.8)+
+  labs(x = "Nuclear Area CellProfiler", y="Nuclear Area InCell",title=paste("Comparing Nuclear Area for",unique(l3$CellLine), "cells in plate",unique(dt$Barcode)))+
+  guides(colour = guide_legend("Nuclear Area by CP"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(1)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)), strip.text = element_text(size = 10))
+ggplotly(p)
+
+```
+
+***
+These comparisons use the MEP values to identify data from the same spots.
+
+
+
