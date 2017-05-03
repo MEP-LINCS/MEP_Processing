@@ -116,7 +116,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 ##DNA Content Analysis
 
-All cells are stained with DAPI and autogated as DNA 2N or 4N. The proportion of 2N and 4N cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV and loess normalized. Lower normalized values have smaller 2N populations and therefore larger 4N populations.
+All cells are stained with DAPI and autogated as DNA 2N or 4N. The proportion of 2N and 4N cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV and loess normalized then back transfomred to a proportion. Lower normalized values have smaller 2N populations and therefore larger 4N populations.
 
 <br>
 
@@ -202,7 +202,7 @@ dt <- l4F
 
 p <- ggplot(dt, aes(x =reorder(MEP, Nuclei_PA_Gated_EdUPositiveProportionNorm), y = Nuclei_PA_Gated_EdUPositiveProportionNorm))+
   geom_errorbar(aes(ymin=Nuclei_PA_Gated_EdUPositiveProportionNorm-Nuclei_PA_Gated_EdUPositiveProportionNorm_SE, ymax=Nuclei_PA_Gated_EdUPositiveProportionNorm+Nuclei_PA_Gated_EdUPositiveProportionNorm_SE), width=.01, colour="black") +
-  xlab("MEP")+ylab("Normalized EdU+ Proportion Logit")+
+  xlab("MEP")+ylab("Normalized EdU+ Proportion")+
   geom_point(colour = "red", alpha = .5)+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized EdU+ Proportion")

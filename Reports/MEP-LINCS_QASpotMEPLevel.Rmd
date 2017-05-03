@@ -579,6 +579,16 @@ suppressWarnings(print(p))
 A Principal Component Analysis can be used to evaluate the normalization process for plate and well effects.  
 
 ```{r createPCAModel}
+createPCAModel <- function(dt,fvNames,verbose=FALSE){
+  #delete any non-varying signals that cannot be scaled to unit variance
+  stdDevs <- apply(dt[,fvNames, with=FALSE], 2, sd)
+  if(any(stdDevs==0)&verbose)  cat(paste("Deleting",fvNames[stdDevs==0], "due to 0 variance\n"))
+  fvNames <- fvNames[!stdDevs==0]
+  PCAModel <- prcomp(as.formula(paste(" ~ ", paste(fvNames, collapse = "+"))), data = dt, scale.= TRUE)
+  rownames(PCAModel$x)<-paste(dt$MEP,gsub("LI8X00","",dt$Barcode), sep="_")
+  return(PCAModel)
+}
+
 dt <- l4F
 nrPCs <- 9
 ###PCA Unbiased Analysis  
@@ -586,7 +596,7 @@ PCFVNames <- grep("Norm|Loess",colnames(dt),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ|Method",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))), data = dt, scale= TRUE)
+l4PCAModel <- createPCAModel(dt,PCFVNames)
 
 #Extract the first PCs of each MEP into a matrix
 l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)

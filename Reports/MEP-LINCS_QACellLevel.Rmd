@@ -2,6 +2,7 @@
 ```{r "setup", include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8,echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
 
+library(rmarkdown)
 library(MEMA)
 library(magrittr)
 library(stringr)
@@ -13,7 +14,7 @@ library(RColorBrewer)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-sampleProportion <- .2
+sampleProportion <- .5
 ```
 
 ```{r readLevel1Data}
@@ -28,8 +29,8 @@ set.seed(42)
 l1S <- l1[sample(1:nrow(l1), sampleProportion*nrow(l1), replace = FALSE),]
 
 l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
-l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode,Well"]
-l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode,Well"]
+l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode"]
+l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode"]
 #Determine number of rows in the plate for figures
 nrPlateRow <- length(unique(str_extract(l1S$Well,"[[:alpha:]]")))
 CellLine <- unique(l1S$CellLine)
