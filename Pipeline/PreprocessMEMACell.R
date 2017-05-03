@@ -111,6 +111,13 @@ if("Nuclei" %in% dataBWInfo$Location) { #Cell Profiler data
   stop("Only data from Cell Profiler or INCell pipelines are supported")
 }
 
+#Detect 96 well CP data and assign well and spot values
+if(any(grepl("Row",dtL[[1]]$Well,ignore.case = TRUE))){
+  dtL <- lapply(dtL, formatCP96Well,
+                   nrArrayRows= max(metadata$ArrayRow),
+                   nrArrayColumns = max(metadata$ArrayColumn))
+} 
+
 #Clean up legacy issues in column names and some values
 dtL <- lapply(dtL, cleanLegacyIssues)
 
@@ -157,3 +164,4 @@ if(!is.null(cl$options$synapseStore)){
 }
 
 if(verbose) message(paste("Elapsed time:", Sys.time()-scriptStartTime, "\n"))
+
