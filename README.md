@@ -166,8 +166,5 @@ The required command line arguments are two or three study names as described in
 #### Reports
 The \*.Rmd files in the Reports folder of this repo are sourced by the MEP-LINCS_ReportsWrapper.R or MEP-LINCSAnalysisStoryboardWrapper.R scripts when they are executed on a local sever containing the MEP-LINCS datasets. 
 
-#### archive and development
-The scripts in the archive and development folders are used during development and are not part of the formal pipeline release.  
-
 
 		
