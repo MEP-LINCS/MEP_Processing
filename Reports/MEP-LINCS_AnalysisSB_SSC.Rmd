@@ -173,7 +173,9 @@ dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionNorm)
 datatable(format(dt[, colNames, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 ```
 
-###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values. Each spot's image is displayed by clicking on the Omero link (OHSU Gray Lab Omero account needed).  
+###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values.
+Images can be viewed by clicking on the Image Link (Gray lab Omero account needed).  
+
 
 ```{r}
 #Setup for spots to display images
