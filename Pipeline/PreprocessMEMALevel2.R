@@ -99,7 +99,7 @@ if(exists("proportions")) {
 if(sum(c("ArrayRow","ArrayColumn") %in% colnames(spotDT))==2) spotDT <- QASpotData(spotDT, lthresh = .6)
 
 #Merge in Omero imageID links
-if(exists("omeroIDs")) spotDT <- merge(spotDT, omeroIds,
+if(exists("omeroIDs")) spotDT <- merge(spotDT, omeroIDs,
                 by=c("WellIndex","ArrayRow","ArrayColumn"))
 
 if(verbose) message("Writing spot level data")
