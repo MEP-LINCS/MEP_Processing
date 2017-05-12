@@ -1,0 +1,3 @@
+##Normalization
+
+Each signal of the dataset was first independently normalized between arrays using the RUV method with the array as the unit of study and spatial residuals as the negative controls. Then each array was loess normalized using the row and colum positions and the resiudlas from the median of each set of replicates.  
