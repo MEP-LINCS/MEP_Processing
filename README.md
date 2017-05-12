@@ -6,7 +6,9 @@ The MEMA package includes vignettes that demonstrate how to run the pipeline on 
 
 The Pipeline folder in the repo contains R and shell scripts used to generate the MEP-LINCS datasets. The Reports folder has R knitr scripts that generate MEP-LINCS QA and Analysis reports. These reports contain interactive elements that help explore the data.  
   
-<br>
+#### Dependencies
+
+This pipeline uses version 1.0.0 of the `MEMA` package (https://github.com/MEP-LINCS/MEMA/releases/tag/v1.0.0).
   
 #### Pipeline Preprocessing Scripts
 
