@@ -165,7 +165,7 @@ This data is RUV and loess normalized and then summarized across all staining se
 
 
 ```{r datatable}
-
+dt <- l4C
 colNames <- c("MEP","Nuclei_PA_Gated_EdUPositiveProportionNorm", "Spot_PA_SpotCellCountNorm", "Nuclei_PA_Cycle_DNA2NProportionNorm","Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm","Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm")
 colNamesDisplay <- c("MEP","Normed EdU+ Prop.","Normed SCC","Normed DNA 2n Prop.", "Normed KRT5", "Normed MitoTracker")
 
@@ -173,19 +173,20 @@ dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionNorm)
 datatable(format(dt[, colNames, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 ```
 
-###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values.
-Images can be viewed by clicking on the Image Link (Gray lab Omero account needed).  
+
+###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values.Images can be viewed by clicking on the Image Link (Gray lab Omero account needed).  
 
 
 ```{r}
 #Setup for spots to display images
-dt <- l3C[!grepl("NID1|ELN",l3C$ECMp),]
+dt <- l3C
 colNamesSpots <- c(colNames[1],"Barcode","Well","ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
 colNamesDisplaySpots <- c(colNamesDisplay[1],"Barcode","Well","ArrayRow","ArrayColumn","Image Link",colNamesDisplay[2:length(colNamesDisplay)])
 dt <- setorder(dt, -Nuclei_PA_Gated_EdUPositiveProportionNorm)
 datatable(format(dt[,colNamesSpots, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
 
 ```
+
 
 ###KRT5 Intensity Lineage Boxplots
 
