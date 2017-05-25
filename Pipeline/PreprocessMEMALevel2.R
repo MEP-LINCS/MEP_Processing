@@ -50,26 +50,37 @@ if (useSynapse) {
   if (nrow(levelRes@values) > 1) {
     stop(sprintf("Found more than one Level 1 file for barcode %s", barcode))
   }
-
+  
   dataPath <- getFileLocation(synGet(levelRes@values$id))
-
+  
   imageIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ImageID"',
                           opt$inputPath, barcode)
   imageIdRes <- synTableQuery(imageIdQuery)
   
+  clarionIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ClarionID"',
+                            opt$inputPath, barcode)
+  clarionIdRes <- synTableQuery(clarionIdQuery)
+  
   if (nrow(imageIdRes@values) > 1) {
     stop(sprintf("Found more than one ImageID file for barcode %s", barcode))
   }
-  
   imageIdPath <- getFileLocation(synGet(imageIdRes@values$id))
   
-  } else {
+  if (nrow(clarionIdRes@values) == 1)   clarionIdPath <- getFileLocation(synGet(clarionIdRes@values$id))
+
+    
+} else {
   dataPath <- paste0(opt$inputPath, "/",barcode, "_Level1.tsv")
   imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
 }
 
 cDT <- fread(dataPath)
 if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
+if(file.exists(clarionIdPath)){
+  clarionIDs <- getOmeroIDs(clarionIdPath)
+  setnames(clarionIDs, "ImageID", "ClarionID")
+  levelRes@values$Preprocess <- paste0(levelRes@values$Preprocess,".1")
+} 
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
@@ -100,7 +111,10 @@ if(sum(c("ArrayRow","ArrayColumn") %in% colnames(spotDT))==2) spotDT <- QASpotDa
 
 #Merge in Omero imageID links
 if(exists("omeroIDs")) spotDT <- merge(spotDT, omeroIDs,
-                by=c("WellIndex","ArrayRow","ArrayColumn"))
+                                       by=c("WellIndex","ArrayRow","ArrayColumn"))
+#Merge in Clarion imageID links
+if(exists("clarionIDs")) spotDT <- merge(spotDT, clarionIDs,
+                                       by=c("WellIndex","ArrayRow","ArrayColumn"))
 
 if(verbose) message("Writing spot level data")
 writeTime<-Sys.time()
