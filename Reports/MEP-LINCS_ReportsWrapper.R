@@ -47,7 +47,7 @@ res <- lapply(studyNames,renderQASpotMEPReport, path=path)
 #res <- renderAnalysisReport("MCF10A_SS2",path)
 res <- lapply(studyNames,renderAnalysisReport, path=path)
 
-SSCStudyNames <- c("MCF10A_SSC","HMEC122L_SSC","HMEC240L_SSC")
+SSCStudyNames <- c("MCF10A_SSC","HMEC122L_SSC","HMEC240L_SSC")[c(1,3)]
 #res <- renderSSCAnalysisReports("HMEC240L_SSC", path, fileViewSynID="syn7494072")
-res <- lapply(SSCStudyNames,renderSSCAnalysisReports, path=path, fileViewSynID="syn7494072")
+res <- lapply(SSCStudyNames,renderSSCAnalysisReports, path=path, fileViewSynID="syn9612057")
 #res <- lapply(tolower(studyNames),renderComparePipelines, path=path)

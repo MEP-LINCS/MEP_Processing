@@ -48,7 +48,9 @@ library(RUVnormalize)
 library(ruv)
 library(Rtsne)
 library(XLConnect)
+library(synapseClient)
 
+synapseLogin()
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))

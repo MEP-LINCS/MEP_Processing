@@ -72,6 +72,7 @@ if (useSynapse) {
 } else {
   dataPath <- paste0(opt$inputPath, "/",barcode, "_Level1.tsv")
   imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
+  clarionIdPath <- paste0(opt$inputPath, "/",barcode, "_clarionIDs.tsv")
 }
 
 cDT <- fread(dataPath)
@@ -120,7 +121,7 @@ if(verbose) message("Writing spot level data")
 writeTime<-Sys.time()
 fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 
-if(!is.null(opt$synapseStore)) {
+if(!is.null(cl$options$synapseStore)){
   if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
