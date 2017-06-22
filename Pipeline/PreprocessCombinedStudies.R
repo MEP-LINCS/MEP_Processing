@@ -112,7 +112,7 @@ if(!is.null(cl$options$synapseStore)) {
 }
 
 #Summarize to the MEP_Drug_Drug1Conc level
-mepDT <- preprocessLevel4(l3C[,grep("Endpoint|StainingSet|395nm|488nm|555nm|640nm|750nm|1An$|2An$|3An$|LigandSet|ClarionID|Omero",colnames(l3C),value=TRUE,invert=TRUE), with=FALSE],seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
+mepDT <- preprocessLevel4(l3C[,grep("Endpoint|StainingSet|395nm|488nm|555nm|640nm|750nm|1An$|2An$|3An$|LigandSet",colnames(l3C),value=TRUE,invert=TRUE), with=FALSE],seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin"))
 
 #Add in the barcodes for each MEP_Drug
 mepDT <- addBarcodes(dt3 = l3C, dt4 = mepDT)

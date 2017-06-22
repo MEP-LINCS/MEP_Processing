@@ -12,7 +12,6 @@ library(tidyr)
 library(readr)
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(optparse))
-library(githubr)
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -64,7 +63,7 @@ if(useSynapse){
                       function(x) getFileLocation(synGet(x)))
   
 } else {
-  barcodes <- getBarcodes(studyName, synId = "syn9946943")
+  barcodes <- getBarcodes(studyName)
   dataPaths <- barcodes %>%
     lapply(function(barcode, path){
       paste0(path,"/",barcode,"/Analysis/",barcode,"_Level2.tsv")
@@ -101,9 +100,6 @@ fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 
 if(!is.null(cl$options$synapseStore)) {
   if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
-  #get permlink from GitHub
-  repo <- getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master")
-  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel3.R")
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(slDT$CellLine),
                                      Study = unique(levelRes@values$Study),
@@ -117,7 +113,6 @@ if(!is.null(cl$options$synapseStore)) {
   
   synFile <- synStore(synFile,
                       used=c(levelRes@values$id),
-                      executed=scriptLink,
                       forceVersion=FALSE)
 }
 

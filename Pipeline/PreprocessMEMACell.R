@@ -9,7 +9,6 @@ library(parallel)
 library(stringr)
 suppressPackageStartupMessages(library(dplyr))
 library(optparse)
-library(githubr)
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -147,9 +146,6 @@ cDT <- gateCells(cDT)
 if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
 if(!is.null(cl$options$synapseStore)){
-  #get permlink from GitHub
-  repo <- getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master")
-  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMACell.R")
   synFile <- File(ofname, parentId=cl$options$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                      Barcode = barcode,
@@ -164,7 +160,6 @@ if(!is.null(cl$options$synapseStore)){
   
   synFile <- synStore(synFile,
                       used=c(dataBWInfo$id, metadataTable$id),
-                      executed=scriptLink,
                       forceVersion=FALSE)
 }
 
