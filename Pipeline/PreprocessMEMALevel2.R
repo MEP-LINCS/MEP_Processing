@@ -7,6 +7,7 @@ library(parallel)
 library(stringr)
 suppressPackageStartupMessages(library(synapseClient))
 suppressPackageStartupMessages(library(optparse))
+library(githubr)
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -77,12 +78,13 @@ if (useSynapse) {
 
 cDT <- fread(dataPath)
 if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
-if(file.exists(clarionIdPath)){
-  clarionIDs <- getOmeroIDs(clarionIdPath)
-  setnames(clarionIDs, "ImageID", "ClarionID")
-  levelRes@values$Preprocess <- paste0(levelRes@values$Preprocess,".1")
-} 
-
+if(exists("clarionIdPath")){
+  if(file.exists(imageIdPath)){
+    clarionIDs <- getOmeroIDs(clarionIdPath)
+    setnames(clarionIDs, "ImageID", "ClarionID")
+    levelRes@values$Preprocess <- paste0(levelRes@values$Preprocess,".1")
+  } 
+}
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
 
@@ -123,6 +125,9 @@ fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 
 if(!is.null(cl$options$synapseStore)){
   if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
+  #get permlink from GitHub
+  repo <- getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master")
+  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel2.R")
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
                                      Barcode = barcode,
@@ -137,6 +142,7 @@ if(!is.null(cl$options$synapseStore)){
   
   synFile <- synStore(synFile,
                       used=c(levelRes@values$id, imageIdRes@values$id),
+                      executed=scriptLink,
                       forceVersion=FALSE)
 }
 
