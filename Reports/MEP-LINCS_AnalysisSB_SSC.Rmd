@@ -48,7 +48,9 @@ library(RUVnormalize)
 library(ruv)
 library(Rtsne)
 library(XLConnect)
+library(synapseClient)
 
+synapseLogin()
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -65,6 +67,20 @@ levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consorti
   levelRes <- synTableQuery(levelQuery)
   dataPath <- getFileLocation(synGet(levelRes@values$id))
 l3C <- fread(unique(paste0(dataPath)), showProgress = FALSE)
+
+#Debug new function mode
+addOmeroIDs <- function(dt){
+  if(any(grepl("^ClarionID$",colnames(dt)))){
+    dt <- dt[,OmeroDetailURL := paste0('<a href="https://www.lincsclarion.org/webclient/img_detail/',ClarionID,'/"',' target="_blank">Omero</a>')]
+    dt <- dt[,OmeroThumbnailURL := paste0('<a href="https://www.lincsclarion.org/webclient/render_thumbnail/',ClarionID,'/"',' target="_blank">Omero</a>')]
+    dt <- dt[,OmeroImageURL := paste0('<a href="https://www.lincsclarion.org/webclient/render_image/',ClarionID,'/"',' target="_blank">Omero</a>')]
+  } else if(any(grepl("^ImageID$",colnames(dt)))){
+    dt <- dt[,OmeroDetailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/img_detail/',ImageID,'/"',' target="_blank">Omero</a>')]
+    dt <- dt[,OmeroThumbnailURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_thumbnail/',ImageID,'/"',' target="_blank">Omero</a>')]
+    dt <- dt[,OmeroImageURL := paste0('<a href="https://meplincs.ohsu.edu/webclient/render_image/',ImageID,'/"',' target="_blank">Omero</a>')]
+  }
+  return(dt)
+}
 
 #Add Omero IDs
 l3C <-addOmeroIDs(l3C)

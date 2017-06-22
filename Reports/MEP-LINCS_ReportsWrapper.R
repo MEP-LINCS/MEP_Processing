@@ -36,18 +36,16 @@ path <- "/lincs/share/lincs_user"
 studyNames <- c("HMEC122L_SS1","HMEC122L_SS4","HMEC240L_SS1","HMEC240L_SS4","MCF10A_SS1","MCF10A_SS2","MCF10A_SS3")
 studyNames <- c("HMEC122L_SS1","HMEC122L_SS4","HMEC240L_SS1","HMEC240L_SS4")
 studyNames <- c("MCF10A_SS1","MCF10A_SS2","MCF10A_SS3")
+studyNames <- c("au565_dmso_ss100","au565_lapatinib_ss100","hcc1954_dmso_ss100","hcc1954_lapatinib_ss100")
 
-#res <- renderQACellReport(studyName = "HMEC122L_SS1",path)
 res <- lapply(studyNames, renderQACellReport, path=path)
 
 path <- "/lincs/share/lincs_user/study"
-#res <- renderQASpotMEPReport("HMEC122L_SS1",path)
 res <- lapply(studyNames,renderQASpotMEPReport, path=path)
 
-#res <- renderAnalysisReport("MCF10A_SS2",path)
 res <- lapply(studyNames,renderAnalysisReport, path=path)
 
-SSCStudyNames <- c("MCF10A_SSC","HMEC122L_SSC","HMEC240L_SSC")
-#res <- renderSSCAnalysisReports("HMEC240L_SSC", path, fileViewSynID="syn7494072")
-res <- lapply(SSCStudyNames,renderSSCAnalysisReports, path=path, fileViewSynID="syn7494072")
-#res <- lapply(tolower(studyNames),renderComparePipelines, path=path)
+# SSCStudyNames <- c("au565_dms0_ssc")
+# #res <- renderSSCAnalysisReports("HMEC240L_SSC", path, fileViewSynID="syn7494072")
+# res <- lapply(SSCStudyNames,renderSSCAnalysisReports, path=path, fileViewSynID="syn9612057")
+# #res <- lapply(tolower(studyNames),renderComparePipelines, path=path)
