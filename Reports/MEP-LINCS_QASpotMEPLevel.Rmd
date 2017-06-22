@@ -520,7 +520,7 @@ suppressWarnings(print(p))
 ```
 
 ```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}
-
+dt <- l4F
 p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm))+geom_histogram(binwidth = .02)+
   ggtitle(paste("MEP Normalized Lineage Ratio Distribution"))+
   ylab("Count")+xlab("Normalized Lineage Ratio")+
@@ -610,7 +610,7 @@ l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
 
 ```{r PCAHeatmap, fig.height=8, fig.width=7}
 #Plot the heat map of the entire dataset
-d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
+d3heatmap(l4pcvDT, colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
 
 ```{r, fig.height=3, fig.width=4, eval=FALSE}
@@ -837,49 +837,48 @@ for (barcode in barcodes){
   suppressWarnings(print(p))
   
   
-  if (any(grepl("Actin",colnames(DT))))  {
+  if ("Cytoplasm_CP_Intensity_MedianIntensity_Actin" %in% colnames(DT))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
   }
-  if (any(grepl("CellMask",colnames(DT))))  {
+  if ("Cytoplasm_CP_Intensity_MedianIntensity_CellMask" %in% colnames(DT))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   }
-  if (any(grepl("MitoTracker",colnames(DT))))  {
+  if ("Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker" %in% colnames(DT))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
   }
   
-  if (any(grepl("Fibrillarin",colnames(DT))))  {
+  if ("Nuclei_CP_Intensity_MedianIntensity_Fibrillarin" %in% colnames(DT))  {
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   }
-  if (any(grepl("EdU",colnames(DT))))  {    
+  if ("Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(DT))  {    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
   } 
   
-  if (any(grepl("KRT5",colnames(DT))))  {    
+  if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT5" %in% colnames(DT))  {    
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
   }
-  if (any(grepl("KRT19",colnames(DT))))  {
+  if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT19" %in% colnames(DT))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   }
   
-  if (any(grepl("KRT14",colnames(DT))))  {
-    
+  if ("Cytoplasm_CP_Intensity_MedianIntensity_KRT14" %in% colnames(DT))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT14", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
   }
   
-  if (any(grepl("Caspase",colnames(DT))))  {    
+  if ("Nuclei_CP_Intensity_IntegratedIntensity_Caspase" %in% colnames(DT))  {    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_IntegratedIntensity_Caspase", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
   }
   
-  if (any(grepl("Nestin",colnames(DT))))  {    
+  if ("Nuclei_CP_Intensity_MedianIntensity_Nestin" %in% colnames(DT))  {    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Nestin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
   }
