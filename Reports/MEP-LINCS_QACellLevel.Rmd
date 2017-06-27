@@ -18,7 +18,7 @@ sampleProportion <- .5
 ```
 
 ```{r readLevel1Data}
-barcodes <-getBarcodes(studyName, synId = "syn9946943")
+barcodes <-getBarcodes(studyName)
 l1DTL <- lapply(barcodes, function(barcode, path){
   sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_Level1.tsv"),verbose = FALSE, showProgress = FALSE)
   set.seed(42)
@@ -276,7 +276,7 @@ for (barcode in barcodes){
 
 p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Cytoplasm_PA_Gated_KRT19Positive)))+
   geom_boxplot(outlier.colour = NA)+
-  #coord_cartesian(ylim = c(6,8))+
+  coord_cartesian(ylim = c(6,8))+
   ggtitle(paste("EdU Intensities by KRT19 State and Ligand"))+
   guides(colour=guide_legend(title="KRT19+", override.aes = list(alpha = 1, size=1)))+
   ylab("Median EdU Intensity\nLog2")+xlab("Ligand")+
@@ -288,7 +288,7 @@ suppressWarnings(print(p))
 
 p <- ggplot(l1S, aes(x=factor(Ligand),y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Cytoplasm_PA_Gated_KRT5Positive)))+
   geom_boxplot(outlier.colour = NA)+
-  #coord_cartesian(ylim = c(6,8))+
+  coord_cartesian(ylim = c(6,8))+
   ggtitle(paste("EdU Intensities by KRT5 State and Ligand"))+
   guides(colour=guide_legend(title="KRT5+", override.aes = list(alpha = 1, size=1)))+
   ylab("Median EdU Intensity\nLog2")+xlab("Ligand")+
