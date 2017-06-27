@@ -559,12 +559,15 @@ suppressWarnings(print(p))
 
 ```
 
-###DNA Content Analysis
-
-All cells are stained with DAPI and classified as DNA 2n or 4n. The proportion of 2n and 4n cells at each spot is calculated and will always sum to 1. The proportions are plotted below and detailed in the datatables.
 
 
-```{r DNAHistogramFull}
+```{r, child='MEP-LINCS_SpotQADNAText.Rmd', eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
+```
+
+<br>
+
+
+```{r DNAHistogramFull, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l3)}
 
 dt <- l3
 
