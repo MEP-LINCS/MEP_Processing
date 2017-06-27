@@ -1,0 +1,3 @@
+###DNA Content Analysis
+
+All cells are stained with DAPI and classified as DNA 2n or 4n. The proportion of 2n and 4n cells at each spot is calculated and will always sum to 1. The proportions are plotted below and detailed in the datatables.
