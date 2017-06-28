@@ -33,7 +33,6 @@ getCommandLineArgs <- function(){
 }
 
 #Specify the command line options
-
 cl <- getCommandLineArgs()
 
 studyName <- cl$args[1]
