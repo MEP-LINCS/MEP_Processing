@@ -78,6 +78,7 @@ if (useSynapse) {
 
 cDT <- fread(dataPath)
 if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
+
 if(exists("clarionIdPath")){
   if(file.exists(clarionIdPath)){
     clarionIDs <- getOmeroIDs(clarionIdPath)
@@ -85,6 +86,7 @@ if(exists("clarionIdPath")){
     levelRes@values$Preprocess <- paste0(levelRes@values$Preprocess,".1")
   } 
 }
+
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
 
