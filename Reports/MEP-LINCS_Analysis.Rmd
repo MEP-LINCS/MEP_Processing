@@ -114,12 +114,13 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 <br>
 
 
-```{r, child='MEP-LINCS_DNAMEPsText.Rmd', eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
-```
+##DNA Content Analysis
 
+All cells are stained with DAPI and autogated as DNA 2N or 4N. The proportion of 2N and 4N cells at each spot is calculated and will always sum to 1. The proportions are logit transformed then RUV and loess normalized then back transfomred to a proportion. Lower normalized values have smaller 2N populations and therefore larger 4N populations.
 
+<br>
 
-```{r DNA2NByMEPFull, fig.width=8, fig.height=6, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
+```{r DNA2NByMEPFull, fig.width=8, fig.height=6}
 
 dt <- l4F
 
@@ -137,14 +138,11 @@ ggplotly(p)
 
 <br>
 
+###Normalized DNA 2N Heatmaps
 
-```{r, child='MEP-LINCS_DNAHeatmapText.Rmd', eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
-```
+The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the normalized DNA 2N proportions. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.    
 
-<br>
- 
-
-```{r DNA2NHeatmapFull, fig.width=8, fig.height=5, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
+```{r DNA2NHeatmapFull, fig.width=8, fig.height=5}
 
 #Cast again to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Cycle_DNA2NProportionNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Cycle_DNA2NProportionNorm",fun=median)

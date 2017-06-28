@@ -29,10 +29,8 @@ set.seed(42)
 l1S <- l1[sample(1:nrow(l1), sampleProportion*nrow(l1), replace = FALSE),]
 
 l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
-if("Nuclei_PA_Cycle_State" %in% colnames(l1S)){
-  l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode"]
-  l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode"]
-}
+l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode"]
+l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode"]
 #Determine number of rows in the plate for figures
 nrPlateRow <- length(unique(str_extract(l1S$Well,"[[:alpha:]]")))
 CellLine <- unique(l1S$CellLine)
@@ -54,30 +52,21 @@ The histograms and scatterplots that display cell level data are from a randomly
 <br>
 
 ###DAPI QA
-Histograms of the total DAPI signal are typicaly bimodal with peaks at the 2N and 4N DNA positions. If the DAPI signal passed the QA test, a blue vertical line shows the gate value for classifying 2N and 4N populations.
+Histograms of the total DAPI signal are typicaly bimodal with peaks at the 2N and 4N DNA positions. The blue vertical line shows the auto-gate value for classifying 2N and 4N populations.
 
-For DAPI signals that have been gated, we want to normalize the DNA signal so that the G0/G1 peak has a value of 1. This should yield G2 peak at 2. To achieve this, the total DAPI intensity is divided by the median total DAPI intensity for all cells that have a DNA Cycle State value of 1 (to the left of the blue line).
+We want to normalize the DNA signal so that the G0/G1 peak has a value of 1. This should yield G2 peak at 2. To achieve this, the total DAPI intensity is divided by the median total DAPI intensity for all cells that have a DNA Cycle State value of 1 (to the left of the blue line).
 
 The plots below are of a randomly sampled subset of the cell-level data.
 
 <br>
 
 ```{r rawDAPIPlots, fig.width=3.7,fig.height=1.5*nrPlateRow}
+binwidth=.04
 cummulativeMaxCount<-0
-if("TotalDNANormed" %in% colnames(l1S)){
-  DAPISignal <- "TotalDNANormed"
-  binwidth=.04
-  xaxisMax <- 4
-} else {
-  DAPISignal <- "Nuclei_CP_Intensity_IntegratedIntensity_Dapi"
-  binwidth=10000
-  xaxisMax <- 100000000
-}
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
-
-  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(binwidth = binwidth)+
+  p <- ggplot(dtb, aes(x=TotalDNANormed))+geom_histogram(binwidth = binwidth)+
     facet_grid(Barcode~Well_Ligand)
   currentMaxCount <- max(ggplot_build(p)$data[[1]]$count)
   cummulativeMaxCount<- max(cummulativeMaxCount,currentMaxCount)
@@ -85,12 +74,12 @@ for(barcode in barcodes){
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
-  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(binwidth = binwidth)+
-    coord_cartesian(x=c(0,xaxisMax), y=c(0,cummulativeMaxCount))+
+  p <- ggplot(dtb, aes(x=TotalDNANormed))+geom_histogram(binwidth = binwidth)+
+    coord_cartesian(x=c(0,4), y=c(0,cummulativeMaxCount))+
+    geom_vline(data = dtb, aes(xintercept = DNAThresh), colour = "blue")+
     facet_wrap(~Well_Ligand, nrow=nrPlateRow) +
     ylab("Count")+xlab("Total Intensity DAPI")+ggtitle(paste("Total DAPI Intensity:",barcode))+
     theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.8)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)),strip.text.x = element_text(size = rel(.4)))
-  if("TotalDNANormed" %in% colnames(l1S)) p <- p +  geom_vline(data = dtb, aes(xintercept = DNAThresh), colour = "blue")
   suppressWarnings(print(p))
 }
 ```
