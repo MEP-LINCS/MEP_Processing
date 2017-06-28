@@ -148,9 +148,9 @@ if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
 if(!is.null(cl$options$synapseStore)){
   #get permlink from GitHub
+  scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
-  if(class(repo)=="try-error")stop("Error reading GitHub repo information")  
-  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMACell.R")
+  if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMACell.R")
   synFile <- File(ofname, parentId=cl$options$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                      Barcode = barcode,

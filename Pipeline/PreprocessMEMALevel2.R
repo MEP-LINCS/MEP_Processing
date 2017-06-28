@@ -54,7 +54,7 @@ if (useSynapse) {
   
   dataPath <- getFileLocation(synGet(levelRes@values$id))
   
-  imageIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ImageID"',
+  imageIdQuery <- sprintf("SELECT id from %s WHERE Barcode='%s' AND DataType='ImageID'",
                           opt$inputPath, barcode)
   imageIdRes <- synTableQuery(imageIdQuery)
   
@@ -62,11 +62,8 @@ if (useSynapse) {
                             opt$inputPath, barcode)
   clarionIdRes <- synTableQuery(clarionIdQuery)
   
-  if (nrow(imageIdRes@values) > 1) {
-    stop(sprintf("Found more than one ImageID file for barcode %s", barcode))
-  }
-  imageIdPath <- getFileLocation(synGet(imageIdRes@values$id))
-  
+  if (nrow(imageIdRes@values) == 1) imageIdPath <- getFileLocation(synGet(imageIdRes@values$id))
+
   if (nrow(clarionIdRes@values) == 1)   clarionIdPath <- getFileLocation(synGet(clarionIdRes@values$id))
   
   
@@ -77,7 +74,9 @@ if (useSynapse) {
 }
 
 cDT <- fread(dataPath)
+if(exists("imageIdPath")){
 if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
+}
 
 if(exists("clarionIdPath")){
   if(file.exists(clarionIdPath)){
@@ -128,9 +127,9 @@ fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
 if(!is.null(cl$options$synapseStore)){
   if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
   #get permlink from GitHub
+  scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
-  if(class(repo)=="try-error")stop("Error reading GitHub repo information")
-  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel2.R")
+  if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel2.R")
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
                                      Barcode = barcode,

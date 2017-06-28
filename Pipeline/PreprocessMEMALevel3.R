@@ -102,9 +102,9 @@ fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 if(!is.null(cl$options$synapseStore)) {
   if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
   #get permlink from GitHub
+  scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
-  if(class(repo)=="try-error")stop("Error reading GitHub repo information")  
-  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel3.R")
+  if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel3.R")
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(slDT$CellLine),
                                      Study = unique(levelRes@values$Study),
