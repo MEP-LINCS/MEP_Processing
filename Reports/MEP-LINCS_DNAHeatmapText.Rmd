@@ -1,0 +1,3 @@
+###Normalized DNA 2N Heatmaps
+
+The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the normalized DNA 2N proportions. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.

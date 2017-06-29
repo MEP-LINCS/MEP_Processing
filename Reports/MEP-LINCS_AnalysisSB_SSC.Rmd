@@ -54,7 +54,7 @@ library(XLConnect)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol <- selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-
+fileViewSynID <- "syn9612057"
 
 #Read in the data.table that holds every spot in the cell line
 #and can be used to index to the images
