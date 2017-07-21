@@ -4,6 +4,7 @@
 # 2017
 
 library(MEMA)
+library(githubr)
 suppressPackageStartupMessages(library(optparse))
 
 # Get the command line arguments and options
@@ -68,8 +69,9 @@ if(verbose) message("Writing level 4 file to disk\n")
 if(!is.null(cl$options$synapseStore)){
   if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
   #get permlink from GitHub
-  repo <- getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master")
-  scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel4.R")
+  scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
+  repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
+  if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel4.R")
   synFile <- File(ofname, parentId=cl$options$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
                                      Study = levelRes@values$Study,

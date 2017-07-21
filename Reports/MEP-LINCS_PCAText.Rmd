@@ -1,0 +1,2 @@
+###PCA Analysis
+A Principal Component Analysis can be used to evaluate the normalization process for plate and well effects.  
