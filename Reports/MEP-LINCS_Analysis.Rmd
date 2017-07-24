@@ -16,11 +16,12 @@ library(heatmaply)
 library(plotly)
 library(readxl)
 library(dplyr)
+library(stringr)
 library(Rtsne)
 
 #Debug Code
 # path <- "/lincs/share/lincs_user/study"
-# studyName <- "hcc1954_lapatinib_ss100"
+# studyName <- "MCF10a_SS1"
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -90,7 +91,7 @@ dt <- l4F
 
 p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountNorm), y = Spot_PA_SpotCellCountNorm))+
   geom_errorbar(aes(ymin=Spot_PA_SpotCellCountNorm-Spot_PA_SpotCellCountNorm_SE, ymax=Spot_PA_SpotCellCountNorm+Spot_PA_SpotCellCountNorm_SE), width=.01, colour="black") +
-  coord_cartesian(ylim=c(0,300))+
+  coord_cartesian(ylim=c(0,max(300, 1.1*max(dt$Spot_PA_SpotCellCountNorm))))+
   xlab("MEP")+ylab("Normalized Spot Cell Count")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized Spot Cell Count")
@@ -356,12 +357,14 @@ ggplotly(p)
 
 
 ```{r createtSNE}
-fvDT <- select(l4, c(matches("^MEP$"),ends_with("Norm")))
+#Debug: Delete EGF MEPs that have mislabeled conc units
+fvDT <- select(l4, c(matches("^MEP$"),ends_with("Norm"),matches("Ligand1ConcUnit"))) %>%
+  filter(!(Ligand1ConcUnit=="pg_per_mL_efo0004385"&str_detect(MEP,"EGF")))
 
 #Convert to dataframe for 
 fvDT <- data.frame(fvDT)
 rownames(fvDT) <- fvDT$MEP
-fvDT <- select(fvDT,-MEP)
+fvDT <- select(fvDT,-MEP,-Ligand1ConcUnit)
 fvDT <- fvDT[,!apply(fvDT,2,function(x){
   var(x)==0
 })]
@@ -370,7 +373,10 @@ data_matrix <- scale(as.matrix(fvDT))
 
 set.seed(1234)
 data_tsne <- Rtsne(data_matrix, perplexity = 15)
-dtt <- cbind(l4,data_tsne$Y)
+dtt <- cbind(filter(l4,!(Ligand1ConcUnit=="pg_per_mL_efo0004385"&str_detect(MEP,"EGF"))),data_tsne$Y)
+setnames(dtt,"1","V1")
+setnames(dtt,"2","V2")
+
 fvPCA <- prcomp(fvDT)
 l4tSNEPCA <- cbind(dtt,fvPCA$x)
 ```
