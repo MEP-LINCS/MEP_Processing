@@ -143,6 +143,12 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 
 # Gate cells where possible
 cDT <- gateCells(cDT)
+#reduce the numeric values to 4 significant digits
+shorten <- function(x){
+  if(class(x)=="numeric") x <- signif(x,4)
+  return(x)
+}
+for (j in colnames(cDT)) set(cDT, j = j, value = shorten(cDT[[j]]))
 
 if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)

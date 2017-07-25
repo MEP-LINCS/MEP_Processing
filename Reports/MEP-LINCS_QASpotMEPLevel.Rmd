@@ -94,7 +94,7 @@ for (barcode in barcodes){
   dt$Well_Ligand <- sub("_","\n",dt$Well_Ligand)
   
   p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount))+
-    geom_histogram(binwidth = 1)+
+    geom_histogram(binwidth = 5)+
     coord_cartesian(xlim=xLimits, ylim=yLimits)+
     ggtitle(paste("\n Spot Cell Count Histogram of plate",unique(dt$Barcode)))+
     xlab("Spot Cell Count")+
@@ -571,7 +571,8 @@ suppressWarnings(print(p))
 
 dt <- l3
 
-p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportion))+geom_histogram(binwidth = .02, alpha=.8)+
+p <- ggplot(dt, aes(x=Nuclei_PA_Cycle_DNA2NProportion))+
+  geom_histogram(binwidth = .003)+
   ggtitle(paste("Spot DNA 2n Proportion Histogam"))+
   ylab("Count")+xlab("DNA 2n Proportion")+
   theme(strip.text = element_text(size = 5))
@@ -894,42 +895,15 @@ for (barcode in barcodes){
 ```
 
 
-```{r, eval=length(setdiff(c("Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin","Nuclei_CP_Intensity_MedianIntensity_EdU"),colnames(l3)))==0}
-p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin, colour=Well))+
+```{r, eval="Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin" %in% colnames(l3)}
+p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin), colour=Well))+
   geom_boxplot(outlier.size = .5)+
-  coord_cartesian(ylim = c(0,20))+
-  guides(colour=FALSE)+
-  xlab("")+ylab("Total Intensity Fibrillarin")+
-  ggtitle("Total Fibrillarin Intensity per Spot by Well and Barcode ")+
+  xlab("Barcode")+ylab("Total Intensity Fibrillarin (log2)")+
+  ggtitle("Total Fibrillarin Intensity per Spot by Well and Barcode")+
   theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 print(p)    
-
-p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_EdU, colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  #coord_cartesian(ylim = c(0,.04))+
-  guides(colour=FALSE)+
-  xlab("")+ylab("Median Intensity EdU")+
-  ggtitle("Median EdU Intensity per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-print(p)
-
-
 ```
 
-
-```{r, eval="Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(l3)}
-
-
-p <- ggplot(l3, aes(x=factor(Barcode), y=Nuclei_CP_Intensity_MedianIntensity_EdU, colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  guides(colour=FALSE)+
-  xlab("")+ylab("Median Intensity EdU")+
-  ggtitle("Median EdU Intensity per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-print(p)
-
-
-```
 
 ```{r, , fig.height=10,  eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l3)}
 

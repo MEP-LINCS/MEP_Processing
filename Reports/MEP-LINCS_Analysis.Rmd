@@ -1,10 +1,10 @@
 
 ```{r "setup", include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=8,
-                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+#knitr::opts_chunk$set(fig.width=12, fig.height=8,
+#                      echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE)
 
 #Author: Mark Dane, copyright 2015-2017
-
 library("ggplot2")
 library("data.table")
 library("MEMA")
@@ -12,10 +12,16 @@ library("grid")
 library("knitr")
 library("gplots")
 library("RColorBrewer")
-library(DT)
-library(d3heatmap)
+library(heatmaply)
 library(plotly)
 library(readxl)
+library(dplyr)
+library(stringr)
+library(Rtsne)
+
+#Debug Code
+# path <- "/lincs/share/lincs_user/study"
+# studyName <- "MCF10a_SS1"
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -80,11 +86,12 @@ The spot cell count analysis identifies MEPs with extreme population sizes. The 
 
 
 
-```{r SCCByMEPFull, fig.width=8, fig.height=6}
+```{r SCCByMEPFull, fig.width=5, fig.height=3}
 dt <- l4F
 
 p <- ggplot(dt, aes(x =reorder(MEP, Spot_PA_SpotCellCountNorm), y = Spot_PA_SpotCellCountNorm))+
   geom_errorbar(aes(ymin=Spot_PA_SpotCellCountNorm-Spot_PA_SpotCellCountNorm_SE, ymax=Spot_PA_SpotCellCountNorm+Spot_PA_SpotCellCountNorm_SE), width=.01, colour="black") +
+  coord_cartesian(ylim=c(0,max(300, 1.1*max(dt$Spot_PA_SpotCellCountNorm))))+
   xlab("MEP")+ylab("Normalized Spot Cell Count")+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
   ggtitle("MEPs Ordered by Normalized Spot Cell Count")
@@ -100,14 +107,14 @@ ggplotly(p)
 
 The interactive heatmaps below are arranged by unsupervised clustering of the rows and columns and colored by the normalized spot cell count. Clicking and dragging across any subsection will zoom in on that section. Double clicking on the zoomed image will return to the full heatmap.  
 
-```{r SCCHeatmapFull, fig.width=8, fig.height=5}
+```{r SCCHeatmapFull, fig.width=5, fig.height=3}
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Spot_PA_SpotCellCountNorm,Barcode)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCountNorm",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
-try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(heatmaply(dfZoom(df, .05, .95), main="Normalized Spot Cell Count Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 
 ```
 
@@ -119,7 +126,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r DNA2NByMEPFull, fig.width=8, fig.height=6, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
+```{r DNA2NByMEPFull, fig.width=5, fig.height=3, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
 
 dt <- l4F
 
@@ -144,7 +151,7 @@ ggplotly(p)
 <br>
  
 
-```{r DNA2NHeatmapFull, fig.width=8, fig.height=5, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
+```{r DNA2NHeatmapFull, fig.width=5, fig.height=3, eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
 
 #Cast again to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Cycle_DNA2NProportionNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Cycle_DNA2NProportionNorm",fun=median)
@@ -152,7 +159,7 @@ df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Cycle_DNA2NProportionNorm
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
-try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(heatmaply(dfZoom(df, .05, .95), main="Normalized DNA 2n Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 
 ```
 
@@ -163,7 +170,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 <br>
 
-```{r MitoTrackerByMEPFull, , eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=8, fig.height=6}
+```{r MitoTrackerByMEPFull, , eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=5, fig.height=3}
 dt <- l4F
 
 yLimits <- quantile(c(dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm-dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm_SE, dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm+dt$Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm_SE), probs=c(.002, .998))
@@ -180,7 +187,7 @@ ggplotly(p)
 ```
 
 
-```{r MitotrackerHeatmapFull, eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=8, fig.height=5}
+```{r MitotrackerHeatmapFull, eval=any(grepl("MitoTracker",colnames(l4F))), fig.width=5, fig.height=3}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm",fun=median)
@@ -188,7 +195,7 @@ df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Cytoplasm_CP_Intensity_MedianIntens
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
-try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(heatmaply(dfZoom(df, .05, .95), main="Normalized MitoTracker Intensity Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 
 ```
 
@@ -198,7 +205,7 @@ try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_
 
 
 
-```{r NormedProliferationByMEPFull, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F))), fig.width=8, fig.height=6}
+```{r NormedProliferationByMEPFull, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F))), fig.width=5, fig.height=3}
 
 dt <- l4F
 
@@ -218,7 +225,7 @@ ggplotly(p)
 ```
 
 
-```{r EdUHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
+```{r EdUHeatmapFull, fig.width=5, fig.height=3, eval=any(grepl("EdUPositiveProportionNorm",colnames(l4F)))}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProportionNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_PA_Gated_EdUPositiveProportionNorm",fun=median)
@@ -226,8 +233,7 @@ df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_PA_Gated_EdUPositiveProporti
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
-
-try(d3heatmap(dfZoom(df, .05, .95), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(heatmaply(dfZoom(df, .05, .95), main="Normalized EdU Positive Proportion Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 
 ```
 
@@ -240,14 +246,12 @@ p <- ggplot(l4F, aes(x=Ligand, y=Nuclei_PA_Gated_EdUPositiveProportionNorm))+
   guides(colour=FALSE)+
   xlab("Ligand")+ylab("Normalized EdU+")+
   ggtitle("MEP EdU+ Response by Ligand")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.7)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.9)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1), hjust = 0.5),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
 
 print(p)
-#ggplotly(p, tooltip="colour")
-
 ```
 
-```{r NormedNestinByMEP, eval=any(grepl("NestinNorm",colnames(l4F))), fig.width=8, fig.height=6}
+```{r NormedNestinByMEP, eval=any(grepl("NestinNorm",colnames(l4F))), fig.width=5, fig.height=3}
 
 dt <- l4F
 
@@ -263,7 +267,7 @@ ggplotly(p)
 
 
 
-```{r NestinHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("NestinNorm",colnames(l4F)))}
+```{r NestinHeatmapFull, fig.width=5, fig.height=3, eval=any(grepl("NestinNorm",colnames(l4F)))}
 
 #Cast to get ligands into columns
 df <- dcast(data.frame(l4F[,list(ECMp,Ligand,Nuclei_CP_Intensity_MedianIntensity_NestinNorm,Barcode)]),ECMp~Ligand, value.var = "Nuclei_CP_Intensity_MedianIntensity_NestinNorm",fun=median)
@@ -273,6 +277,7 @@ df <- df[,!grepl("ECMp",names(df))]
 
 
 try(d3heatmap(dfZoom(df, .01, .99), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(heatmaply(dfZoom(df, .01, .99), main="Normalized Nestin Intensity Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 
 ```
 
@@ -291,26 +296,27 @@ print(p)
 
 ```
 
-```{r, child='MEP-LINCS_LineageText.Rmd',eval=any(grepl("LineageRatioNorm",colnames(l4F)))}
+```{r, child='MEP-LINCS_LineageText.Rmd',eval=any(grepl("LineageRatio",colnames(l4F)))}
 ```
 
-```{r LineageRatioByMEP,eval=any(grepl("LineageRatioNorm",colnames(l4F))), fig.width=8, fig.height=6}
+```{r LineageRatioByMEP,eval=any(grepl("LineageRatio",colnames(l4F))), fig.width=5, fig.height=3}
 
 dt <- l4F
 
-p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatioNorm), y = Cytoplasm_PA_Intensity_LineageRatioNorm))+
-  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatioNorm-Cytoplasm_PA_Intensity_LineageRatioNorm_SE, ymax=Cytoplasm_PA_Intensity_LineageRatioNorm+Cytoplasm_PA_Intensity_LineageRatioNorm_SE), width=.01, colour="black") +
-  xlab("MEP")+ylab("Normalized Logged Lineage Ratio")+
+p <- ggplot(dt, aes(x =reorder(MEP, Cytoplasm_PA_Intensity_LineageRatio), y = Cytoplasm_PA_Intensity_LineageRatio))+
+  geom_errorbar(aes(ymin=Cytoplasm_PA_Intensity_LineageRatio-Cytoplasm_PA_Intensity_LineageRatio_SE, ymax=Cytoplasm_PA_Intensity_LineageRatio+Cytoplasm_PA_Intensity_LineageRatio_SE), width=.01, colour="black") +
+  xlab("MEP")+ylab("Lineage Ratio")+
   geom_point(colour = "blue", alpha = .5)+
+  coord_cartesian(ylim = c(.9*min(dt$Cytoplasm_PA_Intensity_LineageRatio),1.1*max(dt$Cytoplasm_PA_Intensity_LineageRatio)))+
   theme( axis.text.x=element_blank(), axis.ticks=element_blank(),  panel.grid.major = element_blank())+
-  ggtitle("MEPs Ordered by Normalized Lineage Ratio with SE Bars")
+  ggtitle("MEPs Ordered by Lineage Ratio with SE Bars")
 
 ggplotly(p)
 ```
 
 
 
-```{r LineageMarkers, echo=FALSE, fig.width=8, fig.height=6,eval=any(grepl("KRT5Norm",colnames(l4F)))& any(grepl("KRT19Norm",colnames(l4F)))}
+```{r LineageMarkers, echo=FALSE, fig.width=5, fig.height=3,eval=any(grepl("KRT5Norm",colnames(l4F)))& any(grepl("KRT19Norm",colnames(l4F)))}
 
 dt <- l4F
 
@@ -323,124 +329,84 @@ p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm, y = Cytop
 ```
 
 
-```{r LineagRatioHeatmapFull, fig.width=8, fig.height=5, eval=any(grepl("LineageRatioNorm",colnames(l4F)))}
+```{r LineagRatioHeatmapFull, fig.width=5, fig.height=3, eval=any(grepl("LineageRatio",colnames(l4F)))}
 
 #Cast to get ECMps in rows and ligands into columns
-df <- dcast(data.frame(l4F[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatioNorm,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatioNorm",fun=median)
+df <- dcast(data.frame(l4F[,list(ECMp,Ligand, Cytoplasm_PA_Intensity_LineageRatio,Barcode)]),ECMp~Ligand, value.var = "Cytoplasm_PA_Intensity_LineageRatio",fun=median)
 
 rownames(df) <- df$ECMp
 df <- df[,!grepl("ECMp",names(df))]
 
-
-try(d3heatmap(dfZoom(df, 0.0, .97), colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="5pt"), TRUE)
+try(heatmaply(dfZoom(df, 0.05, .95), main="Lineage Ratio Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 
 ```
 
 
-```{r EdUvsLineageMarkers, echo=FALSE, fig.width=8, fig.height=6, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(l4)))& any(grepl("Nuclei_PA_Gated_EdUPositiveProportionNorm",colnames(l4)))}
+```{r EdUvsLineageMarkers, echo=FALSE, fig.width=5, fig.height=3, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(l4)))& any(grepl("Nuclei_PA_Gated_EdUPositiveProportionNorm",colnames(l4)))}
 
 dt <- l4
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm, y = Nuclei_PA_Gated_EdUPositiveProportionNorm), colour = Ligand)+
-  geom_point(alpha=.5)+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatio, y = Nuclei_PA_Gated_EdUPositiveProportionNorm, lable=MEP, colour=Ligand))+
+  geom_point(size=rel(.7), alpha=.5)+
   guides(colour=FALSE)+
   xlab("Lineage Ratio")+ylab("EdU Proliferation")+
   ggtitle("EdU vs Lineage by Ligand")
-(gg <- ggplotly(p))
+ggplotly(p)
 ```
 
 
-```{r, eval=FALSE}
 
-lowQALigands <- unique(l3$Ligand[l3$QA_LowWellQA])
-fvDT <- filterl4RUV(l4, lowQALigands)
-setkey(fvDT, MEP)
-fvDT <- fvDT[!grepl("FBS|Fiducial|fiducial|blank|PBS",fvDT$MEP),]
-fvDT <- fvDT[,Barcode := NULL]
+```{r createtSNE}
+#Debug: Delete EGF MEPs that have mislabeled conc units
+fvDT <- select(l4, c(matches("^MEP$"),ends_with("Norm"),matches("Ligand1ConcUnit"))) %>%
+  filter(!(Ligand1ConcUnit=="pg_per_mL_efo0004385"&str_detect(MEP,"EGF")))
 
-#Shorten the feature names
-setnames(fvDT,grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE),gsub(".*_","",gsub("Norm","",grep("Barcode|MEP",colnames(fvDT), value = TRUE, invert = TRUE))))
-#Remove when not needed
-if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NProportion")
-
-#Convert to dataframe for use in D3heatmap
+#Convert to dataframe for 
 fvDT <- data.frame(fvDT)
 rownames(fvDT) <- fvDT$MEP
+fvDT <- select(fvDT,-MEP,-Ligand1ConcUnit)
+fvDT <- fvDT[,!apply(fvDT,2,function(x){
+  var(x)==0
+})]
 
-fvDT <- fvDT[,!(names(fvDT) %in% c("MEP"))]
-```
-
-
-```{r, fig.height=8, fig.width=7, eval = FALSE}
-fvDTC <- apply(fvDT,2,fvZoom, min=.02, max=.98)
-try(d3heatmap(fvDTC, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE), TRUE)
-
-```
-
-
-```{r createtSNE, eval=FALSE}
-
-tSNEParameters <- grep("MEP|Ligand|ECMp|Replicate|Barcode",colnames(filterl4RUV(l4, lowQALigands)), invert=TRUE, value=TRUE)
-data_matrix <- scale(as.matrix(dt[,tSNEParameters, with=FALSE]))
+data_matrix <- scale(as.matrix(fvDT))
 
 set.seed(1234)
 data_tsne <- Rtsne(data_matrix, perplexity = 15)
-dtt <- cbind(dt,data_tsne$Y)
+dtt <- cbind(filter(l4,!(Ligand1ConcUnit=="pg_per_mL_efo0004385"&str_detect(MEP,"EGF"))),data_tsne$Y)
+setnames(dtt,"1","V1")
+setnames(dtt,"2","V2")
 
+fvPCA <- prcomp(fvDT)
+l4tSNEPCA <- cbind(dtt,fvPCA$x)
 ```
 
-```{r plottSNEBarcode,fig.width=4, fig.height=3, eval=FALSE}
+###Principal Components Analysis
+A PCA dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have non-zero variance.  Hovering over the datapoints will show the MEP values.  
 
-p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "Barcode"))+
-  geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot of Barcode"))+
-  #scale_colour_gradient(low="black",high="red",oob = scales::squish)+
-  guides(colour = guide_legend(title.theme = element_text(angle=0, size=12),override.aes = list(size=rel(.7),alpha=1)))
-print(p)
-
+```{r plottPCALigand,fig.width=3, fig.height=1.5}
+#plot(fvPCA, main = "Scree Plot for PCA")
+l <- htmltools::tagList()
+for(i in 1:5){
+p <- ggplot(l4tSNEPCA, aes_string(x=paste0("PC",i), y=paste0("PC",i+1), colour="Ligand", label="MEP"))+
+  geom_point(size=rel(.5), alpha=.5)+
+  guides(colour=FALSE)+
+  labs(x=paste("PC",i), y=paste("PC",i+1),title="PCA Plot Colored by Ligand")
+l[[i]] <- ggplotly(p)
+}
+l
 ```
 
+###tSNE Analysis
+A tSNE dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have non-zero variance.  Hovering over the datapoints will show the MEP values.  
 
-```{r plottSNEFeatures,fig.width=3, fig.height=3, eval=FALSE}
+```{r plottSNELigand,fig.width=5, fig.height=3}
 
-tmp <- lapply(c(tSNEParameters),function(sigName){
-  p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = paste(sigName)))+
-    geom_point(size=rel(.2), alpha=.5)+
-    ggtitle(paste("tSNE plot of",sigName))+
-    scale_colour_gradient(low="black",high="red",oob = scales::squish)+
-    guides(colour = FALSE)+
-    theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-  print(p)
-})
-
-```
-
-
-```{r ggplotlytSNEMEPs,fig.width=6, fig.height=6, eval=FALSE}
-
-p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "ECMp"))+
-  geom_point(size=rel(1.2), alpha=.5)+
-  ggtitle(paste("tSNE plot by ECMp"))+
-  guides(colour = FALSE)+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-
-(gg <- ggplotly(p))
-
-p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "Ligand"))+
-  geom_point(size=rel(1.2), alpha=.5)+
-  ggtitle(paste("tSNE plot by Ligand"))+
-  guides(colour = FALSE)+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-(gg <- ggplotly(p))
-```
-
-```{r plottSNEMEPs,fig.width=6, fig.height=6, eval=FALSE }
-p <- ggplot(dtt, aes_string(x="V1", y="V2", colour = "MEP"))+
-  geom_point(size=rel(.2), alpha=.5)+
-  ggtitle(paste("tSNE plot by MEP"))+
-  guides(colour = FALSE)+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(1)),legend.title=element_text(size = rel(1)))
-print(p)
+p <- ggplot(dtt, aes(x=V1, y=V2, colour=Ligand, label=MEP))+
+  geom_point(size=rel(.5), alpha=.5)+
+  guides(colour=FALSE)+
+  labs(x="tSNE V1", y="tSNE V2",title="tSNE Plot Colored by Ligand")
+ggplotly(p)
 
 ```
 

@@ -82,7 +82,7 @@ if(exists("clarionIdPath")){
   if(file.exists(clarionIdPath)){
     clarionIDs <- getOmeroIDs(clarionIdPath)
     setnames(clarionIDs, "ImageID", "ClarionID")
-    levelRes@values$Preprocess <- paste0(levelRes@values$Preprocess,".1")
+    if (useSynapse) levelRes@values$Preprocess <- paste0(levelRes@values$Preprocess,".1")
   } 
 }
 
@@ -122,7 +122,14 @@ if(exists("clarionIDs")) spotDT <- merge(spotDT, clarionIDs,
 
 if(verbose) message("Writing spot level data")
 writeTime<-Sys.time()
-fwrite(data.table(spotDT), file=ofname, sep = "\t", quote=FALSE)
+#reduce the numeric values to 4 significant digits
+shorten <- function(x){
+  if(class(x)=="numeric") x <- signif(x,4)
+  return(x)
+}
+for (j in colnames(spotDT)) set(spotDT, j = j, value = shorten(spotDT[[j]]))
+
+fwrite(spotDT, file=ofname, sep = "\t", quote=FALSE)
 
 if(!is.null(cl$options$synapseStore)){
   if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
