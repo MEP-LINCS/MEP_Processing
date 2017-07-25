@@ -64,6 +64,14 @@ mepDT <- addBarcodes(dt3 = l3DT, dt4 = mepDT)
 # Add a QA flag for spots with few replicates
 mepDT$QA_LowReplicateCount <- mepDT$Spot_PA_ReplicateCount < 3
 
+#reduce the numeric values to 4 significant digits
+shorten <- function(x){
+  if(class(x)=="numeric") x <- signif(x,4)
+  return(x)
+}
+
+for (j in colnames(mepDT)) set(mepDT, j = j, value = shorten(mepDT[[j]]))
+
 fwrite(mepDT, file=ofname, sep = "\t", quote=FALSE)
 if(verbose) message("Writing level 4 file to disk\n")
 if(!is.null(cl$options$synapseStore)){

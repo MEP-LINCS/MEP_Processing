@@ -96,6 +96,13 @@ slDT <- QASpotLevelData(slDT, lowSpotCellCountThreshold=5,
                         lowRegionCellCountThreshold = 0.4,
                         lowWellQAThreshold = .7)
 
+#reduce the numeric values to 4 significant digits
+shorten <- function(x){
+  if(class(x)=="numeric") x <- signif(x,4)
+  return(x)
+}
+for (j in colnames(slDT)) set(slDT, j = j, value = shorten(slDT[[j]]))
+
 if(verbose) message(paste("Writing level 3 file to disk\n"))
 fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 
