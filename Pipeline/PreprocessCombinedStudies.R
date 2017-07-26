@@ -44,8 +44,7 @@ startTime <- Sys.time()
 suppressMessages(synapseLogin())
 #Get annotations from the level 3 files
 annotations <- rbindlist(lapply(studyNameList, function(studyName){
-  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
-                        cl$options$inputSynID, studyName, 3)
+  levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"', cl$options$inputSynID, studyName, 3)
   levelRes <- synTableQuery(levelQuery)
   levelRes@values
 }))
@@ -102,6 +101,10 @@ ofname <- paste0("/tmp/",studyNameSSC,"_Level3.tsv")
 fwrite(l3C, file = ofname, sep = "\t", quote=FALSE)
 
 if(!is.null(cl$options$synapseStore)) {
+  #get permlink from GitHub
+  scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
+  repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
+  if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessCombinedStudies.R")
   if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
   synFile <- File(ofname, parentId=opt$synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(annotations$CellLine),
@@ -115,6 +118,7 @@ if(!is.null(cl$options$synapseStore)) {
                                      Level = "3")
   synFile <- synStore(synFile,
                       used=names(unlist(dataPathsL)),
+                      executed=scriptLink,
                       forceVersion=FALSE)
 }
 
@@ -152,6 +156,7 @@ if(!is.null(cl$options$synapseStore)) {
                                      Level = "4")
   synFile <- synStore(synFile,
                       used=names(unlist(dataPathsL)),
+                      executed=scriptLink,
                       forceVersion=FALSE)
 }
 
