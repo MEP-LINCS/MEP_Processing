@@ -70,7 +70,7 @@ shorten <- function(x){
   return(x)
 }
 
-for (j in colnames(mepDT)) set(mepDT, j = j, value = shorten(mepDT[[j]]))
+for (j in colnames(mepDT)) data.table::set(mepDT, j = j, value = shorten(mepDT[[j]]))
 
 fwrite(mepDT, file=ofname, sep = "\t", quote=FALSE)
 if(verbose) message("Writing level 4 file to disk\n")

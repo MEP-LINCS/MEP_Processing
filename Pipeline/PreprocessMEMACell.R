@@ -148,7 +148,7 @@ shorten <- function(x){
   if(class(x)=="numeric") x <- signif(x,4)
   return(x)
 }
-for (j in colnames(cDT)) set(cDT, j = j, value = shorten(cDT[[j]]))
+for (j in colnames(cDT)) data.table::set(cDT, j = j, value = shorten(cDT[[j]]))
 
 if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
