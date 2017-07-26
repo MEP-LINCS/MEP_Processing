@@ -127,7 +127,7 @@ shorten <- function(x){
   if(class(x)=="numeric") x <- signif(x,4)
   return(x)
 }
-for (j in colnames(spotDT)) set(spotDT, j = j, value = shorten(spotDT[[j]]))
+for (j in colnames(spotDT)) data.table::set(spotDT, j = j, value = shorten(spotDT[[j]]))
 
 fwrite(spotDT, file=ofname, sep = "\t", quote=FALSE)
 
