@@ -41,7 +41,7 @@ library("knitr")
 library("gplots")
 library("RColorBrewer")
 library(DT)
-library(d3heatmap)
+library(heatmaply)
 library(plotly)
 #library(corrplot)
 library(RUVnormalize)
@@ -66,9 +66,15 @@ levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consorti
   dataPath <- getFileLocation(synGet(levelRes@values$id))
 l3C <- fread(unique(paste0(dataPath)), showProgress = FALSE)
 
-#Add Omero IDs
-l3C <-addOmeroIDs(l3C)
-
+#if they exist, use the Clarion image IDs instead of the OHSU Omero IDs
+if("ClarionID" %in% colnames(l3C)){
+      l3C <- l3C[,OmeroDetailURL := paste0('<a href="https://omero.lincsclarion.org/webgateway/img_detail/',ClarionID,'/"',' target="_blank">Omero</a>')]
+    l3C <- l3C[,OmeroThumbnailURL := paste0('<a href="https://omero.lincsclarion.org/webgateway/render_thumbnail/',ClarionID,'/"',' target="_blank">Omero</a>')]
+    l3C <- l3C[,OmeroImageURL := paste0('<a href="https://omero.lincsclarion.org/webgateway/render_image/',ClarionID,'/"',' target="_blank">Omero</a>')]
+} else {
+  #Add Omero IDs
+  l3C <-addOmeroIDs(l3C)
+}
 #Get the level 4 raw and normalized data
 level <- "4"
 levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
@@ -173,8 +179,9 @@ dt <- setorder(dt,Nuclei_PA_Gated_EdUPositiveProportionNorm)
 datatable(format(dt[, colNames, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = colNamesDisplay)
 ```
 
-###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values.
-Images can be viewed by clicking on the Image Link (Gray lab Omero account needed).  
+###The Spot Level Interactive Datatable can be filtered on keywords and sorted by values. This page contains a large dataset can can take a while to load. 
+Images can be viewed by clicking on the Image Link. 
+ 
 
 
 ```{r}
@@ -183,7 +190,7 @@ dt <- l3C[!grepl("NID1|ELN",l3C$ECMp),]
 colNamesSpots <- c(colNames[1],"Barcode","Well","ArrayRow","ArrayColumn","OmeroDetailURL",colNames[2:length(colNames)])
 colNamesDisplaySpots <- c(colNamesDisplay[1],"Barcode","Well","ArrayRow","ArrayColumn","Image Link",colNamesDisplay[2:length(colNamesDisplay)])
 dt <- setorder(dt, -Nuclei_PA_Gated_EdUPositiveProportionNorm)
-datatable(format(dt[,colNamesSpots, with=FALSE], digits=3, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
+datatable(dt[,colNamesSpots, with=FALSE], options = list(pageLength = 5), colnames =colNamesDisplaySpots, escape = FALSE)
 
 ```
 
@@ -248,7 +255,7 @@ The KRT19 Gated Proportion signal is the porportion of cells in each spot that w
 ###Proliferation vs Spot Cell Count Scatterplot
 
 
-```{r, fig.width=20, fig.height=8}
+```{r, fig.width=10, fig.height=7}
 
 dt <- l4C[!grepl("NID1|ELN",l4C$ECMp),]
 p <- ggplot(dt, aes(x=Spot_PA_SpotCellCount, y=Nuclei_PA_Gated_EdUPositiveProportionNorm, colour=Ligand, text=paste("ECMp:",ECMp)))+
@@ -304,8 +311,10 @@ ggplotly(p)
 
 ```
 
+
 ***
 This scatter plot shows the normalized KRT19 intensity vs normalized KRT5 intensity. The colors represent the ligands. The ECM protein is displayed in the tool tip box that appears while hovering over a spot.  
+
 
 ```{r, fig.width=10, fig.height=7, eval=FALSE}
 
@@ -327,18 +336,18 @@ print(p)
 
 #Get a PCA model from the raw data
 rawFVNames <- gsub("Norm","", grep("Norm$",colnames(l4C),value = TRUE))
-rawPCAModel <- createPCAModel(dt=l4C, fvNames = rawFVNames)
+invisible(capture.output(rawPCAModel <- createPCAModel(dt=l4C, fvNames = rawFVNames)))
 
 #Get a PCA model from the normalized data
 NormNames <- grep("Norm$",colnames(l4C), value=TRUE)
-NormPCAModel <- createPCAModel(dt=l4C, fvNames = NormNames)
+invisible(capture.output(NormPCAModel <- createPCAModel(dt=l4C, fvNames = NormNames)))
 
 ```
 
 ###PCA of All MEP Signals
 
 
-```{r, fig.height=2, fig.width=3}
+```{r, fig.width=10, fig.height=7}
 xlim<-c(-15,15)
 ylim<-c(-10,10)
 dt <- cbind(data.table(NormPCAModel$x),Ligand=l4C$Ligand, MEP=l4C$MEP, ECMp=l4C$ECMp)
@@ -383,10 +392,10 @@ l4CU <- cbind(l4CU,data_tsne$Y)
 
 ###tSNE plot of all MEP Signals by Ligand
 
-```{r plottSNELigandFBSU,fig.width=8, fig.height=5, eval=TRUE}
+```{r plottSNELigandFBSU, fig.width=10, fig.height=7, eval=TRUE}
 
 p <- ggplot(l4CU, aes(x=V1, y=V2, colour=Ligand, text=paste("ECMp:",ECMp)))+
-      geom_point(size = rel(.8), alpha = .6) +
+      geom_point(size = rel(.4), alpha = .6) +
   ggtitle(paste("tSNE plot of", cellLine,"MEPs with FBS Coloured by Ligand"))+
   guides(colour = FALSE)
 ggplotly(p)
@@ -398,10 +407,10 @@ The scatterplot shows the 2 tSNE components of all MEP signals colored by ligand
 
 ###tSNE plot of all MEP Signals by ECM Protein
 
-```{r plottSNEECMpFBSU,fig.width=8, fig.height=5, eval=TRUE}
+```{r plottSNEECMpFBSU, fig.width=10, fig.height=7, eval=TRUE}
 
 p <- ggplot(l4CU, aes(x=V1, y=V2, colour=ECMp, text=paste("Ligand:",Ligand)))+
-      geom_point(size = rel(.8), alpha = .6) +
+      geom_point(size = rel(.4), alpha = .6) +
   ggtitle(paste("tSNE plot of", cellLine,"MEPs with FBS Coloured by ECM Protein"))+
   guides(colour = FALSE)
 ggplotly(p)
@@ -491,11 +500,15 @@ These boxplots show the cell cycle proportions as measured by total DAPI for the
  
 
 
-```{r medianHeatMaps2, fig.width=9, fig.height=5.5}
+```{r medianHeatMaps2, fig.width=10, fig.height=7}
+#Cast to get ligands into columns
+df <- dcast(data.frame(l4C[,list(ECMp,Ligand,Spot_PA_SpotCellCount,Barcode)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCount",fun=median)
 
-limits=c(.05, .95)
-titleExpression <-"Raw Spot Cell Count"
-plotLEHmap(l4C,  hclustfun = "hclust",fill="Spot_PA_SpotCellCount", titleExpression=titleExpression, limits=limits)
+rownames(df) <- df$ECMp
+df <- df[,!grepl("ECMp",names(df))]
+
+try(heatmaply(dfZoom(df, .05, .95), main="Raw Spot Cell Count Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
+
 ```
 
 ***
@@ -503,11 +516,14 @@ This heatmap uses unsupervised clustering in the rows and columns using the comp
 
 ###Clustered Normalized Spot Cell Count Heatmap
 
-```{r}
-limits=c(.05, .95)
-titleExpression <-"Normalized Spot Cell Count"
-plotLEHmap(l4C, hclustfun = "hclust", fill="Spot_PA_SpotCellCountNorm", titleExpression=titleExpression, limits=limits)
+```{r, fig.width=10, fig.height=7}
+#Cast to get ligands into columns
+df <- dcast(data.frame(l4C[,list(ECMp,Ligand,Spot_PA_SpotCellCountNorm,Barcode)]),ECMp~Ligand, value.var = "Spot_PA_SpotCellCountNorm",fun=median)
 
+rownames(df) <- df$ECMp
+df <- df[,!grepl("ECMp",names(df))]
+
+try(heatmaply(dfZoom(df, .05, .95), main="Normalized Spot Cell Count Heatmap", xlab = "Ligand", ylab = "ECM Protein", margins =  c(100,100,NA,0) ,colors=hmcols, fontsize_row=6, fontsize_col=5), TRUE)
 ```
 
 ***
