@@ -101,7 +101,7 @@ if(length(cellDataFilePaths) == 0) stop("No raw data files found")
 
 #Gather data from either Cell Profiler or INCell
 if("Nuclei" %in% dataBWInfo$Location) { #Cell Profiler data
-  dtL <- getCPData(dataBWInfo = dataBWInfo, verbose=verbose)
+  dtL <- getCPData(dataBWInfo = dataBWInfo, verbose=verbose, curatedOnly = FALSE)
 } else if (any(grepl("96well", dataBWInfo$Path))) { #GE INCell data
   dtL <- getICData(cellDataFilePaths = cellDataFilePaths, 
                    endPoint488 = unique(metadata$Endpoint488),
@@ -143,6 +143,10 @@ cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
 
 # Gate cells where possible
 cDT <- gateCells(cDT)
+
+#Remove Parent features
+cDT <- select(cDT,-contains("Parent"))
+
 #reduce the numeric values to 4 significant digits
 shorten <- function(x){
   if(class(x)=="numeric") x <- signif(x,4)
