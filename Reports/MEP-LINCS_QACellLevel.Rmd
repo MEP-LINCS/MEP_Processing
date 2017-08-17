@@ -66,18 +66,16 @@ The plots below are of a randomly sampled subset of the cell-level data.
 cummulativeMaxCount<-0
 if("TotalDNANormed" %in% colnames(l1S)){
   DAPISignal <- "TotalDNANormed"
-  binwidth=.04
   xaxisMax <- 4
 } else {
   DAPISignal <- "Nuclei_CP_Intensity_IntegratedIntensity_Dapi"
-  binwidth=10000
-  xaxisMax <- 100000000
+  xaxisMax <- quantile(l1S$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.995)
 }
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
 
-  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(binwidth = binwidth)+
+  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(bins = 300)+
     facet_grid(Barcode~Well_Ligand)
   currentMaxCount <- max(ggplot_build(p)$data[[1]]$count)
   cummulativeMaxCount<- max(cummulativeMaxCount,currentMaxCount)
@@ -85,7 +83,7 @@ for(barcode in barcodes){
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
-  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(binwidth = binwidth)+
+  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(bins = 300)+
     coord_cartesian(x=c(0,xaxisMax), y=c(0,cummulativeMaxCount))+
     facet_wrap(~Well_Ligand, nrow=nrPlateRow) +
     ylab("Count")+xlab("Total Intensity DAPI")+ggtitle(paste("Total DAPI Intensity:",barcode))+
@@ -110,7 +108,7 @@ for (barcode in barcodes){
   dtb <- l1S[barcode]
   dtb <- dtb[log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) > quantile(log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), probs=.01, na.rm=TRUE) & log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) < quantile(log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker),probs=.98, na.rm=TRUE)]
   p <- ggplot(dtb, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
-    geom_histogram(binwidth = binwidth)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("MitoTracker Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity MitoTracker\nLog2")+
