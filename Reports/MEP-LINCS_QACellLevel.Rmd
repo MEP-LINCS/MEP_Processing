@@ -66,18 +66,17 @@ The plots below are of a randomly sampled subset of the cell-level data.
 cummulativeMaxCount<-0
 if("TotalDNANormed" %in% colnames(l1S)){
   DAPISignal <- "TotalDNANormed"
-  binwidth=.04
+  
   xaxisMax <- 4
 } else {
   DAPISignal <- "Nuclei_CP_Intensity_IntegratedIntensity_Dapi"
-  binwidth=10000
   xaxisMax <- 100000000
 }
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
 
-  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(binwidth = binwidth)+
+  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(bins=300)+
     facet_grid(Barcode~Well_Ligand)
   currentMaxCount <- max(ggplot_build(p)$data[[1]]$count)
   cummulativeMaxCount<- max(cummulativeMaxCount,currentMaxCount)
@@ -85,7 +84,7 @@ for(barcode in barcodes){
 for(barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
-  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(binwidth = binwidth)+
+  p <- ggplot(dtb, aes_string(x=DAPISignal))+geom_histogram(bins = 300)+
     coord_cartesian(x=c(0,xaxisMax), y=c(0,cummulativeMaxCount))+
     facet_wrap(~Well_Ligand, nrow=nrPlateRow) +
     ylab("Count")+xlab("Total Intensity DAPI")+ggtitle(paste("Total DAPI Intensity:",barcode))+
@@ -110,7 +109,7 @@ for (barcode in barcodes){
   dtb <- l1S[barcode]
   dtb <- dtb[log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) > quantile(log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker), probs=.01, na.rm=TRUE) & log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker) < quantile(log2(dtb$Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker),probs=.98, na.rm=TRUE)]
   p <- ggplot(dtb, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker)))+
-    geom_histogram(binwidth = binwidth)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("MitoTracker Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity MitoTracker\nLog2")+
@@ -120,13 +119,13 @@ for (barcode in barcodes){
 ```
 
 ```{r rawCaspaseHistograms, fig.width=3.7,fig.height=4, eval="Cytoplasm_CP_Intensity_MedianIntensity_Caspase" %in% colnames(l1S)}
-binwidth=.001
+
 for (barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
   dtb <- dtb[dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2 > quantile(dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2, probs=.01, na.rm=TRUE) & dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2 < quantile(dtb$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2,probs=.98, na.rm=TRUE)]
   p <- ggplot(dtb, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2)))+
-    geom_histogram(binwidth = binwidth)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("Caspase Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity Caspase\nLog2")+
@@ -149,7 +148,7 @@ for (barcode in barcodes){
   #Squish the extreme values for better display
   mDT <- mDT[mDT$Nuclei_CP_Intensity_MedianIntensity_EdU > quantile(mDT$Nuclei_CP_Intensity_MedianIntensity_EdU, probs=.01, na.rm=TRUE) & mDT$Nuclei_CP_Intensity_MedianIntensity_EdU < quantile(mDT$Nuclei_CP_Intensity_MedianIntensity_EdU,probs=.98, na.rm=TRUE),]
   p <- ggplot(mDT, aes(x=log2(Nuclei_CP_Intensity_MedianIntensity_EdU)))+
-    geom_histogram(binwidth = .01)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2, scales="free_x")+
     ggtitle(paste("EdU Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity EdU\nLog2")+
@@ -172,7 +171,7 @@ for (barcode in barcodes){
     #Squish the extreme values for better display
   mDT <- mDT[mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT5 > quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT5, probs=.01, na.rm=TRUE) & mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT5 < quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT5,probs=.98, na.rm=TRUE),]
   p <- ggplot(mDT, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5)))+
-    geom_histogram(binwidth = .01)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2)+
     ggtitle(paste("KRT5 Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity KRT5\nLog2")+
@@ -191,7 +190,7 @@ for (barcode in barcodes){
   #Squish the extreme values for better display
   mDT <- mDT[mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT19 > quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT19, probs=.01, na.rm=TRUE) & mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT19 < quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT19,probs=.98, na.rm=TRUE),]
   p <- ggplot(mDT, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT19)))+
-    geom_histogram(binwidth = .01)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2)+
     ggtitle(paste("KRT19 Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity KRT19\nLog2")+
@@ -209,7 +208,7 @@ for (barcode in barcodes){
   mDT <- l1S[l1S$Barcode == barcode]
    mDT <- mDT[mDT$Cytoplasm_PA_Intensity_LineageRatio > quantile(mDT$Cytoplasm_PA_Intensity_LineageRatio, probs=.01, na.rm=TRUE) & mDT$Cytoplasm_PA_Intensity_LineageRatio < quantile(mDT$Cytoplasm_PA_Intensity_LineageRatio,probs=.98, na.rm=TRUE),]
   p <- ggplot(mDT, aes(x=log2(Cytoplasm_PA_Intensity_LineageRatio)))+
-    geom_histogram(binwidth = .1)+
+    geom_histogram(bins = 300)+
     facet_wrap(~Well_Ligand, nrow=2)+
     ggtitle(paste("Lineage Ratio,",barcode))+
     ylab("Count")+xlab("Median Intensity Lineage Ratio\nLog2")+
@@ -301,7 +300,7 @@ suppressWarnings(print(p))
 #Supplemental Material
 
 ```{r Cell_cycle_plots,echo=FALSE, fig.width=8, fig.height=5, eval=length(setdiff(c("TotalDNANormed","Nuclei_CP_Intensity_MedianIntensity_EdU","Nuclei_PA_Gated_EdUPositive"),colnames(l1S)))==0}
-binwidth=.04
+
 for (barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
@@ -317,7 +316,7 @@ for (barcode in barcodes){
 ```
 
 ```{r KRT5EdU_plots,echo=FALSE, fig.width=8, fig.height=5, eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT5","Nuclei_CP_Intensity_MedianIntensity_EdU","Nuclei_PA_Gated_EdUPositive"),colnames(l1S)))==0}
-binwidth=.04
+
 for (barcode in barcodes){
   setkey(l1S, Barcode)
   dtb <- l1S[barcode]
