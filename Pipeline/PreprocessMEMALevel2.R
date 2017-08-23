@@ -89,8 +89,8 @@ getOmeroIDs <- function(path){
     wellColumn <- as.integer(gsub("[[:alpha:]]","",well))
     dt$WellIndex <- (match(wellRow,LETTERS)-1)*12+wellColumn
   } else {
-    #Extract well index and convert to an integerin an 8 well plate
-    dt[,WellIndex := as.integer(gsub(".*_Well",WellName))]
+    #Extract well index and convert to an integer in an 8 well plate
+    dt <- dt[,WellIndex := as.integer(gsub(".*_Well","",WellName))]
   }
 
   setnames(dt,"Row","ArrayRow")
@@ -114,6 +114,12 @@ if(exists("clarionIdPath")){
 
 #Count the cells at each spot at the cell level as needed by createl3
 cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
+
+#Add the DAPI intensities in all nuclei
+cDT <- cDT[,Spot_PA_TotalDapiIntensity := sum(Nuclei_CP_Intensity_IntegratedIntensity_Dapi),by="Barcode,Well,Spot"]
+
+#Add the EdU intensities in all nuclei
+cDT <- cDT[,Spot_PA_TotalEdUIntensity := sum(Nuclei_CP_Intensity_IntegratedIntensity_EdU),by="Barcode,Well,Spot"]
 
 #Add proportions for signals with multivariate gating and non-conforming gate values
 addSpotProportions(cDT)
