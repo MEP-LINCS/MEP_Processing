@@ -72,7 +72,33 @@ if (useSynapse) {
   imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
   clarionIdPath <- paste0(opt$inputPath, "/",barcode, "_clarionIDs.tsv")
 }
+######Debug   move this into MEMA package
+#' Read in and merge the Omero URLs
+#' 
+#' Adds Omero image IDs based on the WellName values
+#' 
+#' @param path The path to the file named barcode_imageIDs.tsv
+#' @return a datatable with WellIndex, ArrayRow, ArrayColumn and ImageID columns
+#' @export
+getOmeroIDs <- function(path){
+  dt <- fread(path)[,list(WellName,Row,Column,ImageID)]
+  if(any(grepl("LI9",unique(dt$WellName)))){
+    #Extract well index and convert to an integer in a 96 well plate
+    well <- gsub("_.*","",gsub(".*_Well","",dt$WellName))
+    wellRow <- gsub("[[:digit:]]*","",well)
+    wellColumn <- as.integer(gsub("[[:alpha:]]","",well))
+    dt$WellIndex <- (match(wellRow,LETTERS)-1)*12+wellColumn
+  } else {
+    #Extract well index and convert to an integerin an 8 well plate
+    dt[,WellIndex := as.integer(gsub(".*_Well",WellName))]
+  }
 
+  setnames(dt,"Row","ArrayRow")
+  setnames(dt,"Column","ArrayColumn")
+  dt[,WellName := NULL]
+  return(dt)
+}
+#####
 cDT <- fread(dataPath)
 if(exists("imageIdPath")){
 if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
