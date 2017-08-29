@@ -7,6 +7,7 @@ library(synapseClient)
 library(MEMA)
 library(parallel)
 library(stringr)
+library(readr)
 suppressPackageStartupMessages(library(dplyr))
 library(optparse)
 library(githubr)
@@ -77,6 +78,18 @@ if (useAnnotMetadata) {
 #Get all metadata
 metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
+#Get image quality data if available
+QA <- lapply(list.files(paste0(cl$options$inputPath,"/v2"),pattern="SummaryImageData",full.names = TRUE), function(x) suppressWarnings(read_csv(file=x, col_types = cols()))) %>%
+  bind_rows %>%
+  select(-matches("^CP |^X"))
+
+colnames(QA) <- str_replace_all(colnames(QA)," ","_")
+QA <- rename(QA,Spot=imageID, Well=imageGroupName)
+QA$Well[seq(from=700,to=5600,by=700)] <- QA$Well[seq(from=699,to=5600,by=700)]
+
+QA <- mutate(QA, Barcode = str_extract(imageName,".*?_"))
+QA$Barcode <- str_replace_all(QA$Barcode, "_|Plate","")
+
 #Gather filenames and metadata of level 0 files
 if(useSynapse){
   q <- sprintf("select id,Barcode,Level,Well,StainingSet,Location,Study from %s WHERE Level='0' AND Barcode='%s'",
@@ -91,10 +104,10 @@ if(useSynapse){
   cellDataFilePaths <- unlist(lapply(res, getFileLocation))
   dataBWInfo$Path <- cellDataFilePaths
 } else {
-  cellDataFilePaths <- dir(paste0(cl$options$inputPath,"/",rawDataVersion), full.names = TRUE)
+  cellDataFilePaths <- dir(paste0(cl$options$inputPath,"/",rawDataVersion), pattern="Nuclei|Cells|Cytoplasm",full.names = TRUE)
   if(length(cellDataFilePaths)==0) stop("No raw data files found")
   dataBWInfo <- data.table(Path=cellDataFilePaths,
-                           Well=gsub("_","",str_extract(dir(paste0(cl$options$inputPath,"/",rawDataVersion)),"_.*_")),
+                           Well=gsub("_","",str_extract(dir(paste0(cl$options$inputPath,"/",rawDataVersion),pattern="Nuclei|Cells|Cytoplasm"),"_.*_")),
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
 }
 if(length(cellDataFilePaths) == 0) stop("No raw data files found")
@@ -138,8 +151,9 @@ dtL <- lapply(dtL,spotNormIntensities)
 # dtL <- mclapply(dtL, calcAdjacency, mc.cores = detectCores())
 dtL <- lapply(dtL, calcAdjacency)
 
-# Merge the data with metadata
-cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"))
+# Merge the data with metadata and image QA results
+cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"),all = TRUE) %>%
+merge(QA,by=c("Barcode","Well","Spot"),all = TRUE)
 
 # Gate cells where possible
 cDT <- gateCells(cDT)

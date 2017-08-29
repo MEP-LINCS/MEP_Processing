@@ -190,3 +190,4 @@ if(!is.null(cl$options$synapseStore)){
 if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
 if(verbose) message(paste("Elapsed time:", Sys.time()-functionStartTime, "\n"))
 
+write.csv(colnames(spotDT),file = "../QAFeatureNames")
