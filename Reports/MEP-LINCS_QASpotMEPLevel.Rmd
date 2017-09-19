@@ -516,33 +516,33 @@ suppressWarnings(print(p))
 
 
 
-```{r, child='MEP-LINCS_LineageText.Rmd', eval="Cytoplasm_PA_Intensity_LineageRatioNorm" %in% colnames(l3)}
+```{r, child='MEP-LINCS_LineageText.Rmd', eval="Cytoplasm_PA_Intensity_LineageRatio" %in% colnames(l3)}
 
 ```
 
-```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}
+```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(dt)))}
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatioNorm))+geom_histogram(binwidth = .02)+
-  ggtitle(paste("MEP Normalized Lineage Ratio Distribution"))+
-  ylab("Count")+xlab("Normalized Lineage Ratio")+
+p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatio))+geom_histogram(binwidth = .02)+
+  ggtitle(paste("MEP Lineage Ratio Distribution"))+
+  ylab("Count")+xlab("Lineage Ratio")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 ```
 
-```{r LineageRatioByLigand, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}
+```{r LineageRatioByLigand, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(dt)))}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatioNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized Lineage Ratio by Ligand"))+
+p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio, colour = Barcode))+geom_boxplot()+
+  ggtitle(paste("\n\nMEP Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
 ```
 
-```{r lineageRatioByECMp, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatioNorm",colnames(dt)))}
+```{r lineageRatioByECMp, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(dt)))}
 
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatioNorm, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatioNorm))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized LineageRatio by ECM Protein"))+
+p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio))+geom_boxplot()+
+  ggtitle(paste("MEP LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -694,7 +694,7 @@ if(grepl("SS1",StainingSet)){
 } else if (ss=="SS3|SS4"){
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -702,21 +702,21 @@ if(grepl("SS1",StainingSet)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4$Cytoplasm_PA_Intensity_LineageRatioNorm)) +
+  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
