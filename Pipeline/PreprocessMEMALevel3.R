@@ -64,7 +64,7 @@ if(useSynapse){
                       function(x) getFileLocation(synGet(x)))
   
 } else {
-  barcodes <- getBarcodes(studyName, synId = "syn9946943")
+  barcodes <- getBarcodes(studyName, synId = "syn10846457")
   dataPaths <- barcodes %>%
     lapply(function(barcode, path){
       paste0(path,"/",barcode,"/Analysis/",barcode,"_Level2.tsv")
