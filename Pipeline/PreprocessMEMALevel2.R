@@ -118,8 +118,8 @@ cDT <- cDT[,Spot_PA_SpotCellCount := .N,by="Barcode,Well,Spot"]
 #Add the DAPI intensities in all nuclei
 cDT <- cDT[,Spot_PA_TotalDapiIntensity := sum(Nuclei_CP_Intensity_IntegratedIntensity_Dapi),by="Barcode,Well,Spot"]
 
-#Add the EdU intensities in all nuclei
-cDT <- cDT[,Spot_PA_TotalEdUIntensity := sum(Nuclei_CP_Intensity_IntegratedIntensity_EdU),by="Barcode,Well,Spot"]
+#Add the EdU intensities in all nuclei if present
+if("Nuclei_CP_Intensity_IntegratedIntensity_EdU" %in% colnames(cDT)) cDT <- cDT[,Spot_PA_TotalEdUIntensity := sum(Nuclei_CP_Intensity_IntegratedIntensity_EdU),by="Barcode,Well,Spot"]
 
 #Add proportions for signals with multivariate gating and non-conforming gate values
 addSpotProportions(cDT)
