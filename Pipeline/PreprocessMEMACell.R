@@ -82,13 +82,14 @@ metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 QA <- lapply(list.files(paste0(cl$options$inputPath,"/v2"),pattern="SummaryImageData",full.names = TRUE), function(x) suppressWarnings(read_csv(file=x, col_types = cols()))) %>%
   bind_rows %>%
   select(-matches("^CP |^X"))
-
-colnames(QA) <- str_replace_all(colnames(QA)," ","_")
-QA <- rename(QA,Spot=imageID, Well=imageGroupName)
-QA$Well[seq(from=700,to=5600,by=700)] <- QA$Well[seq(from=699,to=5600,by=700)]
-
-QA <- mutate(QA, Barcode = str_extract(imageName,".*?_"))
-QA$Barcode <- str_replace_all(QA$Barcode, "_|Plate","")
+if(!nrow(QA)==0){
+  colnames(QA) <- str_replace_all(colnames(QA)," ","_")
+  QA <- rename(QA,Spot=imageID, Well=imageGroupName)
+  QA$Well[seq(from=700,to=5600,by=700)] <- QA$Well[seq(from=699,to=5600,by=700)]
+  
+  QA <- mutate(QA, Barcode = str_extract(imageName,".*?_"))
+  QA$Barcode <- str_replace_all(QA$Barcode, "_|Plate","")
+}
 
 #Gather filenames and metadata of level 0 files
 if(useSynapse){
@@ -151,9 +152,15 @@ dtL <- lapply(dtL,spotNormIntensities)
 # dtL <- mclapply(dtL, calcAdjacency, mc.cores = detectCores())
 dtL <- lapply(dtL, calcAdjacency)
 
-# Merge the data with metadata and image QA results
-cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"),all = TRUE) %>%
-merge(QA,by=c("Barcode","Well","Spot"),all = TRUE)
+if(nrow(QA)>0){
+  # Merge the data with metadata and image QA results
+  cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"),all = TRUE) %>%
+    merge(QA,by=c("Barcode","Well","Spot"),all = TRUE)
+} else {
+  # Merge the data with metadata and image QA results
+  cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"),all = TRUE)
+}
+
 
 # Gate cells where possible
 cDT <- gateCells(cDT)
