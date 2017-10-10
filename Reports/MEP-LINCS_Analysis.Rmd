@@ -356,10 +356,11 @@ ggplotly(p)
 
 
 
-```{r createtSNE}
+```{r createtSNE, eval=FALSE}
 #Debug: Delete EGF MEPs that have mislabeled conc units
 fvDT <- select(l4, c(matches("^MEP$"),ends_with("Norm"),matches("Ligand1ConcUnit"))) %>%
-  filter(!(Ligand1ConcUnit=="pg_per_mL_efo0004385"&str_detect(MEP,"EGF")))
+filter(!(str_detect(MEP,"EGF|PBS|DMSO")))
+#filter(!(Ligand1ConcUnit=="pg_per_mL_efo0004385"&str_detect(MEP,"EGF")))
 
 #Convert to dataframe for 
 fvDT <- data.frame(fvDT)
@@ -384,7 +385,7 @@ l4tSNEPCA <- cbind(dtt,fvPCA$x)
 ###Principal Components Analysis
 A PCA dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have non-zero variance.  Hovering over the datapoints will show the MEP values.  
 
-```{r plottPCALigand,fig.width=3, fig.height=1.5}
+```{r plottPCALigand,fig.width=3, fig.height=1.5, eval=FALSE}
 #plot(fvPCA, main = "Scree Plot for PCA")
 l <- htmltools::tagList()
 for(i in 1:5){
@@ -400,7 +401,7 @@ l
 ###tSNE Analysis
 A tSNE dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have non-zero variance.  Hovering over the datapoints will show the MEP values.  
 
-```{r plottSNELigand,fig.width=5, fig.height=3}
+```{r plottSNELigand,fig.width=5, fig.height=3,eval=FALSE}
 
 p <- ggplot(dtt, aes(x=V1, y=V2, colour=Ligand, label=MEP))+
   geom_point(size=rel(.5), alpha=.5)+
