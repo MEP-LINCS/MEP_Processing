@@ -18,7 +18,7 @@ sampleProportion <- .5
 ```
 
 ```{r readLevel1Data}
-barcodes <-getBarcodes(studyName, synId = "syn9946943")
+barcodes <-getBarcodes(studyName, synId = "syn10846457")
 l1DTL <- lapply(barcodes, function(barcode, path){
   sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_Level1.tsv"),verbose = FALSE, showProgress = FALSE)
   set.seed(42)
@@ -30,7 +30,7 @@ l1S <- l1[sample(1:nrow(l1), sampleProportion*nrow(l1), replace = FALSE),]
 
 l1S <- l1S[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
 if("Nuclei_PA_Cycle_State" %in% colnames(l1S)){
-  l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1]), by="Barcode"]
+  l1S <- l1S[,TotalDNANormed := Nuclei_CP_Intensity_IntegratedIntensity_Dapi/median(Nuclei_CP_Intensity_IntegratedIntensity_Dapi[Nuclei_PA_Cycle_State==1], na.rm=TRUE), by="Barcode"]
   l1S <- l1S[,DNAThresh := min(TotalDNANormed[Nuclei_PA_Cycle_State==2]), by="Barcode"]
 }
 #Determine number of rows in the plate for figures
