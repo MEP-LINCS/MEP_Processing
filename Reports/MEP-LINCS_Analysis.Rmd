@@ -380,10 +380,13 @@ setnames(dtt,"2","V2")
 
 fvPCA <- prcomp(fvDT)
 l4tSNEPCA <- cbind(dtt,fvPCA$x)
-```
 
 ###Principal Components Analysis
-A PCA dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have non-zero variance.  Hovering over the datapoints will show the MEP values.  
+#A PCA dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have #non-zero variance.  Hovering over the datapoints will show the MEP values. 
+
+```
+
+ 
 
 ```{r plottPCALigand,fig.width=3, fig.height=1.5, eval=FALSE}
 #plot(fvPCA, main = "Scree Plot for PCA")
@@ -396,10 +399,13 @@ p <- ggplot(l4tSNEPCA, aes_string(x=paste0("PC",i), y=paste0("PC",i+1), colour="
 l[[i]] <- ggplotly(p)
 }
 l
-```
+
 
 ###tSNE Analysis
-A tSNE dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that have non-zero variance.  Hovering over the datapoints will show the MEP values.  
+#A tSNE dimension reduction is performed on the `r dim(fvDT)[2]` normalized features that #have non-zero variance.  Hovering over the datapoints will show the MEP values.  
+
+```
+
 
 ```{r plottSNELigand,fig.width=5, fig.height=3,eval=FALSE}
 
