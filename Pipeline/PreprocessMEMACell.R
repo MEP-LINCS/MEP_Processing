@@ -138,7 +138,7 @@ dtL <- lapply(dtL, cleanLegacyIssues)
 
 # Filter our debris and cell clusters
 dtL <- lapply(dtL, function(dt){
-  filterObjects(dt,nuclearAreaThresh = 500, nuclearAreaHiThresh = 4000)})
+  filterObjects(dt,nuclearAreaThresh = 700, nuclearAreaHiThresh = 4000)})
 
 # Add local XY and polar coordinates
 # dtL <- mclapply(dtL, addPolarCoords, mc.cores = detectCores())
