@@ -70,7 +70,7 @@ if("TotalDNANormed" %in% colnames(l1S)){
   xaxisMax <- 4
 } else {
   DAPISignal <- "Nuclei_CP_Intensity_IntegratedIntensity_Dapi"
-  xaxisMax <- 100000000
+ xaxisMax <- quantile(l1S$Nuclei_CP_Intensity_IntegratedIntensity_Dapi,probs=.995)
 }
 for(barcode in barcodes){
   setkey(l1S, Barcode)
