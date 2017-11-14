@@ -9,6 +9,31 @@ suppressPackageStartupMessages(library(synapseClient))
 suppressPackageStartupMessages(library(optparse))
 library(githubr)
 
+#Move this to the MEMA package, adding support for 96 well plates
+#' Read in and merge the Omero URLs
+#' 
+#' Adds Omero image IDs based on the WellName values
+#' 
+#' @param path The path to the file named barcode_imageIDs.tsv
+#' @return a datatable with WellIndex, ArrayRow, ArrayColumn and ImageID columns
+#' @export
+getOmeroIDs <- function(path){
+  dt <- fread(path)[,list(WellName,Row,Column,ImageID)]
+  #Extract well index and convert to alphanumeric label
+  if(grepl("nd2",dt$WellName[1])){
+    dt[,WellIndex := gsub(".*_Well","",WellName)]
+    dt[,WellIndex := gsub("_.*","",WellIndex)]
+    dt[,WellIndex := (match(str_extract(WellIndex,"[[:alpha:]]"),LETTERS)-1)*12+as.integer(str_extract(WellIndex,"[[:digit:]]+"))]
+  } else {
+    dt[,WellIndex := as.integer(gsub(".*_Well","",WellName))]
+  }
+  setnames(dt,"Row","ArrayRow")
+  setnames(dt,"Column","ArrayColumn")
+  dt[,WellName := NULL]
+  return(dt)
+}
+
+#####
 # Get the command line arguments and options
 # returns a list with options and args elements
 getCommandLineArgs <- function(){
