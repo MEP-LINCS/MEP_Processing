@@ -82,16 +82,16 @@ if (useSynapse) {
 #' @export
 getOmeroIDs <- function(path){
   dt <- fread(path)[,list(WellName,Row,Column,ImageID)]
-  if(any(grepl("LI9",unique(dt$WellName)))){
-    #Extract well index and convert to an integer in a 96 well plate
-    well <- gsub("_.*","",gsub(".*_Well","",dt$WellName))
-    wellRow <- gsub("[[:digit:]]*","",well)
-    wellColumn <- as.integer(gsub("[[:alpha:]]","",well))
-    dt$WellIndex <- (match(wellRow,LETTERS)-1)*12+wellColumn
-  } else {
+  # if(any(grepl("LI9",unique(dt$WellName)))){
+  #   #Extract well index and convert to an integer in a 96 well plate
+  #   well <- gsub("_.*","",gsub(".*_Well","",dt$WellName))
+  #   wellRow <- gsub("[[:digit:]]*","",well)
+  #   wellColumn <- as.integer(gsub("[[:alpha:]]","",well))
+  #   dt$WellIndex <- (match(wellRow,LETTERS)-1)*12+wellColumn
+  # } else {
     #Extract well index and convert to an integer in an 8 well plate
     dt <- dt[,WellIndex := as.integer(gsub(".*_Well","",WellName))]
-  }
+  # }
 
   setnames(dt,"Row","ArrayRow")
   setnames(dt,"Column","ArrayColumn")
