@@ -138,7 +138,7 @@ dtL <- lapply(dtL, cleanLegacyIssues)
 
 # Filter our debris and cell clusters
 dtL <- lapply(dtL, function(dt){
-  filterObjects(dt,nuclearAreaThresh = 700, nuclearAreaHiThresh = 4000)})
+  filterObjects(dt,nuclearAreaThresh = 200, nuclearAreaHiThresh = 4000)})
 
 # Add local XY and polar coordinates
 # dtL <- mclapply(dtL, addPolarCoords, mc.cores = detectCores())
@@ -161,7 +161,11 @@ if(nrow(QA)>0){
   cDT <- merge(rbindlist(dtL),metadata,by=c("Barcode","Well","Spot"),all = TRUE)
 }
 
-
+#####
+#Temp filter for 0 area donuts
+if(exists("cDT$Cytoplasm_CP_AreaShape_Area"))
+cDT <- cDT[!is.na(Cytoplasm_CP_AreaShape_Area),]
+#####
 # Gate cells where possible
 cDT <- gateCells(cDT)
 
