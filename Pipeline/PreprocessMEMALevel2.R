@@ -133,6 +133,20 @@ if(length(gatedSignals)>0){
            paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
 }
 
+# create an organization feature
+calcOrganization <- function(df){
+#Use the existing outer cell labels which divide the dataset into 50% interior
+  df %>%
+    dplyr::group_by(Well, Spot) %>%
+    dplyr::mutate(Spot_PA_InteriorKRT19HighProportion = sum(Cytoplasm_PA_Gated_KRT19Positive&!Spot_PA_OuterCell)/sum(!Spot_PA_OuterCell),
+           Spot_PA_PerimeterKRT19LowProportion = sum(!Cytoplasm_PA_Gated_KRT19Positive&Spot_PA_OuterCell)/sum(Spot_PA_OuterCell),
+           Spot_PA_KRT19Organization = (Spot_PA_InteriorKRT19HighProportion+Spot_PA_PerimeterKRT19LowProportion)/2) %>%
+    data.table()
+}
+
+cDT <- calcOrganization(cDT)
+
+
 #median summarize the rest of the signals to the spot level
 signals <- summarizeToSpot(cDT, seNames)
 
