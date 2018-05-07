@@ -144,7 +144,7 @@ calcOrganization <- function(df){
     data.table()
 }
 
-cDT <- calcOrganization(cDT)
+#cDT <- calcOrganization(cDT)
 
 
 #median summarize the rest of the signals to the spot level
