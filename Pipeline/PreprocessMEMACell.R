@@ -165,9 +165,13 @@ if(nrow(QA)>0){
 #Temp filter for 0 area donuts
 if(exists("cDT$Cytoplasm_CP_AreaShape_Area"))
 cDT <- cDT[!is.na(Cytoplasm_CP_AreaShape_Area),]
+if("Nuclei_CP_AreaShape_Area" %in% colnames(cDT))
+  cDT <- cDT[!is.na(Nuclei_CP_AreaShape_Area),]
 #####
 # Gate cells where possible
 cDT <- gateCells(cDT)
+
+
 
 #Remove Parent features
 cDT <- select(cDT,-contains("Parent"))
