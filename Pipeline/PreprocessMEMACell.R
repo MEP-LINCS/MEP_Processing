@@ -2,7 +2,7 @@
 
 #title: "MEP-LINCS Preprocessing"
 #author: "Mark Dane"
-
+library(tidyverse)
 library(synapseClient)
 library(MEMA)
 library(parallel)
@@ -170,8 +170,6 @@ if("Nuclei_CP_AreaShape_Area" %in% colnames(cDT))
 #####
 # Gate cells where possible
 cDT <- gateCells(cDT)
-
-
 
 #Remove Parent features
 cDT <- select(cDT,-contains("Parent"))
