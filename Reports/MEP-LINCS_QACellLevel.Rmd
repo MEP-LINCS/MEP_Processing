@@ -179,6 +179,23 @@ for (barcode in barcodes){
 }
 
 ```
+<br>
+
+```{r rawKRT14Histograms, fig.width=3.7,fig.height=4, eval="Cytoplasm_CP_Intensity_MedianIntensity_KRT14" %in% colnames(l1S)}
+for (barcode in barcodes){
+  mDT <- l1S[l1S$Barcode == barcode]
+    #Squish the extreme values for better display
+  mDT <- mDT[mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT14 > quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT14, probs=.01, na.rm=TRUE) & mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT14 < quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_KRT14,probs=.98, na.rm=TRUE),]
+  p <- ggplot(mDT, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT14)))+
+    geom_histogram(binwidth = .01)+
+    facet_wrap(~Well_Ligand, nrow=2)+
+    ggtitle(paste("KRT14 Intensity,",barcode))+
+    ylab("Count")+xlab("Median Intensity KRT14\nLog2")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = rel(.5)))
+  suppressWarnings(print(p))
+}
+
+```
 
 
 <br>
@@ -193,6 +210,26 @@ for (barcode in barcodes){
     facet_wrap(~Well_Ligand, nrow=2)+
     ggtitle(paste("KRT19 Intensity,",barcode))+
     ylab("Count")+xlab("Median Intensity KRT19\nLog2")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = rel(.5)))
+  suppressWarnings(print(p))
+}
+
+```
+
+
+
+<br>
+
+```{r rawVimentinHistograms, fig.width=3.7,fig.height=4, eval="Cytoplasm_CP_Intensity_MedianIntensity_Vimentin" %in% colnames(l1S)}
+for (barcode in barcodes){
+  mDT <- l1S[l1S$Barcode == barcode]
+  #Squish the extreme values for better display
+  mDT <- mDT[mDT$Cytoplasm_CP_Intensity_MedianIntensity_Vimentin > quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_Vimentin, probs=.01, na.rm=TRUE) & mDT$Cytoplasm_CP_Intensity_MedianIntensity_Vimentin < quantile(mDT$Cytoplasm_CP_Intensity_MedianIntensity_Vimentin,probs=.98, na.rm=TRUE),]
+  p <- ggplot(mDT, aes(x=log2(Cytoplasm_CP_Intensity_MedianIntensity_Vimentin)))+
+    geom_histogram(binwidth = .01)+
+    facet_wrap(~Well_Ligand, nrow=2)+
+    ggtitle(paste("Vimentin Intensity,",barcode))+
+    ylab("Count")+xlab("Median Intensity Vimentin\nLog2")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)), strip.text = element_text(size = rel(.5)))
   suppressWarnings(print(p))
 }
