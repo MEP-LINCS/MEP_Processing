@@ -11,6 +11,7 @@ library(parallel)
 library(ggplot2)
 library(RColorBrewer)
 library(d3heatmap)
+library(readr)
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -23,6 +24,11 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
 l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
 l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+
+spotQuality <- read_csv("ECMp_Spot_Class.csv",col_types = cols(
+  ECMp = col_character(),
+  Spot_Quality = col_character(),
+  Fragmented = col_logical()))
 
 k <- unique(l3$k)
 CellLine <- unique(l3$CellLine)
@@ -39,13 +45,18 @@ lowSpotCellCountThreshold <-unique(l3$QA_lowSpotCellCountThreshold)
 #Shorten reagent names for display
 l3$Ligand <- gsub("-.*","",l3$Ligand)
 l4$Ligand <- gsub("-.*","",l4$Ligand)
-l3$ECMp <- gsub("_.*","",l3$ECMp)
-l4$ECMp <- gsub("_.*","",l4$ECMp)
+#l3$ECMp <- gsub("_.*","",l3$ECMp)
+#l4$ECMp <- gsub("_.*","",l4$ECMp)
 l3$ECMp <- MEMA:::compressHA(l3$ECMp)
 l4$ECMp <- MEMA:::compressHA(l4$ECMp)
 l3$MEP <- paste(l3$ECMp,l3$Ligand,sep="_")
 barcodes <- unique(l3$Barcode)
 l3 <- l3[,Well_Ligand :=  paste(Well,Ligand, sep="\n")]
+
+#merge in spot quality data
+l3<- merge(l3, spotQuality, by="ECMp")
+
+l4<- merge(l4, spotQuality, by="ECMp")
 
 ```
 
@@ -298,6 +309,20 @@ print(p)
 
 
 
+```{r rawVimentinBoxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_Vimentin" %in% colnames(l3)}
+
+p <- ggplot(l3, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_Vimentin), colour=Well))+
+  geom_boxplot(outlier.size = .5)+
+  xlab("")+ylab("Median Intensity Vimentin (log2)")+
+  ggtitle("Median Intensity Vimentin per Spot by Well and Barcode ")+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(log2(l3$Cytoplasm_CP_Intensity_MedianIntensity_Vimentin)), colour="blue", alpha=.5)
+print(p)
+
+```
+
+
+
 ```{r Filtering}
 #Remove the fiducial and blank data
 setkey(l3,ECMp)
@@ -362,15 +387,17 @@ suppressWarnings(print(p))
 ```{r SCC_response, fig.width=8,  fig.height=6}
 setkey(l4F,"Ligand")
 
-if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(l4F)))){
-  p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, colour = Barcode))+geom_boxplot()+
-    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by Ligand"))+
+dt <- l3F %>%
+  filter(ECMp=="COL1")
+if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
+  p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, colour = Barcode))+geom_boxplot()+
+    ggtitle(paste("\n\nNormalized Spot Cell Count by Ligand (COL1 spots)"))+
     xlab("")+ylab("")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 } else {
-  p <- ggplot(l4F, aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+
+  p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+
     geom_boxplot()+
-    ggtitle(paste("\n\nMEP Raw Spot Cell Count by Ligand"))+
+    ggtitle(paste("\n\nRaw Spot Cell Count by Ligand (COL1 spots)"))+
     xlab("")+ylab("")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 }
@@ -381,15 +408,32 @@ suppressWarnings(print(p))
 Depending on the staining set, selected signals are stratfied first by ligand and then by ECM protein. Each ligand boxplot contains data from pairing with all ECM proteins while each ECM protein boxplot conatins data from pairing with all ligands.   
 
 ```{r, fig.width=8,  fig.height=3.5}
-dt <- l4F
-if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(l4F)))){
+dt <- l3F %>%
+  filter(Ligand %in% c("PBS","FBS"))
+
+if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
   p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm))+geom_boxplot()+
-    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein"))+
+    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein in control wells"))+
     xlab("")+ylab("")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 } else {
   p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount))+geom_boxplot()+
-    ggtitle(paste("MEP Raw Spot Cell Count by ECM Protein"))+
+    ggtitle(paste("MEP Raw Spot Cell Count by ECM Protein in control wells"))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+}
+suppressWarnings(print(p))
+
+if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
+  dtf <- dt %>%
+    filter(Spot_Quality %in% c("high","medium"))
+  p <- ggplot(dtf, aes(x = reorder(ECMp, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, fill=Spot_Quality))+geom_boxplot()+
+    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein, high and medium quality spots in control wells"))+
+    xlab("")+ylab("")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+} else {
+  p <- ggplot(dtf, aes(x = reorder(ECMp, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount))+geom_boxplot()+
+    ggtitle(paste("MEP Raw Spot Cell Count by ECM Protein, high and medium quality spots in control wells"))+
     xlab("")+ylab("")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 }
@@ -843,7 +887,6 @@ for (barcode in barcodes){
   p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
-  
   if (any(grepl("Actin",colnames(DT))))  {
     p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
     suppressWarnings(print(p))
@@ -862,7 +905,7 @@ for (barcode in barcodes){
     suppressWarnings(print(p))
   }
   if (any(grepl("EdU",colnames(DT))))  {    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint647))
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint555))
     suppressWarnings(print(p))
   } 
   
@@ -888,6 +931,11 @@ for (barcode in barcodes){
   
   if (any(grepl("Nestin",colnames(DT))))  {    
     p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Nestin", prDisplay = unique(DT$Endpoint488))
+    suppressWarnings(print(p))
+  }
+  
+   if (any(grepl("Vimentin",colnames(DT))))  {    
+    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Vimentin", prDisplay = unique(DT$Endpoint647))
     suppressWarnings(print(p))
   }
   
