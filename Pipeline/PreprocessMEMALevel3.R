@@ -34,7 +34,9 @@ getCommandLineArgs <- function(){
 
 #Specify the command line options
 
-cl <- getCommandLineArgs()
+#cl <- getCommandLineArgs()
+cl <- list(args=c("hmec240l_ss4","/data/share/dane/MEMAPaper/hmec240l_ss4_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+
 
 studyName <- cl$args[1]
 ofname <- cl$args[2]
@@ -71,7 +73,14 @@ if(useSynapse){
     }, path=opt$inputPath)
 }
 
-slDT <- getSpotLevelData(dataPaths)
+#Special handling for MEP analysis, remove NID1 and ELN data
+slDT <- getSpotLevelData(dataPaths) %>%
+  filter(!ECMp=="NID1|1",
+         !ECMp=="ELN|3",
+         !Ligand %in% c("KNG1|HMW", "LYVE1", "THPO|1", "JAG2|Long"),
+         !(Barcode=="LI8X00652"&Ligand=="FBS"),
+         !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
+  data.table()
 
 signalsMinimalMetadata <- grep("_SE",
                                grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",
