@@ -5,9 +5,11 @@
 library(MEMA)
 library(parallel)
 library(stringr)
+library(tidyverse)
 suppressPackageStartupMessages(library(synapseClient))
 suppressPackageStartupMessages(library(optparse))
 library(githubr)
+
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -101,8 +103,10 @@ getOmeroIDs <- function(path){
 #####
 cDT <- fread(dataPath)
 if(exists("imageIdPath")){
-if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
+#DEBUGif(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
 }
+
+
 
 if(exists("clarionIdPath")){
   if(file.exists(clarionIdPath)){
@@ -120,6 +124,9 @@ cDT <- cDT[,Spot_PA_TotalDapiIntensity := sum(Nuclei_CP_Intensity_IntegratedInte
 
 #Add the EdU intensities in all nuclei if present
 if("Nuclei_CP_Intensity_IntegratedIntensity_EdU" %in% colnames(cDT)) cDT <- cDT[,Spot_PA_TotalEdUIntensity := sum(Nuclei_CP_Intensity_IntegratedIntensity_EdU),by="Barcode,Well,Spot"]
+
+#Add a luminal count feature
+if("Cytoplasm_PA_Gated_KRT19Positive" %in% colnames(cDT)) cDT <- cDT[,Cytoplasm_PA_Gated_KRT19Positive_SpotCellCount := sum(Cytoplasm_PA_Gated_KRT19Positive),by="Barcode,Well,Spot"]
 
 #Add proportions for signals with multivariate gating and non-conforming gate values
 addSpotProportions(cDT)
@@ -166,6 +173,24 @@ if(exists("omeroIDs")) spotDT <- merge(spotDT, omeroIDs,
 if(exists("clarionIDs")) spotDT <- merge(spotDT, clarionIDs,
                                          by=c("WellIndex","ArrayRow","ArrayColumn"))
 
+#Develop load roboust data if it exists
+#If there is roboust data, load, clean and create comaptible well values
+if(!is_empty(dir(paste0(cl[["options"]]$inputPath,"/Robust_v1"), full.names = TRUE))){
+  
+  rb <- map(dir(paste0(cl[["options"]]$inputPath,"/Robust_v1"), full.names = TRUE), read_csv) %>% bind_rows() %>%
+    mutate(Spot = imageID,
+           Well = str_extract(imageName, "Well."),
+           Well = str_remove(Well, "Well"),
+           Well = as.integer(Well),
+           Well = c("A01","A02","A03","A04","B01","B02","B03","B04")[Well]) %>%
+    select(-X25) %>%
+    purrr::set_names(~str_replace_all(.," ", "_"))
+  
+  #Merge roboust and CP data
+  spotDT <- spotDT %>%
+    full_join(rb, by=c("Well","Spot"))
+} 
+  
 if(verbose) message("Writing spot level data")
 writeTime<-Sys.time()
 #reduce the numeric values to 4 significant digits
@@ -205,3 +230,4 @@ if(verbose) message(paste("Write time:", Sys.time()-writeTime,"\n"))
 if(verbose) message(paste("Elapsed time:", Sys.time()-functionStartTime, "\n"))
 
 write.csv(colnames(spotDT),file = "../QAFeatureNames")
+
