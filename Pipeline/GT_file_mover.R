@@ -24,7 +24,7 @@ process8wellImageIDs <- function(barcode) {
 #Requires meatdata file in Analysis subdirectory with Well and Beacon columns
 
 raw_data_path <- getwd()
-raw_data_path <- "/graylab/share/thibaulg/Mema/HCC1143_COL1 - Features/"
+raw_data_path <- "/graylab/share/thibaulg/Mema/HCC1143_COL1 - Features"
 eppec_data_path <- "/eppec/storage/groups/heiserlab/lincs/"
 
 #Replace channel names with staining set specific values
@@ -68,17 +68,19 @@ file_metadata <- left_join(files, imageID_metadata, by="ImageID") %>%
 copyMkdir <- function(full_filenames, dir_paths, new_filenames, plateIDs){
   plateID <- unique(plateIDs)
   dir_name <- unique(dir_paths)
-  full_eppec_dir_name <- paste0(eppec_data_path,"/",plateID,"/",dir_name)
+  full_eppec_dir_name <- paste0(eppec_data_path,"/",plateID,"/Analysis/v5/",dir_name)
   if(!dir.exists(paste0(eppec_data_path,"/",plateID))) dir.create(paste0(eppec_data_path,"/",plateID))
+  if(!dir.exists(paste0(eppec_data_path,"/",plateID,"/Analysis"))) dir.create(paste0(eppec_data_path,"/",plateID,"/Analysis"))
+  if(!dir.exists(paste0(eppec_data_path,"/",plateID,"/Analysis/v5"))) dir.create(paste0(eppec_data_path,"/",plateID,"/Analysis/v5"))
   if(!dir.exists(full_eppec_dir_name)) dir.create(full_eppec_dir_name)
   foo <- lapply(paste0(full_filenames,"|",new_filenames), function(x){
     ffn <- str_remove(x,"[|].*")
-    nfn <- paste0(eppec_data_path, plateID, "/",dir_name, "/",str_remove(x, ".*[|]"))
+    nfn <- paste0(eppec_data_path, plateID, "/Analysis/v5/", dir_name, "/", str_remove(x, ".*[|]"))
     file.copy(ffn, nfn)
   })
 }
 
 #create directories and copy/move files
-foo <- file_metadata %>%
+res <- file_metadata %>%
   group_by(dir_path) %>%
   mutate(res = copyMkdir(Full_filename,dir_path,new_filename, PlateID))
