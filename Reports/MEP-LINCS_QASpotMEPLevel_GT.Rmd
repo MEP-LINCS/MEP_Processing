@@ -29,6 +29,7 @@ l2 <- lapply(barcodes, function(barcode, path){
   sd <- read_csv(paste0(path,"/",barcode,"/Analysis/",barcode,"_level2.csv"))
 }, path=path) %>%
   bind_rows()
+colnames(l2) <- make.names(colnames(l2))
 
 barcodes <- unique(l2$Barcode)
 
@@ -363,32 +364,45 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_PCAText.Rmd', eval=!any(duplicated(l2$MEP_Drug))}
+```{r, child='MEP-LINCS_PCAText.Rmd', eval=FALSE}
 ```
 
 <br>
 
-```{r createPCAModel, eval=!any(duplicated(l2$MEP_Drug))}
-createPCAModel <- function(dt,fvNames,verbose=FALSE){
+```{r createPCAModel, eval=FALSE}
+
+createPCAModel <- function(dt, fvNames,verbose=FALSE){
+  #Delete rows with NA values
   #delete any non-varying signals that cannot be scaled to unit variance
-  stdDevs <- apply(dt[,fvNames, with=FALSE], 2, sd)
+  stdDevs <- dt %>%
+    select(fvNames) %>%
+    summarise_all(sd, na.rm=TRUE) %>%
+    unlist()
   if(any(stdDevs==0)&verbose)  cat(paste("Deleting",fvNames[stdDevs==0], "due to 0 variance\n"))
   fvNames <- fvNames[!stdDevs==0]
-  PCAModel <- prcomp(as.formula(paste(" ~ ", paste(fvNames, collapse = "+"))), data = dt, scale.= TRUE)
-  rownames(PCAModel$x)<-paste(dt$MEP,gsub("LI8X00","",dt$Barcode), sep="_")
-  return(PCAModel)
+dtn <- dt[fvNames]
+dtn <- dtn[complete.cases(dtn),]
+  PCAModel <- prcomp(as.formula(paste(" ~ ", paste(fvNames, collapse = "+"))), data = dtn, scale.= TRUE)
+  rownames(PCAModel$x)<-paste(dt$MEP,gsub("LI8V0","",dt$Barcode), sep="_")
+  return(list(PCAModel, dt))
 }
 
 dt <- l2
 nrPCs <- 9
 ###PCA Unbiased Analysis  
-PCFVNames <- grep("|Loess",colnames(dt),value=TRUE)
+PCFVNames <- grep("CP|GT",colnames(l2),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ|Method",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
 l2PCAModel <- createPCAModel(dt,PCFVNames)
 
 #Extract the first PCs of each MEP into a matrix
+l2pcvDT <- l2PCAModel[[1]]$x %>%
+  as.tibble() %>%
+  mutate(Barcode = dt$Barcode,
+         MEP = dt$MEP)
+  [,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)
+
 l2pcvDT <- data.table(l2PCAModel$x[,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)
 
 #Convert to dataframe for use in D3heatmap
@@ -398,7 +412,7 @@ l2pcvDT <- l2pcvDT[,!(names(l2pcvDT) %in% c("MEP", "Barcode"))]
 
 ```
 
-```{r PCAHeatmap, fig.height=8, fig.width=7,eval=!any(duplicated(l2$MEP_Drug))}
+```{r PCAHeatmap, fig.height=8, fig.width=7,eval=FALSE}
 #Plot the heat map of the entire dataset
 d3heatmap(l2pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
