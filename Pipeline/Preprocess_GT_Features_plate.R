@@ -46,13 +46,13 @@ raw_data <- lapply(well_spots, function(well_spot){
   foo <- lapply(1:nrow(file_set), function(i){
     rd <- suppressWarnings(suppressMessages(read_delim(file_set$Full_filename[i],delim = " ",col_names = TRUE))) %>%
       select(-starts_with("X")) %>%
-      select(-matches("Haralick|SZM|_PS_|_LBP_|_Rank")) %>%
+      select(-matches("Haralick|_PS_|_LBP_|_Rank")) %>%
       rename_all(.funs=addPrefix,compartment=file_set$Compartment[i],marker=file_set$Marker[i])
-    rd$Label <- rd[[paste0(file_set$Compartment[i],"_GT_",marker=file_set$Marker[i],"_Label")]]
+    rd$ObjectNumber <- rd[[paste0(file_set$Compartment[i],"_GT_",marker=file_set$Marker[i],"_Label")]]
     rd <- rd %>%
       select(-matches(paste0(file_set$Compartment[i],"_GT_",marker=file_set$Marker[i],"_Label"))) 
   }) %>% 
-    plyr::join_all(by="Label") %>%
+    plyr::join_all(by="ObjectNumber") %>%
     mutate(Well_Spot = well_spot,
            Well = str_remove(Well_Spot,"_.*"),
            Spot = str_remove(Well_Spot, ".*_"),
@@ -105,6 +105,20 @@ writeLevelData <- function(x, level){
   output_path <- paste0(eppec_data_path,"/",plateID,"/Analysis")
   if(!dir.exists(output_path)) dir.create(output_path)
   write_csv(x, paste0(output_path,"/",plateID,"_level",level,".csv"))
+}
+
+#Add proportions for signals with multivariate gating and non-conforming gate values
+addSpotProportions(level1_data)
+
+#Calculate proportions for binary gated signals
+gatedSignals <- grep("Proportion", grep("Positive|High",colnames(level1_data), value=TRUE), value=TRUE, invert=TRUE)
+
+if(length(gatedSignals)>0){
+  proportions <- level1_data[,lapply(.SD, calcProportion),by="Barcode,Well,Spot", .SDcols=gatedSignals]
+  setnames(proportions,
+           grep("Gated",colnames(proportions),value=TRUE),
+           paste0(grep("Gated",colnames(proportions),value=TRUE),"Proportion"))
+  level1_data <- left_join(level1_data, proportions, by = c("Barcode", "Well", "Spot"))
 }
 
 writeLevelData(level1_data,1)
