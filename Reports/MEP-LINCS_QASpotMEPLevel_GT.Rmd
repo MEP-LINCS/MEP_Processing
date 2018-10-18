@@ -23,13 +23,14 @@ studyName <- "hcc1143_low_serum"
 ```{r readLevel2and4Data, echo=FALSE}
 
 #identify barcodes for getting imageID metadata
-barcodes <- c("LI8V01171", "LI8V01172", "LI8V01173a", "LI8V01174","LI8V01175", "LI8V01176", "LI8V01177", "LI8V01178", "LI8V01179")[1:2]
+barcodes <- c("LI8V01171", "LI8V01172", "LI8V01173a", "LI8V01174","LI8V01175", "LI8V01176", "LI8V01177", "LI8V01178", "LI8V01179")
 
 l2 <- lapply(barcodes, function(barcode, path){
   sd <- read_csv(paste0(path,"/",barcode,"/Analysis/",barcode,"_level2.csv"))
 }, path=path) %>%
   bind_rows()
 
+barcodes <- unique(l2$Barcode)
 
 spotQuality <- read_csv("ECMp_Spot_Class.csv",col_types = cols(
   ECMp = col_character(),
@@ -190,38 +191,6 @@ print(p)
 
 
 
-```{r, child='MEP-LINCS_Krt5Krt19Text.Rmd', eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT5","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l2)))==0}
-```
-
-
-
-
-```{r rawCaspaseBoxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_Caspase" %in% colnames(l2)}
-
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_Caspase), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity Caspase (log2)")+
-  ggtitle("Median Intensity Caspase per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_CaspaseLog2), colour="blue", alpha=.5)
-print(p)
-
-```
-
-
-
-
-```{r rawKrt5Boxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_KRT5" %in% colnames(l2)}
-
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT5), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity KRT5 (log2)")+
-  ggtitle("Median Intensity KRT5 per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT5)), colour="blue", alpha=.5)
-print(p)
-
-```
 
 
 ```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd', eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT14","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l2)))==0}
@@ -240,242 +209,62 @@ p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianInten
 p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT14)), colour="blue", alpha=.5)
 print(p)
 
-```
-
-
-
-
-```{r rawKrt19Boxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_KRT19" %in% colnames(l2)}
-
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT19), colour=Well))+
+p <- ggplot(l2, aes(x=factor(Ligand), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT14, colour=factor(Barcode)))+
   geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity KRT19 (log2)")+
-  ggtitle("Median Intensity KRT19 per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT19)), colour="blue", alpha=.5)
+  #coord_cartesian(y=c(0,1))+
+  labs(x="Ligand",y="KRT14 Intensity", colour="Barcode", title="KRT14 Intensity by Ligand and Barcode")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT14), colour="blue", alpha=.5)
 print(p)
 
 ```
 
 
 
-```{r rawVimentinBoxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_Vimentin" %in% colnames(l2)}
 
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_Vimentin), colour=Well))+
+
+
+```{r rawVIMBoxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_VIM" %in% colnames(l2)}
+
+p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_VIM), colour=Well))+
   geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity Vimentin (log2)")+
-  ggtitle("Median Intensity Vimentin per Spot by Well and Barcode ")+
+  xlab("")+ylab("Median Intensity VIM (log2)")+
+  ggtitle("Median Intensity VIM per Spot by Well and Barcode ")+
   theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_Vimentin)), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_VIM)), colour="blue", alpha=.5)
+print(p)
+
+p <- ggplot(l2, aes(x=factor(Ligand), y=Cytoplasm_CP_Intensity_MedianIntensity_VIM, colour=factor(Barcode)))+
+  geom_boxplot(outlier.size = .5)+
+  #coord_cartesian(y=c(0,1))+
+  labs(x="Ligand",y="Median Intensity VIM", colour="Barcode", title="VIM Intensity by Ligand and Barcode")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_VIM), colour="blue", alpha=.5)
 print(p)
 
 ```
 
 
 
-```{r Filtering}
-#Remove the fiducial and blank data
-setkey(l2,ECMp)
-l2F <- l2[!grepl("fiducial|Fiducial|blank|PBS",l2$ECMp),]
 
-#Remove failed QA wells
-l2F <- l2F[!l2F$QA_LowWellQA]
-l2F <- l2F[l2F$QAScore>.6]
-#Remove plate labels from FBS replicates
-l2FPrep <- l2F[,grep("URL",colnames(l2F),value=TRUE, invert=TRUE), with=FALSE]
-l2FPrep$Ligand <- gsub("_P[[:digit:]]","",l2FPrep$Ligand)
-l2FPrep$MEP <- gsub("_P[[:digit:]]","",l2FPrep$MEP)
-l2FPrep$MEP_Drug <- gsub("_P[[:digit:]]","",l2FPrep$MEP_Drug)
-
-l4F <- preprocessLevel4(l2FPrep,seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Fibrillarin","Caspase"))
-#Add in the barcodes for each MEP_Drug
-l4F <- addBarcodes(dt3 = l2FPrep, dt4 = l4F)
-#Shorten Barcode to "Multiple"" if the data comes from more than one plate
-l4F$Barcode[grepl(",",l4F$Barcode)] <- "Multiple"
-```
-
-```{r, child='MEP-LINCS_RUVText.Rmd', eval=unique(l2$NormMethod)=="RUV"}
-```
-
-```{r, child='MEP-LINCS_RUVLoessResidualsText.Rmd', eval=unique(l2$NormMethod)=="RUVLoessResiduals"}
+```{r, child='MEP-LINCS_ProliferationText.Rmd', eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
 ```
 
 
-###Spot Cell Count Normalization
-The following figures show the effects of the normalization. The data are organized first by barcode and then by ligand. The barcode is replaced by the label "Multiple" when the values come from replicates that are in more than one plate.  
+```{r ProliferationHistogramFull, eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
 
+dt <- l2
 
-```{r SCC_responseFull, fig.width=8,  fig.height=10, echo=FALSE, eval="Spot_PA_SpotCellCountNorm" %in% colnames(l4F)}
-dt <- l4F
-dt <- l4F[,list(Barcode,Ligand,Spot_PA_SpotCellCount, Spot_PA_SpotCellCountNorm)]
-dt <- dt[,Spot_PA_SpotCellCountLog2:= log2(Spot_PA_SpotCellCount)]
-dt <- melt(dt,id.vars=c("Barcode","Ligand"),measure.vars=c("Spot_PA_SpotCellCount","Spot_PA_SpotCellCountNorm"), variable.name = "Processed",value.name = "SpotCellCount", variable.factor = FALSE)
-dt$Processed[!grepl("Norm",dt$Processed)] <- "Raw"
-dt$Processed[grepl("Norm",dt$Processed)] <- "Normalized"
-dt$Processed <- factor(dt$Processed,levels = c("Raw","Normalized"))
-
-p <- ggplot(dt, aes(x = reorder(Barcode, SpotCellCount, FUN=median), y = SpotCellCount, colour = Ligand))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized Spot Cell Count by Barcode"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  guides(col = guide_legend(ncol = 2))+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.8)))
-p <- p+geom_hline(yintercept = median(dt$SpotCellCount), colour="blue", alpha=.5)
-suppressWarnings(print(p))
-
-
-p <- ggplot(dt, aes(x = reorder(Ligand, SpotCellCount, FUN=median), y = SpotCellCount, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized Spot Cell Count by Ligand"))+
-  xlab("")+ylab("")+
-  facet_wrap(~Processed, ncol=1)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.5)),legend.title=element_text(size = rel(.8)))
-p <- p+geom_hline(yintercept = median(dt$SpotCellCount), colour="blue", alpha=.5)
-suppressWarnings(print(p))
-```
-
-
-```{r SCC_response, fig.width=8,  fig.height=6}
-setkey(l4F,"Ligand")
-
-dt <- l2F %>%
-  dplyr::filter(ECMp=="COL1")
-if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
-  p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, colour = Barcode))+geom_boxplot()+
-    ggtitle(paste("\n\nNormalized Spot Cell Count by Ligand (COL1 spots)"))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-} else {
-  p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount, colour = Barcode))+
-    geom_boxplot()+
-    ggtitle(paste("\n\nRaw Spot Cell Count by Ligand (COL1 spots)"))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-}
-suppressWarnings(print(p))
-```
-
-###Curated Signals
-Depending on the staining set, selected signals are stratfied first by ligand and then by ECM protein. Each ligand boxplot contains data from pairing with all ECM proteins while each ECM protein boxplot conatins data from pairing with all ligands.   
-
-```{r, fig.width=8,  fig.height=3.5}
-dt <- l2F %>%
-  dplyr::filter(Ligand %in% c("PBS","FBS"))
-
-if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
-  p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm))+geom_boxplot()+
-    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein in control wells"))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-} else {
-  p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount))+geom_boxplot()+
-    ggtitle(paste("MEP Raw Spot Cell Count by ECM Protein in control wells"))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-}
-suppressWarnings(print(p))
-
-if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
-  dtf <- dt %>%
-    dplyr::filter(Spot_Quality %in% c("high","medium"))
-  p <- ggplot(dtf, aes(x = reorder(ECMp, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, fill=Spot_Quality))+geom_boxplot()+
-    ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein, high and medium quality spots in control wells"))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-} else {
-  p <- ggplot(dtf, aes(x = reorder(ECMp, Spot_PA_SpotCellCount, FUN=median), y = Spot_PA_SpotCellCount))+geom_boxplot()+
-    ggtitle(paste("MEP Raw Spot Cell Count by ECM Protein, high and medium quality spots in control wells"))+
-    xlab("")+ylab("")+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-}
-suppressWarnings(print(p))
-
-```
-
-
-
-```{r MitoTrackerHistogram, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
-
-setkey(l4,"Ligand")
-p <- ggplot(dt, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+
-  geom_histogram(binwidth = 10)+
-  #geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Normalized, MitoTracker Intensity Distribution"))+
-  ylab("Count")+xlab("Normalized, MitoTracker Intensity")+
+p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportion))+geom_histogram(binwidth = .001)+
+  ggtitle(paste("\n\n","MEP , EdU+ Proportion Distribution"))+
+  ylab("Count")+xlab("EdU+ Proportion ()")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 ```
 
-```{r MitoTrackerByLigand, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
+```{r ProliferationRawHistogram, eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r MitoTrackerByECMp, eval="Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm" %in% colnames(dt)}
-
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_MitoTrackerNorm))+geom_boxplot()+
-  ggtitle(paste("\n\nMEP Normalized, MitoTracker Intensity by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-
-```{r CaspaseHistogram, eval="Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm" %in% colnames(l4)}
-
-setkey(l4,"Ligand")
-p <- ggplot(l4, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm))+geom_histogram(binwidth = .01)+
-  #geom_vline(xintercept = c(-2,2), colour = "blue")+
-  ggtitle(paste("\n\n","MEP Normalized, Caspase Intensity Distribution"))+
-  ylab("Count")+xlab("Raw, Caspase Intensity")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
-```
-
-```{r CaspaseByLigand, eval="Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm" %in% colnames(dt)}
-
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm, colour = Barcode))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized Caspase Intensity by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r CaspaseByECMp, eval="Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm" %in% colnames(dt)}
-
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_CaspaseNorm))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized Caspase Intensity by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-
-```{r, child='MEP-LINCS_ProliferationText.Rmd', eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l4F)}
-```
-
-
-```{r ProliferationHistogramFull, eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l4F)}
-
-dt <- l4F
-
-p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportionNorm))+geom_histogram(binwidth = .001)+
-  ggtitle(paste("\n\n","MEP Normalized, EdU+ Proportion Distribution"))+
-  ylab("Count")+xlab("EdU+ Proportion (Normalized)")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
-```
-
-```{r ProliferationRawHistogram, eval="Nuclei_PA_Gated_EdUPositiveProportionNorm" %in% colnames(l4F)}
-
-dt <- l4F
+dt <- l2
 
 p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportion))+geom_histogram(binwidth = .001)+
   ggtitle(paste("MEP EdU+ Proportion Distribution"))+
@@ -485,22 +274,22 @@ suppressWarnings(print(p))
 ```
 
 
-```{r ProliferationByLigandFull, , eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionNorm",colnames(dt)))}
+```{r ProliferationByLigandFull, , eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportion",colnames(dt)))}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportionNorm, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionNorm, colour = Barcode))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportion, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportion, colour = Barcode))+geom_boxplot()+
   coord_cartesian(ylim = c(0,1))+
-  ggtitle(paste("MEP Normalized, EdU+ Proportion by Ligand"))+
+  ggtitle(paste("MEP , EdU+ Proportion by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
 
 ```
 
-```{r ProliferationByECMpFull, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportionNorm",colnames(dt)))}
+```{r ProliferationByECMpFull, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportion",colnames(dt)))}
 
-p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportionNorm, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportionNorm))+geom_boxplot()+
+p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportion, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportion))+geom_boxplot()+
     coord_cartesian(ylim = c(0,1))+
-  ggtitle(paste("MEP Normalized, EdU+ Proportion by ECM Protein"))+
+  ggtitle(paste("MEP , EdU+ Proportion by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -544,10 +333,10 @@ suppressWarnings(print(p))
 ```
 
 
-```{r KRT5ByECMp, eval=any(grepl("Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm",colnames(dt)))}
+```{r KRT5ByECMp, eval=any(grepl("Cytoplasm_CP_Intensity_MedianIntensity_KRT5",colnames(dt)))}
 
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT5Norm))+geom_boxplot()+
-  ggtitle(paste("MEP Normalized KRT5 by ECM Protein"))+
+p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT5))+geom_boxplot()+
+  ggtitle(paste("MEP  KRT5 by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
@@ -555,7 +344,7 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_SpotQADNAText.Rmd', eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l4F)}
+```{r, child='MEP-LINCS_SpotQADNAText.Rmd', eval="Nuclei_PA_Cycle_DNA2NProportion" %in% colnames(l2)}
 ```
 
 <br>
@@ -574,12 +363,12 @@ suppressWarnings(print(p))
 ```
 
 
-```{r, child='MEP-LINCS_PCAText.Rmd', eval=!any(duplicated(l4F$MEP_Drug))}
+```{r, child='MEP-LINCS_PCAText.Rmd', eval=!any(duplicated(l2$MEP_Drug))}
 ```
 
 <br>
 
-```{r createPCAModel, eval=!any(duplicated(l4F$MEP_Drug))}
+```{r createPCAModel, eval=!any(duplicated(l2$MEP_Drug))}
 createPCAModel <- function(dt,fvNames,verbose=FALSE){
   #delete any non-varying signals that cannot be scaled to unit variance
   stdDevs <- apply(dt[,fvNames, with=FALSE], 2, sd)
@@ -590,72 +379,72 @@ createPCAModel <- function(dt,fvNames,verbose=FALSE){
   return(PCAModel)
 }
 
-dt <- l4F
+dt <- l2
 nrPCs <- 9
 ###PCA Unbiased Analysis  
-PCFVNames <- grep("Norm|Loess",colnames(dt),value=TRUE)
+PCFVNames <- grep("|Loess",colnames(dt),value=TRUE)
 PCFVNames <- grep("Euler|MaximumRadius|_SE|_RobustZ|Method",PCFVNames,invert = TRUE, value = TRUE)
 
 #Get the PCFVs
-l4PCAModel <- createPCAModel(dt,PCFVNames)
+l2PCAModel <- createPCAModel(dt,PCFVNames)
 
 #Extract the first PCs of each MEP into a matrix
-l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)
+l2pcvDT <- data.table(l2PCAModel$x[,1:nrPCs],Barcode =dt$Barcode, MEP = dt$MEP)
 
 #Convert to dataframe for use in D3heatmap
-l4pcvDT <- data.frame(l4pcvDT)
-rownames(l4pcvDT) <- l4pcvDT$MEP
-l4pcvDT <- l4pcvDT[,!(names(l4pcvDT) %in% c("MEP", "Barcode"))]
+l2pcvDT <- data.frame(l2pcvDT)
+rownames(l2pcvDT) <- l2pcvDT$MEP
+l2pcvDT <- l2pcvDT[,!(names(l2pcvDT) %in% c("MEP", "Barcode"))]
 
 ```
 
-```{r PCAHeatmap, fig.height=8, fig.width=7,eval=!any(duplicated(l4F$MEP_Drug))}
+```{r PCAHeatmap, fig.height=8, fig.width=7,eval=!any(duplicated(l2$MEP_Drug))}
 #Plot the heat map of the entire dataset
-d3heatmap(l4pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
+d3heatmap(l2pcvDT, scale="column", colors=hmcols, xaxis_font_size="6pt", yaxis_font_size="4pt", show_grid = FALSE)
 ```
 
 ```{r, fig.height=3, fig.width=4, eval=FALSE}
 
-var <- l4PCAModel$sd[1:nrPCs]^2
+var <- l2PCAModel$sd[1:nrPCs]^2
 var.percent <- var/sum(var) * 100
 barplot(var.percent, xlab="PC", ylab="Percent Variance", names.arg=1:length(var.percent), las=1, ylim=c(0,max(var.percent)), col="gray", main  = paste("PCA Scree Plot"))
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Barcode)) +
+p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC2, col = l2$Barcode)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4$Barcode)) +
+p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC3, col = l2$Barcode)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4$Barcode)) +
+p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC2, y = PC3, col = l2$Barcode)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Barcode")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Well)) +
+p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC2, col = l2$Well)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Well")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC3, col = l4$Well)) +
+p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC3, col = l2$Well)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Well")+
   theme(legend.text=element_text(size = 6))+
   guides(colour = guide_legend(override.aes = list(size=6)))
 print(p)
 
-p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4$Well)) +
+p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC2, y = PC3, col = l2$Well)) +
   geom_point(size = rel(.7), alpha = .8) +
   labs(colour = "Well")+
   theme(legend.text=element_text(size = 6))+
@@ -663,7 +452,7 @@ p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC2, y = PC3, col = l4$Well)) +
 print(p)
 
 if(grepl("SS1",StainingSet)){
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTrackerNorm)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC2, col = l2$Cytoplasm_CP_Intensity_IntegratedIntensity_MitoTracker)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Total MitoTracker")+
     theme(legend.text=element_text(size = 6))+
@@ -671,7 +460,7 @@ if(grepl("SS1",StainingSet)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cells_CP_AreaShape_PerimeterNorm)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC2, col = l2$Cells_CP_AreaShape_Perimeter)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Perimeter ProportionStatus")+
     theme(legend.text=element_text(size = 6))+
@@ -679,7 +468,7 @@ if(grepl("SS1",StainingSet)){
   print(p)
 } else if (ss=="SS2|SSA"){
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Nuclei_CP_Intensity_MedianIntensity_EdURUVLoess)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC2, col = l2$Nuclei_CP_Intensity_MedianIntensity_EdURUVLoess)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Median Intensity EdU")+
     theme(legend.text=element_text(size = 6))+
@@ -688,7 +477,7 @@ if(grepl("SS1",StainingSet)){
 } else if (ss=="SS3|SS4"){
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC1, y = PC2, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC1, y = PC2, col = l2$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -696,21 +485,21 @@ if(grepl("SS1",StainingSet)){
   print(p)
   
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC3, y = PC4, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC3, y = PC4, col = l2$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC5, y = PC6, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC5, y = PC6, col = l2$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
     guides(colour = guide_legend(override.aes = list(size=6)))
   print(p)
   
-  p <- ggplot(data.frame(l4PCAModel$x), aes(x = PC7, y = PC8, col = l4$Cytoplasm_PA_Intensity_LineageRatio)) +
+  p <- ggplot(data.frame(l2PCAModel$x), aes(x = PC7, y = PC8, col = l2$Cytoplasm_PA_Intensity_LineageRatio)) +
     geom_point(size = rel(.7), alpha = .8) +
     labs(colour = "Lineage Ratio")+
     theme(legend.text=element_text(size = 6))+
@@ -731,30 +520,28 @@ All MEMAs in the experiment are in separate wells and have the same design of 48
 ```{r Content Layout,echo=FALSE, message=FALSE, warnings=FALSE, fig.height=6, fig.width=5, eval=exists("l2")}
 
 #Select the A row wells and delete the blanks
-setkey(l2,Well)
-DT <- unique(l2[grep("A",unique(l2$Well),value=TRUE),list(ArrayRow,ArrayColumn,ECMp)])
-setkey(DT,ECMp)
-DT <- DT[!grepl("blank|PBS",DT$ECMp),]
+df <- l2 %>%
+  filter(str_detect(Well,"A"))
 
-p <- ggplot(data=DT[!grepl("COL1",DT$ECMp),],aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
+p <- ggplot(data=df[!grepl("COL1",df$ECMp),],aes(x = ArrayColumn, y = ArrayRow, fill=ECMp))+
   geom_point(shape=21, size = 2.7)+
   guides(fill=FALSE)+
   theme(legend.text = element_text(size = rel(.5)),legend.title=element_text(size = rel(.5)),plot.title=element_text(size = rel(.8)))+
   scale_y_reverse()+
   xlab("")+ylab("")+
   ggtitle(" \n\nLINCS MEMA A Row Layout")
-p <- p+geom_point(data = DT[grepl("COL1",DT$ECMp),], shape=24, fill="black")
+p <- p+geom_point(data = df[grepl("COL1",df$ECMp),], shape=24, fill="black")
 print(p)
 
 ```
 
 ###Replicate Count
-The median replicate count is `r  sprintf("%3.2f",median(table(DT$ECMp)))` and the range of the replicate counts is `r range(table(DT$ECMp))`.  
+The median replicate count is `r  sprintf("%3.2f",median(table(df$ECMp)))` and the range of the replicate counts is `r range(table(df$ECMp))`.  
 
-```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=8, eval=dim(DT)[1]>0}
+```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=8, eval=dim(df)[1]>0}
 
-p <- ggplot(DT, aes(x=ECMp))+
-  geom_bar(width=.8)+geom_hline(yintercept = median(table(DT$ECMp)), colour="blue")+
+p <- ggplot(df, aes(x=ECMp))+
+  geom_bar(width=.8)+geom_hline(yintercept = median(table(df$ECMp)), colour="blue")+
   scale_y_log10()+
   ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
   xlab("Printed ECM Protein")+ylab("Number of spots")+
@@ -764,144 +551,36 @@ print(p)
 
 ```
 
-###Quality Assessment
-The variance of the signal in MEMA data comes from biological and technical factors. The technical factors create regions of low cell counts per spot and uneven staining across the array. The goal of the QA pipeline is to quantify the technical factors to identify wells or plates that need to be removed from downstream processing and/or be replaced by wells from a new experiment.
-
-The hypothesis for the MEMA QA process is that the biological signal comes from individual spots while the technical variations come from regions of low signal. A bivariate loess model can be used to quantify the number of spots in low signal regions, leading to a MEMA QA score. 
-<br>
-
-####Loess Model Explanation
-The loess model of a MEMA is the mean value of a weighted version of each spot's region or neighborhood. In a 700 spot array, a loess span value of 0.1 sets the size of the neighborhood to be the nearest 70 points (within approximately 5 spots in all directions). The weights are a tricubic function of the euclidean distance between the spot being modeled and the neighborhood spots. These weights vary from 1 to 0 as distances increase from the nearest to the farthest neighbor. In other words, each spot in the model takes on the mean value of its 70 nearest neighbors with the closest neighbors having the largest impact. Therefore, the loess model is dominated by the technical regional factors as opposed to individual biological responses.
-
-A MEMA's QA score is derived from the loess model of the control-well-normalized values by calculating the proportion of spots in low signal regions(LSR). A threshold for classifying spots as LSR is based on the median of each plate's control well. To have higher scores reflect increasing quality, the MEMA QA score is defined as the proportion of non-LSR spots to total spots. This value will be 1 for MEMAs with no low signal regions and approach 0 as the number of LSR spots increases.
-
-In the plots below, the LSR spots are those to the left of the blue vertical line at the threshold value of `r wellQAThresh` in the histogram. 
-
-
-```{r Loess_Model_explanation , echo=FALSE, fig.width=2.5,fig.height=4}
-setkey(l2,Barcode,Well)
-wellExample <- unique(l2$Well)[1]
-DT <-l2[.(barcodes[1],wellExample)]
-#Remove the fiducial entries
-setkey(DT,ECMp)
-DT <- DT[!"fiducial"]
-DT <- DT[!"blank"]
-
-p <- ggplot(DT, aes(x=ArrayColumn, y=ArrayRow,colour=Spot_PA_SpotCellCount))+
-  geom_point(size=1.8)+
-  scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
-  scale_colour_gradient(low = "white", high = "red")+
-  guides(colour = guide_legend("Spot Cell\nCount", keywidth = .5, keyheight = .5))+
-  ggtitle(paste("\n\n","Spot Cell Count for",unique(DT$CellLine), "cells \nin plate",unique(DT$Barcode)))+
-  xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-p <- ggplot(DT, aes(x=ArrayColumn, y=ArrayRow,colour=Spot_PA_LoessSCC))+
-  geom_point(size=1.8)+
-  scale_y_reverse()+   scale_x_continuous(breaks= c(min(DT$ArrayColumn),round(mean(c(min(DT$ArrayColumn),max(DT$ArrayColumn)))),max(DT$ArrayColumn)))+
-  scale_colour_gradient(low = "white", high = "red")+
-  guides(colour = guide_legend("Normalized \nSpot Cell \nCount", keywidth = .5, keyheight = .5))+
-  ggtitle(paste("\n\n","Loess Model of Spot Cell Count \nfor",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+
-  xlab("")+ylab("")+theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-DT <- DT[,QAScore := calcQAScore(.SD,threshold=.6,value="Spot_PA_LoessSCC"),by="Well"]
-wellScores <- unique(DT[,list(Well,QAScore=sprintf("%.2f",QAScore))])
-
-p <- ggplot(DT, aes(x=Spot_PA_LoessSCC))+
-  geom_histogram(binwidth=.02)+
-  geom_vline(xintercept=.6, colour="blue")+
-  geom_text(data=wellScores, aes(label=paste0("QA\n",QAScore)), x = .9, y = 30, size = rel(5), colour="red")+
-  ggtitle(paste("\n\n","Loess Model of Spot Cell Count \nfor",unique(DT$CellLine), "cells in plate",unique(DT$Barcode)))+xlab("Spot Cell Count")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.5)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(.5)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-
-```
-
-
 ###Stain Pseudo images
 The pseudo images of each well's raw signals are shown in the plots below. Wells that could not be sucessfully imaged due to focus issues are missing from the pseudoimages.
 
 ```{r Pseudoimages_all_stains, echo=FALSE, fig.width=3.7,fig.height=4, eval=TRUE}
 
-for (barcode in barcodes){
-  DT <-l2[l2$Barcode==barcode,]
-  #Remove the fiducial entries
-  setkey(DT,ECMp)
-  DT <- DT[!"fiducial"]
-  DT <- DT[!"blank"]
-  DT$Well_Ligand <- sub("_","\n",DT$Well_Ligand)
+for(barcode in barcodes){
+  dtb <- l2 %>%
+    filter(Barcode == barcode) 
   
-  
-  p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
+  p <- create8WellPseudoImage(dtb, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
-  if (any(grepl("Actin",colnames(DT))))  {
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_Actin", prDisplay = unique(DT$Endpoint488))
-    suppressWarnings(print(p))
-  }
-  if (any(grepl("CellMask",colnames(DT))))  {
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_CellMask",prDisplay = unique(DT$Endpoint555))
-    suppressWarnings(print(p))
-  }
-  if (any(grepl("MitoTracker",colnames(DT))))  {
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_MitoTracker",prDisplay = unique(DT$Endpoint647))
-    suppressWarnings(print(p))
-  }
-  
-  if (any(grepl("Fibrillarin",colnames(DT))))  {
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Fibrillarin",prDisplay = unique(DT$Endpoint555))
-    suppressWarnings(print(p))
-  }
-  if (any(grepl("EdU",colnames(DT))))  {    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = unique(DT$Endpoint555))
+ 
+  if (any(grepl("EdU",colnames(dtb))))  {    
+    p <- create8WellPseudoImage(dtb, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = "EdU")
     suppressWarnings(print(p))
   } 
   
-  if (any(grepl("KRT5",colnames(DT))))  {    
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT5", prDisplay = unique(DT$Endpoint488))
-    suppressWarnings(print(p))
-  }
-  if (any(grepl("KRT19",colnames(DT))))  {
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT19",prDisplay = unique(DT$Endpoint555))
-    suppressWarnings(print(p))
-  }
-  
-  if (any(grepl("KRT14",colnames(DT))))  {
+  if (any(grepl("KRT14",colnames(dtb))))  {
     
-    p <- create8WellPseudoImage(DT, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT14", prDisplay = unique(DT$Endpoint488))
+    p <- create8WellPseudoImage(dtb, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT14", prDisplay = "KRT14")
     suppressWarnings(print(p))
   }
   
-  if (any(grepl("Caspase",colnames(DT))))  {    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_IntegratedIntensity_Caspase", prDisplay = unique(DT$Endpoint488))
+   if (any(grepl("VIM",colnames(dtb))))  {    
+    p <- create8WellPseudoImage(dtb, pr = "Cytoplasm_CP_Intensity_MedianIntensity_VIM", prDisplay ="VIM")
     suppressWarnings(print(p))
   }
-  
-  if (any(grepl("Nestin",colnames(DT))))  {    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Nestin", prDisplay = unique(DT$Endpoint488))
-    suppressWarnings(print(p))
-  }
-  
-   if (any(grepl("Vimentin",colnames(DT))))  {    
-    p <- create8WellPseudoImage(DT, pr = "Nuclei_CP_Intensity_MedianIntensity_Vimentin", prDisplay = unique(DT$Endpoint647))
-    suppressWarnings(print(p))
-  }
-  
 }
 ```
-
-
-```{r, eval="Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin" %in% colnames(l2)}
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_IntegratedIntensity_Fibrillarin), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("Barcode")+ylab("Total Intensity Fibrillarin (log2)")+
-  ggtitle("Total Fibrillarin Intensity per Spot by Well and Barcode")+
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-print(p)    
-```
-
 
 ```{r, , fig.height=10,  eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
 
