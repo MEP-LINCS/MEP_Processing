@@ -388,7 +388,7 @@ suppressWarnings(print(p))
 setkey(l4F,"Ligand")
 
 dt <- l3F %>%
-  filter(ECMp=="COL1")
+  dplyr::filter(ECMp=="COL1")
 if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
   p <- ggplot(dt, aes(x = reorder(Ligand, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, colour = Barcode))+geom_boxplot()+
     ggtitle(paste("\n\nNormalized Spot Cell Count by Ligand (COL1 spots)"))+
@@ -409,7 +409,7 @@ Depending on the staining set, selected signals are stratfied first by ligand an
 
 ```{r, fig.width=8,  fig.height=3.5}
 dt <- l3F %>%
-  filter(Ligand %in% c("PBS","FBS"))
+  dplyr::filter(Ligand %in% c("PBS","FBS"))
 
 if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
   p <- ggplot(dt, aes(x = reorder(ECMp, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm))+geom_boxplot()+
@@ -426,7 +426,7 @@ suppressWarnings(print(p))
 
 if (any(grepl("Spot_PA_SpotCellCountNorm",colnames(dt)))){
   dtf <- dt %>%
-    filter(Spot_Quality %in% c("high","medium"))
+    dplyr::filter(Spot_Quality %in% c("high","medium"))
   p <- ggplot(dtf, aes(x = reorder(ECMp, Spot_PA_SpotCellCountNorm, FUN=median), y = Spot_PA_SpotCellCountNorm, fill=Spot_Quality))+geom_boxplot()+
     ggtitle(paste("\n\nMEP Normalized Spot Cell Count by ECM Protein, high and medium quality spots in control wells"))+
     xlab("")+ylab("")+
