@@ -86,7 +86,7 @@ Sys.time()-start_time
   full_metadata <- full_join(metadata,imageIDs, by = c("Well", "Spot", "WellIndex", "ArrayRow", "ArrayColumn"))
 
 level1_data <- raw_data %>%
-  inner_join(metadata, by=c("Well", "Spot")) %>%
+  inner_join(full_metadata, by=c("Well", "Spot")) %>%
   mutate(Nuclei_CP_Intensity_MedianIntensity_Dapi = Nuclei_GT_Dapi_MeanIntensity,
          Nuclei_CP_Intensity_IntegratedIntensity_Dapi = Nuclei_GT_Dapi_MeanIntensity*Nuclei_GT_Dapi_Surface,
          Nuclei_CP_Intensity_MedianIntensity_EdU = Nuclei_GT_EdU_MeanIntensity,
