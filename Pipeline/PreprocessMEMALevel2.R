@@ -174,10 +174,10 @@ if(exists("clarionIDs")) spotDT <- merge(spotDT, clarionIDs,
                                          by=c("WellIndex","ArrayRow","ArrayColumn"))
 
 #Develop load roboust data if it exists
-#If there is roboust data, load, clean and create comaptible well values
-if(!is_empty(dir(paste0(cl[["options"]]$inputPath,"/Robust_v1"), full.names = TRUE))){
+#If there is robust data, load, clean and create compatable well values
+if(!is_empty(dir(paste0(cl[["options"]]$inputPath,"/QA"), full.names = TRUE))){
   
-  rb <- map(dir(paste0(cl[["options"]]$inputPath,"/Robust_v1"), full.names = TRUE), read_csv) %>% bind_rows() %>%
+  rb <- map(dir(paste0(cl[["options"]]$inputPath,"/QA"), full.names = TRUE), read_csv) %>% bind_rows() %>%
     mutate(Spot = imageID,
            Well = str_extract(imageName, "Well."),
            Well = str_remove(Well, "Well"),
