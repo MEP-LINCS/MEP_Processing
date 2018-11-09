@@ -103,7 +103,7 @@ getOmeroIDs <- function(path){
 #####
 cDT <- fread(dataPath)
 if(exists("imageIdPath")){
-#DEBUGif(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
+if(file.exists(imageIdPath)) omeroIDs <- getOmeroIDs(imageIdPath)
 }
 
 
