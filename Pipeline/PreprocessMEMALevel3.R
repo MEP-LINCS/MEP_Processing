@@ -65,7 +65,8 @@ if(useSynapse){
   dataPaths <- lapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
   
-} else {
+} else {cl <- list(args=c("hmec240l_ss1","/graylab/share/dane/MEMAPaper/hmec240l_ss1_RUVOnly_Level3.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+
   barcodes <- getBarcodes(studyName, synId = "syn10846457")
   dataPaths <- barcodes %>%
     lapply(function(barcode, path){
@@ -91,8 +92,8 @@ signalsMinimalMetadata <- grep("_SE",
 if(!k==0){
   if(verbose)  message(paste("Normalizing", studyName,"\n"))
   #slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
-  nDT <- normRUVLoessResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
-  nDT$NormMethod <- "RUVLoessResiduals"
+  nDT <- normRUVResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
+  nDT$NormMethod <- "RUVResiduals"
   slDT$k <- k
   slDT <- merge(slDT, nDT, by = c("BW","PrintSpot"))
 } else {
