@@ -35,7 +35,7 @@ getCommandLineArgs <- function(){
 #Specify the command line options
 
 #cl <- getCommandLineArgs()
-cl <- list(args=c("hmec240l_ss4","/data/share/dane/MEMAPaper/hmec240l_ss4_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+cl <- list(args=c("hcc1143_low_serum","/graylab/share//dane/MEMAPaper/hcc1143_low_serum_level3_RUVOnly_QA_filtered.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
 
 
 studyName <- cl$args[1]
@@ -51,6 +51,8 @@ if(file.exists(cl$options$inputPath)){
 
 k <- opt$k
 
+good_ECMps <- c("SPP1|A", "POSTN|1", "THBS1|1", "COL5A1", "SPARC", "CDH3|1", "CDH6|1", "COL2A1|2", "COL4", "FBN1", "DCN|A", "LAMB1", "Laminin", "CDH15", "COL1", "FN1|1", "LUM", "CD44|1", "OMD", "COL3A1|1", "CDH1|1", "BCAN|1", "COL23A1|1", "VTN")
+
 startTime <- Sys.time()
 
 #Read the annotated data for all plates in the study
@@ -65,7 +67,7 @@ if(useSynapse){
   dataPaths <- lapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
   
-} else {cl <- list(args=c("hmec240l_ss1","/graylab/share/dane/MEMAPaper/hmec240l_ss1_RUVOnly_Level3.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+} else {
 
   barcodes <- getBarcodes(studyName, synId = "syn10846457")
   dataPaths <- barcodes %>%
@@ -76,11 +78,7 @@ if(useSynapse){
 
 #Special handling for MEP analysis, remove NID1 and ELN data
 slDT <- getSpotLevelData(dataPaths) %>%
-  filter(!ECMp=="NID1|1",
-         !ECMp=="ELN|3",
-         !Ligand %in% c("KNG1|HMW", "LYVE1", "THPO|1", "JAG2|Long"),
-         !(Barcode=="LI8X00652"&Ligand=="FBS"),
-         !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
+  filter(ECMp %in% good_ECMps) %>%
   data.table()
 
 signalsMinimalMetadata <- grep("_SE",
