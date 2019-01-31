@@ -35,7 +35,7 @@ getCommandLineArgs <- function(){
 #Specify the command line options
 
 #cl <- getCommandLineArgs()
-cl <- list(args=c("hmec240l_ss4","/data/share/dane/MEMAPaper/hmec240l_ss4_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/Annotated/panc504_tram_Level3.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
 
 
 studyName <- cl$args[1]
@@ -65,7 +65,7 @@ if(useSynapse){
   dataPaths <- lapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
   
-} else {cl <- list(args=c("hmec240l_ss1","/graylab/share/dane/MEMAPaper/hmec240l_ss1_RUVOnly_Level3.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+} else {cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/panc504_tram_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
 
   barcodes <- getBarcodes(studyName, synId = "syn10846457")
   dataPaths <- barcodes %>%
@@ -76,11 +76,11 @@ if(useSynapse){
 
 #Special handling for MEP analysis, remove NID1 and ELN data
 slDT <- getSpotLevelData(dataPaths) %>%
-  filter(!ECMp=="NID1|1",
-         !ECMp=="ELN|3",
-         !Ligand %in% c("KNG1|HMW", "LYVE1", "THPO|1", "JAG2|Long"),
-         !(Barcode=="LI8X00652"&Ligand=="FBS"),
-         !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
+  # filter(!ECMp=="NID1|1",
+  #        !ECMp=="ELN|3",
+  #        !Ligand %in% c("KNG1|HMW", "LYVE1", "THPO|1", "JAG2|Long"),
+  #        !(Barcode=="LI8X00652"&Ligand=="FBS"),
+  #        !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
   data.table()
 
 signalsMinimalMetadata <- grep("_SE",
@@ -91,7 +91,7 @@ signalsMinimalMetadata <- grep("_SE",
 #RUVLoess normalize all signals
 if(!k==0){
   if(verbose)  message(paste("Normalizing", studyName,"\n"))
-  #slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
+  slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
   nDT <- normRUVResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
   nDT$NormMethod <- "RUVResiduals"
   slDT$k <- k
