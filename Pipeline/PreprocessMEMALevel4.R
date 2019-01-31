@@ -24,11 +24,20 @@ getCommandLineArgs <- function(){
 
 
 #Specify the command line options
+if(!interactive()) {
 cl <- getCommandLineArgs()
 studyName <- cl$args[1]
 ofname <- cl$args[2]
-
 verbose <- cl$options$verbose
+} else {
+  cl <- list(args=c("panc504_tram", "/lincs/share/lincs_user/study/panc504_tram/Annotated/panc504_tram_Level4.tsv"),
+             options = list(inputPath = "/lincs/share/lincs_user/study/panc504_tram/Annotated/panc504_tram_Level3_noLoess_QA.tsv",
+                            verbose = TRUE))
+  studyName <- cl$args[1]
+  ofname <- cl$args[2]
+  verbose <- cl$options$verbose
+}
+
 if(file.exists(cl$options$inputPath)){
   useSynapse <- FALSE
 } else {
