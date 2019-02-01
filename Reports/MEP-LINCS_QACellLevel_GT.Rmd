@@ -22,7 +22,6 @@ studyName <- "hcc1143_low_serum"
 ```{r readLevel1Data}
 #barcodes <-getBarcodes(studyName, synId = "syn10846457")
 #identify barcodes for getting imageID metadata
-barcodes <- c("LI8V01171", "LI8V01172", "LI8V01173a", "LI8V01174","LI8V01175", "LI8V01176", "LI8V01177", "LI8V01178", "LI8V01179")
 
 l1 <- lapply(barcodes, function(barcode, path){
   sd <- read_csv(paste0(path,"/",barcode,"/Analysis/",barcode,"_level1.csv"))
