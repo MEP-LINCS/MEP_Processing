@@ -20,7 +20,7 @@ sampleProportion <- .5
 ```{r readLevel1Data}
 barcodes <-getBarcodes(studyName, synId = "syn10846457")
 l1DTL <- lapply(barcodes, function(barcode, path){
-  sd <- fread(paste0(path,"/",barcode,"/Analysis/",barcode,"_Level1.tsv"),verbose = FALSE, showProgress = FALSE)
+  sd <- fread(paste0(path,barcode,"/Analysis/GT1/",barcode,"_level1.csv"),verbose = FALSE, showProgress = FALSE)
   set.seed(42)
   sd <- sd[sample(1:nrow(sd), size = .1*nrow(sd),replace = FALSE),]
 }, path=path)
