@@ -26,14 +26,14 @@ renderSSCAnalysisReports <- function(studyName, path){
          output_format = NULL)
 }
 
-studyNames <- c("HMEC122L_SS1","HMEC122L_SS4","HMEC240L_SS1","HMEC240L_SS4","MCF10A_SS1","MCF10A_SS2","MCF10A_SS3","au565_dmso_ss100","au565_lapatinib_ss100","hcc1954_dmso_ss100","hcc1954_lapatinib_ss100", "mcf10a_em_ssi")
+studyNames <- c("HMEC122L_SS1","HMEC122L_SS4","HMEC240L_SS1","HMEC240L_SS4","MCF10A_SS1","MCF10A_SS2","MCF10A_SS3","au565_dmso_ss100","au565_lapatinib_ss100","hcc1954_dmso_ss100","hcc1954_lapatinib_ss100", "mcf10a_em_ssi","hcc1143_low_serum","hcc1143_high_serum","hcc1143_high_serum_tram","panc504_vehicle","panc504_tram", "cama1_highserum_vehicle", "cama1_highserum_fulvest")[c(17)]
 
 path <- "/lincs/share/lincs_user"
 res <- lapply(studyNames, renderQACellReport, path=path)
 
 path <- "/lincs/share/lincs_user/study"
 res <- lapply(studyNames,renderQASpotMEPReport, path=path)
-res <- lapply(studyNames[8:12],renderAnalysisReport, path=path)
+res <- lapply(studyNames,renderAnalysisReport, path=path)
 
 SSCStudyNames <- c("MCF10A_SSC","HMEC122L_SSC","HMEC240L_SSC")
 #res <- lapply(SSCStudyNames,renderSSCAnalysisReports, path=path)
