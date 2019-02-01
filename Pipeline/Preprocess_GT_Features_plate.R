@@ -30,7 +30,7 @@ if(!interactive()){
 } else {
   input_path <- "/lincs/share/lincs_user/"
   output_path <- "/lincs/share/lincs_user/"
-  plateID <- "LI8V01171"
+  plateID <- "LI8V01177"
 }
 
 message("processing GT1 data in plate: ",input_path,plateID)
@@ -77,8 +77,8 @@ level1_data <- raw_data %>%
   mutate(ObjectNumber = Label,
          Nuclei_CP_Intensity_MedianIntensity_Dapi = Nuclei_GT_Dapi_MeanIntensity,
          Nuclei_CP_Intensity_IntegratedIntensity_Dapi = Nuclei_GT_Dapi_MeanIntensity*Nuclei_GT_Dapi_Surface,
-         Nuclei_CP_Intensity_MedianIntensity_EdU = Cells_GT_EdU_MeanIntensity,
-         Nuclei_CP_Intensity_IntegratedIntensity_EdU = Cells_GT_EdU_MeanIntensity*Cells_GT_EdU_Surface,
+         Nuclei_CP_Intensity_MedianIntensity_EdU = Nuclei_GT_EdU_MeanIntensity,
+         Nuclei_CP_Intensity_IntegratedIntensity_EdU = Nuclei_GT_EdU_MeanIntensity*Nuclei_GT_EdU_Surface,
          Cytoplasm_CP_Intensity_MedianIntensity_KRT14 = Cytoplasm_GT_KRT14_MeanIntensity,
          Cytoplasm_CP_Intensity_IntegratedIntensity_KRT14 = Cytoplasm_GT_KRT14_MeanIntensity*Cytoplasm_GT_KRT14_Surface,
          Cytoplasm_CP_Intensity_IntegratedIntensity_VIM = Cytoplasm_GT_VIM_MeanIntensity*Cytoplasm_GT_VIM_Surface,
