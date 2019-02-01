@@ -36,7 +36,7 @@ if(!interactive()){
 message("processing GT1 data in plate: ",input_path,plateID)
 
 #get feature files
-files <- tibble(Full_filename = dir(  input_path <- paste0(input_path,plateID,"/Analysis/GT1/"), pattern = ".csv",full.names = TRUE)) %>%
+files <- tibble(Full_filename = dir(  input_path <- paste0(input_path,plateID,"/Analysis/GT1/"), pattern = "level_0.csv",full.names = TRUE)) %>%
   mutate(Filename = str_remove(Full_filename, ".*/"),
          PlateID = str_remove(Filename, "_.*"),
          Well = str_extract(Filename, "_[[:digit:]]+_"),
