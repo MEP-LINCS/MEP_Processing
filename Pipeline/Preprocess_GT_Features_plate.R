@@ -13,7 +13,7 @@ library(optparse)
 # returns a list with options and args elements
 getCommandLineArgs <- function(){
   parser <- OptionParser(usage = "%prog [options] PLATEID")
-  arguments <- parse_args(parser, positional_arguments = 1)
+  arguments <- parse_args(parser, positional_arguments = 3)
 }
 
 #Debug add signif reduction
@@ -26,7 +26,7 @@ if(!interactive()){
   cl <- getCommandLineArgs()
   input_path <- cl$args[1]
   output_path <- cl$args[2]
-  plate_ID <- cl$args[3]
+  plateID <- cl$args[3]
 } else {
   input_path <- "/lincs/share/lincs_user/"
   output_path <- "/lincs/share/lincs_user/"
