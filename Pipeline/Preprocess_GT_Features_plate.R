@@ -7,7 +7,7 @@ library(tidyverse)
 library(MEMA)
 library(optparse)
 
-#Get the path to the plateID from the command line
+##TODO gate cells based on GT feature names
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -30,7 +30,7 @@ if(!interactive()){
 } else {
   input_path <- "/lincs/share/lincs_user/"
   output_path <- "/lincs/share/lincs_user/"
-  plateID <- "LI8V01177"
+  plateID <- "LI8V01171"
 }
 
 message("processing GT1 data in plate: ",input_path,plateID)
@@ -46,8 +46,11 @@ files <- tibble(Full_filename = dir(  input_path <- paste0(input_path,plateID,"/
 
 #Read in raw data with each row a cell
 #0 area cyto compartments result in NA values in Cyto features
-raw_data <- map(files$Full_filename,read_csv) %>%
-  bind_rows
+raw_data <- map(files$Full_filename,read_csv,
+                col_types = cols(
+                  ImageID = col_character())) %>%
+  bind_rows %>%
+  select(ImageID, Label, everything())
 
 #Read in the metadata
   metadataFiles <- list(annotMetadata=paste0(input_path, plateID, "/Analysis/", plateID, "_an2omero.csv"))
@@ -60,7 +63,7 @@ raw_data <- map(files$Full_filename,read_csv) %>%
       WellName = col_character(),
       Row = col_integer(),
       Column = col_integer(),
-      ImageID = col_integer())) %>%
+      ImageID = col_character())) %>%
     rename(ArrayRow = Row,
            ArrayColumn = Column) %>%
     mutate(WellIndex = str_remove(WellName, ".*Well"),
@@ -75,17 +78,15 @@ raw_data <- map(files$Full_filename,read_csv) %>%
 level1_data <- raw_data %>%
   inner_join(full_metadata, by=c("ImageID")) %>%
   mutate(ObjectNumber = Label,
-         Nuclei_CP_Intensity_MedianIntensity_Dapi = Nuclei_GT_Dapi_MeanIntensity,
-         Nuclei_CP_Intensity_IntegratedIntensity_Dapi = Nuclei_GT_Dapi_MeanIntensity*Nuclei_GT_Dapi_Surface,
-         Nuclei_CP_Intensity_MedianIntensity_EdU = Nuclei_GT_EdU_MeanIntensity,
-         Nuclei_CP_Intensity_IntegratedIntensity_EdU = Nuclei_GT_EdU_MeanIntensity*Nuclei_GT_EdU_Surface,
-         Cytoplasm_CP_Intensity_MedianIntensity_KRT14 = Cytoplasm_GT_KRT14_MeanIntensity,
-         Cytoplasm_CP_Intensity_IntegratedIntensity_KRT14 = Cytoplasm_GT_KRT14_MeanIntensity*Cytoplasm_GT_KRT14_Surface,
-         Cytoplasm_CP_Intensity_IntegratedIntensity_VIM = Cytoplasm_GT_VIM_MeanIntensity*Cytoplasm_GT_VIM_Surface,
-         Cytoplasm_CP_Intensity_MedianIntensity_VIM = Cytoplasm_GT_VIM_MeanIntensity,
+         Nuclei_GT_Dapi_IntegratedIntensity = Nuclei_GT_Dapi_MeanIntensity*Nuclei_GT_Dapi_Surface,
+         Nuclei_GT_EdU_IntegratedIntensity = Nuclei_GT_EdU_MeanIntensity*Nuclei_GT_EdU_Surface,
+         Cytoplasm_GT_KRT14_IntegratedIntensity = Cytoplasm_GT_KRT14_MeanIntensity*Cytoplasm_GT_KRT14_Surface,
+         Cytoplasm_GT_VIM_IntegratedIntensity = Cytoplasm_GT_VIM_MeanIntensity*Cytoplasm_GT_VIM_Surface,
          Well_Ligand = paste0(Well,"_",Ligand)) %>%
-  data.table::data.table() %>%
-  gateCells()
+  select(Barcode, Well, Spot, ArrayRow, ArrayColumn, ImageID, ObjectNumber, Ligand, ECMp, MEP, Drug, everything())
+  data.table::data.table() 
+# %>%
+#   gateCells()
 
 #assign sectors
 assign_sectors <- function(df){
@@ -142,11 +143,12 @@ if(length(gatedSignals)>0){
 writeLevelData(level1_data, 1)
 
 level2_numeric_data <- level1_data %>%
+  select(-ObjectNumber, -contains("SpotCentroid")) %>%
   group_by(Well,Spot) %>%
   mutate(Spot_PA_SpotCellCount=n()) %>%
   summarise_if(is.numeric, median)  %>%
-  ungroup()
-#   mutate_if(is.numeric, signif, digits=4)
+  ungroup() %>%
+  mutate_if(is.numeric, signif, digits=4)
 
 level2_character_data <- level1_data %>%
   group_by(Well,Spot) %>%
