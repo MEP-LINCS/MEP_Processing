@@ -31,6 +31,26 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
+library(optparse)
+
+###TODO integrate  smart command line options
+# #Segment all images in a plate directory
+# getCommandLineArgs <- function(){
+#   parser <- OptionParser(usage = "%prog [options] INPUT_PATH OUTPUT_PATH PLATE_ID")
+#   arguments <- parse_args(parser, positional_arguments = 3)
+# }
+# 
+# #Specify the command line options
+# if(!interactive()){
+#   cl <- getCommandLineArgs()
+#   input_path <- cl$args[1]
+#   output_path <- cl$args[2]
+#   plate_ID <- cl$args[3]
+# } else {
+#   input_path <- "/lincs/share/lincs_user/"
+#   output_path <- "/lincs/share/lincs_user/"
+#   plate_ID <- "LI8V01191"
+# }
 #Specify the command line options
 cl <- getCommandLineArgs()
 barcode <- cl$args[1]
