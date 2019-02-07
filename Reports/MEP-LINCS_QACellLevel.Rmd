@@ -14,7 +14,7 @@ library(RColorBrewer)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-sampleProportion <- .5
+sampleProportion <- .25
 ```
 
 ```{r readLevel1Data}
