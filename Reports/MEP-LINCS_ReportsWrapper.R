@@ -1,5 +1,24 @@
 library(knitr)
 library(rmarkdown)
+library(optparse)
+
+# Get the command line arguments and options
+# returns a list with options and args elements
+getCommandLineArgs <- function(){
+  parser <- OptionParser(usage = "%prog [options] PATH STUDYNAME")
+  arguments <- parse_args(parser, positional_arguments = 2)
+}
+
+#Specify the command line options
+if(!interactive()){
+  cl <- getCommandLineArgs()
+  path <- cl$args[1]
+  studyName <- cl$args[2]
+  
+} else {
+  path <- "/lincs/share/lincs_user"
+  studyName <- "panc504_vehicle"
+}
 
 renderQACellReport <- function(studyName, path){
   render("MEP-LINCS_QACellLevel.Rmd",
@@ -26,14 +45,21 @@ renderSSCAnalysisReports <- function(studyName, path){
          output_format = NULL)
 }
 
-studyNames <- c("HMEC122L_SS1","HMEC122L_SS4","HMEC240L_SS1","HMEC240L_SS4","MCF10A_SS1","MCF10A_SS2","MCF10A_SS3","au565_dmso_ss100","au565_lapatinib_ss100","hcc1954_dmso_ss100","hcc1954_lapatinib_ss100", "mcf10a_em_ssi","hcc1143_low_serum","hcc1143_high_serum","hcc1143_high_serum_tram","panc504_vehicle","panc504_tram", "cama1_highserum_vehicle", "cama1_highserum_fulvest")[c(17)]
 
-path <- "/lincs/share/lincs_user"
-res <- lapply(studyNames, renderQACellReport, path=path)
+render("MEP-LINCS_QACellLevel.Rmd",
+       output_file = paste0(path, studyName,"/Reports/MEP-LINCS_QA_Cell_",studyName,".html"),
+       output_format = "html_document")
 
-path <- "/lincs/share/lincs_user/study"
-res <- lapply(studyNames,renderQASpotMEPReport, path=path)
-res <- lapply(studyNames,renderAnalysisReport, path=path)
+render("MEP-LINCS_QASpotMEPLevel.Rmd",
+       output_file = paste0(path,studyName,"/Reports/MEP-LINCS_QA_SpotMEP_",studyName,".html"),
+       output_format = "html_document")
 
-SSCStudyNames <- c("MCF10A_SSC","HMEC122L_SSC","HMEC240L_SSC")
-#res <- lapply(SSCStudyNames,renderSSCAnalysisReports, path=path)
+render("MEP-LINCS_Analysis.Rmd",
+       output_file = paste0(path,studyName,"/Reports/MEP-LINCS_Analysis_",studyName,".html"),
+       output_format = "html_document")
+
+# render("MEP-LINCS_AnalysisSB_SSC.Rmd",
+#        output_file = paste0(path,studyName,"/Reports/MEP-LINCS_AnalysisSB_",
+#                             studyName,".html"),
+#        output_format = NULL)
+
