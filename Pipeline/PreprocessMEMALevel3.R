@@ -23,7 +23,7 @@ getCommandLineArgs <- function(){
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
                 metavar="number"),
-    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
+    make_option(c("-i", "--input_path"), type="character", default=NULL, metavar="PATH",
                 help="Path to local input data directory or Synapse ID for a File View."),
     make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
                 help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
@@ -32,24 +32,31 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
+
 #Specify the command line options
+if(!interactive()){
+  cl <- getCommandLineArgs()
+  studyName <- cl$args[1]
+  ofname <- cl$args[2]
+  input_path <- cl$options$input_path
+  verbose <- cl$options$verbose
+  k <- cl$options$k
+  synapeStore <- cl$options$synapseStore
+} else {
+  studyName <- "panc504_vehicle"
+  ofname <- "/lincs/share/lincs_user/study/panc504_vehicle/Annotated/panc504_vehicle_Level3.tsv"
+  input_path <- "/lincs/share/lincs_user"
+  verbose <- FALSE
+  input_path <- "/lincs/share/lincs_user"
+  k <- 256
+  synapseStore <- FALSE
+}
 
-#cl <- getCommandLineArgs()
-cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/Annotated/panc504_tram_Level3.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
-
-
-studyName <- cl$args[1]
-ofname <- cl$args[2]
-opt <- cl$options
-verbose <- opt$verbose
-
-if(file.exists(cl$options$inputPath)){
+if(file.exists(input_path)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
 }
-
-k <- opt$k
 
 startTime <- Sys.time()
 
@@ -59,19 +66,18 @@ if(useSynapse){
   suppressMessages(synapseLogin())
   level <- "2"
   levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
-                        cl$options$inputPath, studyName, level)
+                        input_path, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   
   dataPaths <- lapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
   
-} else {cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/panc504_tram_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
-
+} else {
   barcodes <- getBarcodes(studyName, synId = "syn10846457")
   dataPaths <- barcodes %>%
     lapply(function(barcode, path){
       paste0(path,"/",barcode,"/Analysis/",barcode,"_Level2.tsv")
-    }, path=opt$inputPath)
+    }, path=input_path)
 }
 
 #Special handling for MEP analysis, remove NID1 and ELN data
@@ -116,8 +122,8 @@ for (j in colnames(slDT)) data.table::set(slDT, j = j, value = shorten(slDT[[j]]
 if(verbose) message(paste("Writing level 3 file to disk\n"))
 fwrite(data.table(slDT), file=ofname, sep = "\t", quote=FALSE)
 
-if(!is.null(cl$options$synapseStore)) {
-  if(verbose) message(sprintf("Writing to Synapse Folder %s", cl$options$synapseStore))
+if(!is.null(synapseStore)) {
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", synapseStore))
   #get permlink from GitHub
   scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
