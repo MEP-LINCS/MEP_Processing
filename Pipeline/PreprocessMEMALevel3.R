@@ -7,10 +7,7 @@ library(MEMA)#merge, annotate and normalize functions
 library(parallel)#use multiple cores for faster processing
 library(RUVnormalize)
 library(ruv)
-library(stringr)
-library(tidyr)
-library(readr)
-suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(optparse))
 library(githubr)
 
@@ -23,7 +20,7 @@ getCommandLineArgs <- function(){
     make_option(c("-k", "--k"), type="integer", default=256,
                 help="Number of factors to use in RUV normalization [default %default]",
                 metavar="number"),
-    make_option(c("-i", "--input_path"), type="character", default=NULL, metavar="PATH",
+    make_option(c("-i", "--inputPath"), type="character", default=NULL, metavar="PATH",
                 help="Path to local input data directory or Synapse ID for a File View."),
     make_option(c("--synapseStore"), type="character", default=NULL, metavar="SYNAPSEID",
                 help="Store output file in Synapse directory (provide Synapse ID of Folder to store).")
@@ -32,27 +29,30 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
+message("Preprocessing level 3 data ")
 
 #Specify the command line options
 if(!interactive()){
   cl <- getCommandLineArgs()
   studyName <- cl$args[1]
   ofname <- cl$args[2]
-  input_path <- cl$options$input_path
+  inputPath <- cl$options$inputPath
   verbose <- cl$options$verbose
   k <- cl$options$k
-  synapeStore <- cl$options$synapseStore
+  synapseStore <- cl$options$synapseStore
 } else {
-  studyName <- "panc504_vehicle"
-  ofname <- "/lincs/share/lincs_user/study/panc504_vehicle/Annotated/panc504_vehicle_Level3.tsv"
-  input_path <- "/lincs/share/lincs_user"
+  studyName <- "cama1_highserum_fulvest_mema"
+  ofname <- "/lincs/share/lincs_user/study/cama1_highserum_fulvest_mema/Annotated/cama1_highserum_fulvest_mema_Level3.tsv"
+  inputPath <- "/lincs/share/lincs_user"
   verbose <- FALSE
-  input_path <- "/lincs/share/lincs_user"
+  inputPath <- "/lincs/share/lincs_user"
   k <- 256
   synapseStore <- FALSE
 }
 
-if(file.exists(input_path)){
+message(studyName)
+
+if(file.exists(inputPath)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
@@ -66,7 +66,7 @@ if(useSynapse){
   suppressMessages(synapseLogin())
   level <- "2"
   levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,Study,DataType,Consortia,StainingSet,CellLine,Drug from %s WHERE Study="%s" AND Level="%s"',
-                        input_path, studyName, level)
+                        inputPath, studyName, level)
   levelRes <- synTableQuery(levelQuery)
   
   dataPaths <- lapply(levelRes@values$id,
@@ -77,7 +77,7 @@ if(useSynapse){
   dataPaths <- barcodes %>%
     lapply(function(barcode, path){
       paste0(path,"/",barcode,"/Analysis/",barcode,"_Level2.tsv")
-    }, path=input_path)
+    }, path=inputPath)
 }
 
 #Special handling for MEP analysis, remove NID1 and ELN data
@@ -89,10 +89,9 @@ slDT <- getSpotLevelData(dataPaths) %>%
   #        !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
   data.table()
 
-if(studyName=="panc504_vehicle"){
-  slDT$Drug[slDT$Drug== "air"] <- "DMSO"
-  slDT$Drug1[slDT$Drug1== "air_Own"] <- "DMSO_chebi28262"
-}
+
+slDT$Drug[slDT$Drug== "air"] <- "DMSO"
+slDT$Drug1[slDT$Drug1== "air_Own"] <- "DMSO_chebi28262"
 
 signalsMinimalMetadata <- grep("_SE",
                                grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",

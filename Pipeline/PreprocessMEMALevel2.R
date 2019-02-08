@@ -5,7 +5,7 @@
 library(MEMA)
 library(parallel)
 library(stringr)
-library(tidyverse)
+suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(synapseClient))
 suppressPackageStartupMessages(library(optparse))
 library(githubr)
@@ -26,7 +26,7 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-#cl <- getCommandLineArgs()
+cl <- getCommandLineArgs()
 barcode <- cl$args[1]
 ofname <- cl$args[2]
 opt <- cl$options
