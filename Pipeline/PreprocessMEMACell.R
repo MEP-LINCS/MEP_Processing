@@ -42,7 +42,7 @@ if(!interactive()){
   useAnnotMetadata <- !cl$options$excelMetadata
   rawDataVersion <- cl$opt$rawDataVersion
   k <- cl$options$k
-  synapeStore <- cl$options$synapseStore
+  synapseStore <- cl$options$synapseStore
 } else {
   barcode <- "LI8X00941"
   ofname <- paste0("/lincs/share/lincs_user/",barcode,"/Analysis/",barcode,"_Level1.tsv")
@@ -195,7 +195,7 @@ for (j in colnames(cDT)) data.table::set(cDT, j = j, value = shorten(cDT[[j]]))
 
 if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
-if(!is.null(cl$options$synapseStore)){
+if(!is.null(synapseStore)){
   #get permlink from GitHub
   scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
