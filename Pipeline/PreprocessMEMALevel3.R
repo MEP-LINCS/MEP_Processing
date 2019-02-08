@@ -89,6 +89,11 @@ slDT <- getSpotLevelData(dataPaths) %>%
   #        !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
   data.table()
 
+if(studyName=="panc504_vehicle"){
+  slDT$Drug[slDT$Drug== "air"] <- "DMSO"
+  slDT$Drug1[slDT$Drug1== "air_Own"] <- "DMSO_chebi28262"
+}
+
 signalsMinimalMetadata <- grep("_SE",
                                grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",
                                     colnames(slDT), value=TRUE), 
@@ -98,8 +103,8 @@ signalsMinimalMetadata <- grep("_SE",
 if(!k==0){
   if(verbose)  message(paste("Normalizing", studyName,"\n"))
   slDT <- slDT[!is.na(slDT$Cytoplasm_CP_AreaShape_Compactness)&!is.na(slDT$Cytoplasm_CP_AreaShape_Eccentricity),]
-  nDT <- normRUVResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
-  nDT$NormMethod <- "RUVResiduals"
+  nDT <- normRUVLoessResiduals(slDT[,signalsMinimalMetadata, with = FALSE], k)
+  nDT$NormMethod <- "RUVLoessResiduals"
   slDT$k <- k
   slDT <- merge(slDT, nDT, by = c("BW","PrintSpot"))
 } else {
@@ -128,7 +133,7 @@ if(!is.null(synapseStore)) {
   scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
   if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel3.R")
-  synFile <- File(ofname, parentId=opt$synapseStore)
+  synFile <- File(ofname, parentId=synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(slDT$CellLine),
                                      Study = unique(levelRes@values$Study),
                                      Preprocess = unique(levelRes@values$Preprocess),
