@@ -31,41 +31,33 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-library(optparse)
 
-###TODO integrate  smart command line options
-# #Segment all images in a plate directory
-# getCommandLineArgs <- function(){
-#   parser <- OptionParser(usage = "%prog [options] INPUT_PATH OUTPUT_PATH PLATE_ID")
-#   arguments <- parse_args(parser, positional_arguments = 3)
-# }
-# 
-# #Specify the command line options
-# if(!interactive()){
-#   cl <- getCommandLineArgs()
-#   input_path <- cl$args[1]
-#   output_path <- cl$args[2]
-#   plate_ID <- cl$args[3]
-# } else {
-#   input_path <- "/lincs/share/lincs_user/"
-#   output_path <- "/lincs/share/lincs_user/"
-#   plate_ID <- "LI8V01191"
-# }
 #Specify the command line options
-cl <- getCommandLineArgs()
-barcode <- cl$args[1]
-ofname <- cl$args[2]
-opt <- cl$options
-verbose <- opt$verbose
-useAnnotMetadata <- !opt$excelMetadata
+if(!interactive()){
+  cl <- getCommandLineArgs()
+  barcode <- cl$args[1]
+  ofname <- cl$args[2]
+  inputPath <- cl$options$inputPath
+  verbose <- cl$options$verbose
+  useAnnotMetadata <- !cl$options$excelMetadata
+  rawDataVersion <- cl$opt$rawDataVersion
+  k <- cl$options$k
+  synapeStore <- cl$options$synapseStore
+} else {
+  barcode <- "LI8X00941"
+  ofname <- paste0("/lincs/share/lincs_user/",barcode,"/Analysis/",barcode,"_Level1.tsv")
+  inputPath <- paste0("/lincs/share/lincs_user/",barcode,"/Analysis")
+  verbose <- FALSE
+  useAnnotMetadata <- TRUE
+  rawDataVersion <- "v2"
+  synapseStore <- NULL
+}
 
-if(file.exists(cl$options$inputPath)){
+if(file.exists(inputPath)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
 }
-
-rawDataVersion <- opt$rawDataVersion
 
 if(useSynapse) synapseLogin()
 
@@ -77,20 +69,20 @@ if (useAnnotMetadata) {
   #Build metadata file name list
   if(useSynapse){
     metadataq <- sprintf("select id from %s WHERE DataType='Metadata' AND Barcode='%s'",
-                         cl$options$inputPath, barcode)
+                         inputPath, barcode)
     metadataTable <- synTableQuery(metadataq)@values
     metadataFiles <- lapply(metadataTable$id, synGet)
     metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
   } else {
-    metadataFiles <- list(annotMetadata=paste0(cl$options$inputPath,"/",barcode,"_an2omero.csv"))
+    metadataFiles <- list(annotMetadata=paste0(inputPath,"/",barcode,"_an2omero.csv"))
   }
   
 } else {
-  metadataFiles <- list(logMetadata = dir(cl$options$inputPath,
+  metadataFiles <- list(logMetadata = dir(inputPath,
                                           pattern = "xml",full.names = TRUE),
-                        spotMetadata = dir(cl$options$inputPath,
+                        spotMetadata = dir(inputPath,
                                            pattern = "gal",full.names = TRUE),
-                        wellMetadata =  dir(cl$options$inputPath,
+                        wellMetadata =  dir(inputPath,
                                             pattern = "xlsx",full.names = TRUE)
   )
 }
@@ -99,7 +91,7 @@ if (useAnnotMetadata) {
 metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
 #Get image quality data if available
-QA <- lapply(list.files(paste0(cl$options$inputPath,"/v2"),pattern="SummaryImageData",full.names = TRUE), function(x) suppressWarnings(read_csv(file=x, col_types = cols()))) %>%
+QA <- lapply(list.files(paste0(inputPath,"/v2"),pattern="SummaryImageData",full.names = TRUE), function(x) suppressWarnings(read_csv(file=x, col_types = cols()))) %>%
   bind_rows %>%
   select(-matches("^CP |^X"))
 if(!nrow(QA)==0){
@@ -114,7 +106,7 @@ if(!nrow(QA)==0){
 #Gather filenames and metadata of level 0 files
 if(useSynapse){
   q <- sprintf("select id,Barcode,Level,Well,StainingSet,Location,Study from %s WHERE Level='0' AND Barcode='%s'",
-               cl$options$inputPath, barcode)
+               inputPath, barcode)
   rawFiles <- synTableQuery(q)
   dataBWInfo <- rawFiles@values
   
@@ -125,10 +117,10 @@ if(useSynapse){
   cellDataFilePaths <- unlist(lapply(res, getFileLocation))
   dataBWInfo$Path <- cellDataFilePaths
 } else {
-  cellDataFilePaths <- dir(paste0(cl$options$inputPath,"/",rawDataVersion), pattern="Nuclei|Cells|Cytoplasm",full.names = TRUE)
+  cellDataFilePaths <- dir(paste0(inputPath,"/",rawDataVersion), pattern="Nuclei|Cells|Cytoplasm",full.names = TRUE)
   if(length(cellDataFilePaths)==0) stop("No raw data files found")
   dataBWInfo <- data.table(Path=cellDataFilePaths,
-                           Well=gsub("_","",str_extract(dir(paste0(cl$options$inputPath,"/",rawDataVersion),pattern="Nuclei|Cells|Cytoplasm"),"_.*_")),
+                           Well=gsub("_","",str_extract(dir(paste0(inputPath,"/",rawDataVersion),pattern="Nuclei|Cells|Cytoplasm"),"_.*_")),
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
 }
 if(length(cellDataFilePaths) == 0) stop("No raw data files found")
@@ -208,7 +200,7 @@ if(!is.null(cl$options$synapseStore)){
   scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
   if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMACell.R")
-  synFile <- File(ofname, parentId=cl$options$synapseStore)
+  synFile <- File(ofname, parentId=synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                      Barcode = barcode,
                                      Study = unique(cDT$Study),
