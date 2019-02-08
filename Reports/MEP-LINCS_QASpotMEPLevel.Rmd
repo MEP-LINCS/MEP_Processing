@@ -22,8 +22,8 @@ hmcols<-colorRampPalette(c("blue","white","red"))(16)
 
 ```{r readLevel3and4Data, echo=FALSE}
 
-l3 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
-l4 <- fread(paste0(path,"/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
+l3 <- fread(paste0(path,"/study/",studyName,"/Annotated/",studyName,"_Level3.tsv"),verbose = FALSE, showProgress = FALSE)
+l4 <- fread(paste0(path,"/study/",studyName,"/Annotated/",studyName,"_Level4.tsv"),verbose = FALSE, showProgress = FALSE)
 
 spotQuality <- read_csv("ECMp_Spot_Class.csv",col_types = cols(
   ECMp = col_character(),
