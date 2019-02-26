@@ -26,16 +26,41 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-cl <- getCommandLineArgs()
-barcode <- cl$args[1]
-ofname <- cl$args[2]
-opt <- cl$options
-verbose <- opt$verbose
-if(file.exists(opt$inputPath)){
+# cl <- getCommandLineArgs()
+# barcode <- cl$args[1]
+# ofname <- cl$args[2]
+# opt <- cl$options
+# verbose <- opt$verbose
+# if(file.exists(inputPath)){
+#   useSynapse <- FALSE
+# } else {
+#   useSynapse <- TRUE
+# }
+
+#Specify the command line options
+if(!interactive()){
+  cl <- getCommandLineArgs()
+  barcode <- cl$args[1]
+  ofname <- cl$args[2]
+  opt <- cl$options
+  verbose <- opt$verbose
+  inputPath <- opt$inputPath
+  synpaseStore <- opt$synapseStore
+} else {
+  barcode <- "LI8V01180a"
+  ofname <- "/lincs/share/lincs_user/LI8V01180a/Analysis/LI8V01180a_Level2.tsv"
+  verbose <- FALSE
+  dataDir <- "/lincs/share/lincs_user/incellSlides"
+  inputPath <- "/lincs/share/lincs_user/LI8V01180a/Analysis"
+  synapseStore <- NULL
+}
+
+if(file.exists(inputPath)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
 }
+
 
 if (verbose) message(sprintf("Summarizing cell to spot data for plate %s", barcode))
 functionStartTime<- Sys.time()
@@ -47,7 +72,7 @@ if (useSynapse) {
   suppressMessages(synapseLogin())
   level <- "1"
   levelQuery <- sprintf('SELECT id,Segmentation,Preprocess,DataType,Study,Consortia,StainingSet,CellLine,Drug from %s WHERE Barcode="%s" AND Level="%s"',
-                        opt$inputPath, barcode, level)
+                        inputPath, barcode, level)
   levelRes <- synTableQuery(levelQuery)
   
   if (nrow(levelRes@values) > 1) {
@@ -57,11 +82,11 @@ if (useSynapse) {
   dataPath <- getFileLocation(synGet(levelRes@values$id))
   
   imageIdQuery <- sprintf("SELECT id from %s WHERE Barcode='%s' AND DataType='ImageID'",
-                          opt$inputPath, barcode)
+                          inputPath, barcode)
   imageIdRes <- synTableQuery(imageIdQuery)
   
   clarionIdQuery <- sprintf('SELECT id from %s WHERE Barcode="%s" AND DataType="ClarionID"',
-                            opt$inputPath, barcode)
+                            inputPath, barcode)
   clarionIdRes <- synTableQuery(clarionIdQuery)
   
   if (nrow(imageIdRes@values) == 1) imageIdPath <- getFileLocation(synGet(imageIdRes@values$id))
@@ -70,9 +95,9 @@ if (useSynapse) {
   
   
 } else {
-  dataPath <- paste0(opt$inputPath, "/",barcode, "_Level1.tsv")
-  imageIdPath <- paste0(opt$inputPath, "/",barcode, "_imageIDs.tsv")
-  clarionIdPath <- paste0(opt$inputPath, "/",barcode, "_clarionIDs.tsv")
+  dataPath <- paste0(inputPath, "/",barcode, "_Level1.tsv")
+  imageIdPath <- paste0(inputPath, "/",barcode, "_imageIDs.tsv")
+  clarionIdPath <- paste0(inputPath, "/",barcode, "_clarionIDs.tsv")
 }
 ######Debug   move this into MEMA package
 #' Read in and merge the Omero URLs
@@ -175,9 +200,9 @@ if(exists("clarionIDs")) spotDT <- merge(spotDT, clarionIDs,
 
 #Develop load roboust data if it exists
 #If there is robust data, load, clean and create compatable well values
-if(!is_empty(dir(paste0(cl[["options"]]$inputPath,"/QA"), full.names = TRUE))){
+if(!is_empty(dir(paste0(inputPath,"/QA"), full.names = TRUE))){
   
-  rb <- map(dir(paste0(cl[["options"]]$inputPath,"/QA"), full.names = TRUE), read_csv) %>% bind_rows() %>%
+  rb <- map(dir(paste0(inputPath,"/QA"), full.names = TRUE), read_csv) %>% bind_rows() %>%
     mutate(Spot = imageID,
            Well = str_extract(imageName, "Well."),
            Well = str_remove(Well, "Well"),
@@ -202,13 +227,13 @@ for (j in colnames(spotDT)) data.table::set(spotDT, j = j, value = shorten(spotD
 
 fwrite(spotDT, file=ofname, sep = "\t", quote=FALSE)
 
-if(!is.null(cl$options$synapseStore)){
-  if(verbose) message(sprintf("Writing to Synapse Folder %s", opt$synapseStore))
+if(!is.null(synapseStore)){
+  if(verbose) message(sprintf("Writing to Synapse Folder %s", synapseStore))
   #get permlink from GitHub
   scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
   if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMALevel2.R")
-  synFile <- File(ofname, parentId=opt$synapseStore)
+  synFile <- File(ofname, parentId=synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = levelRes@values$CellLine,
                                      Barcode = barcode,
                                      Study = levelRes@values$Study,
