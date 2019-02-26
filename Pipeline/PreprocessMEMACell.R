@@ -31,15 +31,38 @@ getCommandLineArgs <- function(){
   arguments <- parse_args(parser, positional_arguments = 2)
 }
 
-#Specify the command line options
-cl <- getCommandLineArgs()
-barcode <- cl$args[1]
-ofname <- cl$args[2]
-opt <- cl$options
-verbose <- opt$verbose
-useAnnotMetadata <- !opt$excelMetadata
+# #Specify the command line options
+# cl <- getCommandLineArgs()
+# barcode <- cl$args[1]
+# ofname <- cl$args[2]
+# opt <- cl$options
+# verbose <- opt$verbose
+# useAnnotMetadata <- !opt$excelMetadata
 
-if(file.exists(cl$options$inputPath)){
+#Specify the command line options
+if(!interactive()){
+  cl <- getCommandLineArgs()
+  barcode <- cl$args[1]
+  ofname <- cl$args[2]
+  opt <- cl$options
+  verbose <- opt$verbose
+  useAnnotMetadata <- !opt$excelMetadata
+  inputPath <- opt$inputPath
+  rawDataVersion <- opt$rawDataVersion
+  synpaseStore <- opt$synapseStore
+} else {
+  barcode <- "LI8V01180a"
+  ofname <- "/lincs/share/lincs_user/LI8V01180a/Analysis/LI8V01180a_Level1.tsv"
+  verbose <- FALSE
+  dataDir <- "/lincs/share/lincs_user/incellSlides"
+  useAnnotMetadata <- TRUE
+  inputPath <- "/lincs/share/lincs_user/LI8V01180a/Analysis"
+  rawDataVersion <- "v2"
+  synapseStore <- NULL
+}
+
+  
+if(file.exists(inputPath)){
   useSynapse <- FALSE
 } else {
   useSynapse <- TRUE
@@ -57,20 +80,20 @@ if (useAnnotMetadata) {
   #Build metadata file name list
   if(useSynapse){
     metadataq <- sprintf("select id from %s WHERE DataType='Metadata' AND Barcode='%s'",
-                         cl$options$inputPath, barcode)
+                         inputPath, barcode)
     metadataTable <- synTableQuery(metadataq)@values
     metadataFiles <- lapply(metadataTable$id, synGet)
     metadataFiles <- list(annotMetadata=getFileLocation(metadataFiles[[1]]))
   } else {
-    metadataFiles <- list(annotMetadata=paste0(cl$options$inputPath,"/",barcode,"_an2omero.csv"))
+    metadataFiles <- list(annotMetadata=paste0(inputPath,"/",barcode,"_an2omero.csv"))
   }
   
 } else {
-  metadataFiles <- list(logMetadata = dir(cl$options$inputPath,
+  metadataFiles <- list(logMetadata = dir(inputPath,
                                           pattern = "xml",full.names = TRUE),
-                        spotMetadata = dir(cl$options$inputPath,
+                        spotMetadata = dir(inputPath,
                                            pattern = "gal",full.names = TRUE),
-                        wellMetadata =  dir(cl$options$inputPath,
+                        wellMetadata =  dir(inputPath,
                                             pattern = "xlsx",full.names = TRUE)
   )
 }
@@ -78,8 +101,15 @@ if (useAnnotMetadata) {
 #Get all metadata
 metadata <- getMetadata(metadataFiles, useAnnotMetadata)
 
+#reimaged plates may have a sufgix on the data that is not inlcuded in the 
+#barcode value in the metadata. Add the suffix to the metadata barcode
+suffix <- str_extract(barcode, "[[:alpha:]]$")
+if(!is_empty(suffix)) {
+  metadata$Barcode <- paste0(metadata$Barcode,suffix)
+}
+
 #Get image quality data if available
-QA <- lapply(list.files(paste0(cl$options$inputPath,"/v2"),pattern="SummaryImageData",full.names = TRUE), function(x) suppressWarnings(read_csv(file=x, col_types = cols()))) %>%
+QA <- lapply(list.files(paste0(inputPath,"/v2"),pattern="SummaryImageData",full.names = TRUE), function(x) suppressWarnings(read_csv(file=x, col_types = cols()))) %>%
   bind_rows %>%
   select(-matches("^CP |^X"))
 if(!nrow(QA)==0){
@@ -94,7 +124,7 @@ if(!nrow(QA)==0){
 #Gather filenames and metadata of level 0 files
 if(useSynapse){
   q <- sprintf("select id,Barcode,Level,Well,StainingSet,Location,Study from %s WHERE Level='0' AND Barcode='%s'",
-               cl$options$inputPath, barcode)
+               inputPath, barcode)
   rawFiles <- synTableQuery(q)
   dataBWInfo <- rawFiles@values
   
@@ -105,10 +135,10 @@ if(useSynapse){
   cellDataFilePaths <- unlist(lapply(res, getFileLocation))
   dataBWInfo$Path <- cellDataFilePaths
 } else {
-  cellDataFilePaths <- dir(paste0(cl$options$inputPath,"/",rawDataVersion), pattern="Nuclei|Cells|Cytoplasm",full.names = TRUE)
+  cellDataFilePaths <- dir(paste0(inputPath,"/",rawDataVersion), pattern="Nuclei|Cells|Cytoplasm",full.names = TRUE)
   if(length(cellDataFilePaths)==0) stop("No raw data files found")
   dataBWInfo <- data.table(Path=cellDataFilePaths,
-                           Well=gsub("_","",str_extract(dir(paste0(cl$options$inputPath,"/",rawDataVersion),pattern="Nuclei|Cells|Cytoplasm"),"_.*_")),
+                           Well=gsub("_","",str_extract(dir(paste0(inputPath,"/",rawDataVersion),pattern="Nuclei|Cells|Cytoplasm"),"_.*_")),
                            Location=str_extract(cellDataFilePaths,"Nuclei|Cytoplasm|Cells|Image"))
 }
 if(length(cellDataFilePaths) == 0) stop("No raw data files found")
@@ -183,12 +213,12 @@ for (j in colnames(cDT)) data.table::set(cDT, j = j, value = shorten(cDT[[j]]))
 
 if(verbose) message("Writing cell level data\n")
 fwrite(cDT, file=ofname, sep = "\t", quote = FALSE)
-if(!is.null(cl$options$synapseStore)){
+if(!is.null(synapseStore)){
   #get permlink from GitHub
   scriptLink <- "https://github.com/MEP-LINCS/MEP_Processing/"
   repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
   if(!class(repo)=="try-error" ) scriptLink <- getPermlink(repo, "Pipeline/PreprocessMEMACell.R")
-  synFile <- File(ofname, parentId=cl$options$synapseStore)
+  synFile <- File(ofname, parentId=synapseStore)
   synSetAnnotations(synFile) <- list(CellLine = unique(cDT$CellLine),
                                      Barcode = barcode,
                                      Study = unique(cDT$Study),
