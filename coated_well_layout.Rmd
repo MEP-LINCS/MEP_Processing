@@ -1,0 +1,45 @@
+---
+title: "coated_well_layouts"
+author: "Mark Dane"
+date: "12/6/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+
+```
+
+```{r createLayouts}
+set.seed(42)
+df <- tibble(ECM = rep(1:16,  each = 24),
+             ligand_A = rep(1:24, times = 16),
+             ligand_B = rep(25:48, each = 16)) %>%
+  mutate(MEP = paste(ECM, ligand_A, sep = "_"),
+         well_index = sample(1:384, size = 384, replace = FALSE),
+         well_row = floor((well_index-1)/24)+1,
+         well_column = ((well_index-1) %% 24) + 1)
+
+```
+
+There are `r length(unique(df$ECM))` ECM proteins and `r length(unique(df$ligand_A))` ligands that create `r length(unique(df$ECM))*length(unique(df$ligand_A))` unique MEPs.  
+
+```{r showLayouts}
+p <- ggplot(df, aes(x = well_column, y = well_row, colour = factor(ECM), label = ECM)) +
+  geom_point(size = 6) +
+    geom_text(colour = "black", size = 3)+
+  labs(title = "ECM plate",
+       colour = "ECM") +
+  scale_y_reverse()
+p
+
+p <- ggplot(df, aes(x = well_column, y = well_row, colour = factor(ligand_A), label = ligand_A)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3) +
+  labs(title = "Ligand plate",
+       colour = "Ligand")+
+  scale_y_reverse()
+p
+
+```
