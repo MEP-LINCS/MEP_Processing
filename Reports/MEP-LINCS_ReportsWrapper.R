@@ -17,7 +17,7 @@ if(!interactive()){
   
 } else {
   path <- "/lincs/share/lincs_user"
-  studyName <- "panc504_vehicle"
+  studyName <- "ai472"
 }
 
   render("MEP-LINCS_QACellLevel.Rmd",

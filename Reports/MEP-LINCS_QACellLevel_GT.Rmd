@@ -1,6 +1,6 @@
 
 ```{r "setup", include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=8,echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, cache.lazy = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8,echo=FALSE, warning=FALSE, message=FALSE, cache=FALSE, cache.lazy = FALSE)
 
 library(rmarkdown)
 library(tidyverse)
@@ -13,11 +13,11 @@ library(scales)
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
-sampleProportion <- .2
+sampleProportion <- 1
 
 #Command line arguments
 path <- "/lincs/share/lincs_user"
-studyName <- "hcc1143_low_serum_GT"
+studyName <- "ai472"
 ```
 
 ```{r readLevel1Data}
@@ -26,7 +26,7 @@ barcodes <-getBarcodes(studyName, synId = "syn10846457")
 #identify barcodes for getting imageID metadata
 
 l1 <- lapply(barcodes, function(barcode){
-  df <- read_csv(paste0(path,"/",barcode,"/Analysis/GT1/",barcode,"_level1.csv"),
+  df <- read_csv(paste0(path,"/",barcode,"/Analysis/GT1/",barcode,"_level_1_subset.csv"),
                  col_types = cols('Ecm-2-recordSet' = col_character(),
                                   'ECM2' = col_character(),
                                   'Ecm-2-cultType' = col_character(),
@@ -45,7 +45,7 @@ l1 <- lapply(barcodes, function(barcode){
                                   'Ecm-3-timeBegin' = col_character(),
                                   'Ecm-3-timeUnit' = col_character(),
                                   'Ecm-3-longRecord'  = col_character(),
-                                  'Ecm-3-recordSet' = col_character())
+                                  'Ecm-3-recordSet' = col_character()))
                  }) %>%
   bind_rows()
 

@@ -1,18 +1,16 @@
 #!/usr/bin/env Rscript
 
 #author: "Mark Dane"
-# 2/2017
+# 2/2017-2019
 
 library(MEMA)#merge, annotate and normalize functions
 library(parallel)#use multiple cores for faster processing
 library(RUVnormalize)
 library(ruv)
-library(stringr)
-library(tidyr)
-library(readr)
-suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(optparse))
 library(githubr)
+library(rrscale)
 
 # Get the command line arguments and options
 # returns a list with options and args elements
@@ -35,8 +33,7 @@ getCommandLineArgs <- function(){
 #Specify the command line options
 
 #cl <- getCommandLineArgs()
-cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/Annotated/panc504_tram_Level3.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
-
+cl <- list(args=c("hmec240l_ss4","/graylab/share/dane/MEMAPaper/HMECData/hmec240l_Level3.tsv"), options=list(inputPath="/graylab/share/dane/MEMAPaper/HMECData/", k=256, verbose=TRUE))
 
 studyName <- cl$args[1]
 ofname <- cl$args[2]
@@ -65,7 +62,8 @@ if(useSynapse){
   dataPaths <- lapply(levelRes@values$id,
                       function(x) getFileLocation(synGet(x)))
   
-} else {cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/panc504_tram_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
+} else {
+  # cl <- list(args=c("panc504_tram","/lincs/share/lincs_user/study/panc504_tram/panc504_tram_Level3_noLoess_QA.tsv"), options=list(inputPath="/lincs/share/lincs_user", k=256, verbose=TRUE))
 
   barcodes <- getBarcodes(studyName, synId = "syn10846457")
   dataPaths <- barcodes %>%
@@ -76,17 +74,20 @@ if(useSynapse){
 
 #Special handling for MEP analysis, remove NID1 and ELN data
 slDT <- getSpotLevelData(dataPaths) %>%
-  # filter(!ECMp=="NID1|1",
-  #        !ECMp=="ELN|3",
-  #        !Ligand %in% c("KNG1|HMW", "LYVE1", "THPO|1", "JAG2|Long"),
-  #        !(Barcode=="LI8X00652"&Ligand=="FBS"),
-  #        !(Barcode=="LI8X00656"&Ligand=="FBS")) %>%
   data.table()
 
 signalsMinimalMetadata <- grep("_SE",
                                grep("_CP_|_PA_|Barcode|^Well$|^Spot$|^PrintSpot$|^Ligand$|^ECMp$|^Drug$|^Drug1Conc$|^ArrayRow$|^ArrayColumn$|^CellLine$",
                                     colnames(slDT), value=TRUE), 
                                value=TRUE, invert=TRUE)
+#rrscale each feature
+#rrscale a vector using a row count to make it a matrix
+rrscaleVector <- function(x, rowCount){
+  x_rr_list <- x %>%
+    as.matrix() %>%
+    rrscale()
+  x_rr <- x_rr_list$RR
+}
 
 #RUVLoess normalize all signals
 if(!k==0){

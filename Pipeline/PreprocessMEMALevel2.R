@@ -47,11 +47,11 @@ if(!interactive()){
   inputPath <- opt$inputPath
   synpaseStore <- opt$synapseStore
 } else {
-  barcode <- "LI8V01180a"
-  ofname <- "/lincs/share/lincs_user/LI8V01180a/Analysis/LI8V01180a_Level2.tsv"
+  barcode <- "LI8X00652"
+  ofname <- "/graylab/share/dane/MEMAPaper/HMECData/LI8X00652Analysis/LI8X00652_Level2.tsv"
   verbose <- FALSE
-  dataDir <- "/lincs/share/lincs_user/incellSlides"
-  inputPath <- "/lincs/share/lincs_user/LI8V01180a/Analysis"
+  #dataDir <- "/lincs/share/lincs_user/LI8X00651/Analysis"
+  inputPath <- "/lincs/share/lincs_user/LI8X00652/Analysis"
   synapseStore <- NULL
 }
 

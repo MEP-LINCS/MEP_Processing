@@ -15,18 +15,18 @@ selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
 plateCol = selDark2(8)
 hmcols<-colorRampPalette(c("blue","white","red"))(16)
 #Command line arguments
-path <- "/eppec/storage/groups/heiserlab/lincs"
-studyName <- "hcc1143_low_serum"
+path <- "/lincs/share/lincs_user/"
+studyName <- "ai472"
 ```
 
 
 ```{r readLevel2and4Data, echo=FALSE}
 
 #identify barcodes for getting imageID metadata
-barcodes <- c("LI8V01171", "LI8V01172", "LI8V01173a", "LI8V01174","LI8V01175", "LI8V01176", "LI8V01177", "LI8V01178", "LI8V01179")
+barcodes <- c("LI8X01121", "LI8X01122", "LI8X01123", "LI8X01124","LI8X01125", "LI8X01126", "LI8X01127", "LI8X01128", "LI8X01129")
 
 l2 <- lapply(barcodes, function(barcode, path){
-  sd <- read_csv(paste0(path,"/",barcode,"/Analysis/",barcode,"_level2.csv"))
+  sd <- read_csv(paste0(path,"/",barcode,"/Analysis/GT1/",barcode,"_level_2.csv"))
 }, path=path) %>%
   bind_rows()
 colnames(l2) <- make.names(colnames(l2))
@@ -111,24 +111,18 @@ for(barcode in barcodes){
 <br>
 
 ###Spot Cell Count Boxplots
-Boxplots of the spot cell counts show the values stratified by plate, well and ligand. The blue lines show the dataset median. Each boxplot summarizes data from ~700 spots.     
+Boxplots of the spot cell counts show the values stratified by plate, well and ligand. The blue lines show the dataset median. Each boxplot summarizes data from ~99 COL1 spots.     
 
 ```{r SCCBoxplots, fig.height=5}
+df <- l2 %>%
+  filter(str_detect(ECMp,"COL1_"))
 
-p <- ggplot(l2, aes(x=factor(Barcode), y=Spot_PA_SpotCellCount, colour=Well))+
+p <- ggplot(df, aes(x=factor(Barcode_Well_Ligand), y=Spot_PA_SpotCellCount, colour=Well))+
   geom_boxplot(outlier.size = .5)+
   xlab("")+ylab("Spot Cell Count")+
   ggtitle("Spot Cell Count by Well and Barcode ")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
-print(p)
-
-p <- ggplot(l2, aes(x=factor(Barcode_Well_Ligand), y=Spot_PA_SpotCellCount, colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Spot Cell Count")+
-  ggtitle("Spot Cell Count by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = median(df$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
 print(p)
 
 ```
@@ -136,22 +130,31 @@ print(p)
 
 ```{r SCCBoxplotsbyLigand, fig.height=5}
 
-p <- ggplot(l2, aes(x=factor(Ligand), y=Spot_PA_SpotCellCount, colour=factor(Barcode)))+
+p <- ggplot(df, aes(x=reorder(factor(Ligand),X = Spot_PA_SpotCellCount, FUN = median), y=Spot_PA_SpotCellCount, colour=factor(Barcode)))+
   geom_boxplot(outlier.size = .5)+
   labs(x="Ligand",y="Spot Cell Count",colour="Barcode", title="Spot Cell Count by Ligand and Barcode")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
-print(p)
-
-
-p <- ggplot(l2, aes(x=reorder(factor(Ligand),X = Spot_PA_SpotCellCount, FUN = median), y=Spot_PA_SpotCellCount, colour=factor(Barcode)))+
-  geom_boxplot(outlier.size = .5)+
-  labs(x="Ligand",y="Spot Cell Count",colour="Barcode", title="Spot Cell Count by Ligand and Barcode")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = median(df$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
 print(p)
 
 ```
+
+ECM boxplots summarize the spotted ECM proteins paired with PBS in each plate.  
+
+
+```{r SCCBoxplotsbyECMp, fig.height=5}
+df <- l2 %>%
+  filter(Ligand == "PBS")
+
+p <- ggplot(df, aes(x=reorder(factor(ECMp),X = Spot_PA_SpotCellCount, FUN = median), y=Spot_PA_SpotCellCount))+
+  geom_boxplot(outlier.size = .5)+
+  labs(x="ECMp",y="Spot Cell Count", title="Spot Cell Count by ECMp and Barcode")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
+p <- p + geom_hline(yintercept = median(df$Spot_PA_SpotCellCount), colour="blue", alpha=.5)
+print(p)
+
+```
+
 
 ###DAPI Boxplots
 
@@ -159,158 +162,58 @@ DAPI stains the DNA of each nucleus and is used to idenitify the nuclear regions
 
 ```{r DAPIBoxplots, fig.height=5}
 
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_Dapi), colour=Well))+
+p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Nuclei_GT_DAPI_MeanIntensity), colour=Well))+
   geom_boxplot(outlier.size = .5)+
   labs(x="Ligand",y="Median Intensity DAPI (log2)",colour="Well", title="Median DAPI Intensity per Spot by Well and Barcode")+
   theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = log2(median(l2$Nuclei_CP_Intensity_MedianIntensity_Dapi)), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = log2(median(l2$Nuclei_GT_DAPI_MeanIntensity)), colour="blue", alpha=.5)
 print(p)
 
 ```
 
 
-```{r, child='MEP-LINCS_EdUText.Rmd', eval="Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(l2)}
+```{r, child='MEP-LINCS_EdUText.Rmd', eval="Nuclei_GT_EdU_MeanIntensity" %in% colnames(l2)}
 ```
 
 
 
-```{r rawEdUBoxplots, fig.height=5,  eval="Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(l2)}
+```{r rawEdUBoxplotsPlate, fig.height=5,  eval="Nuclei_GT_EdU_MeanIntensity" %in% colnames(l2)}
 
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=Well))+
+p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Nuclei_GT_EdU_MeanIntensity), colour=Well))+
   geom_boxplot(outlier.size = .5)+
   labs(x="Barcode",y="Median Intensity EdU (log2)",colour="Well", title="Median EdU Intensity per Spot by Well and Barcode")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = log2(median(l2$Nuclei_CP_Intensity_MedianIntensity_EdU)), colour="blue", alpha=.5)
-print(p)
-
-p <- ggplot(l2, aes(x=factor(Barcode_Well_Ligand), y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  labs(x="Barcode",y="Median Intensity EdU (log2)",colour="Well", title="Median EdU Intensity per Spot by Well and Barcode")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = log2(median(l2$Nuclei_CP_Intensity_MedianIntensity_EdU)), colour="blue", alpha=.5)
-print(p)
-
-```
-
-```{r rawEdUBoxplotsbyWell, fig.height=5,  eval="Nuclei_CP_Intensity_MedianIntensity_EdU" %in% colnames(l2)}
-
-p <- ggplot(l2, aes(x=factor(Well), y=log2(Nuclei_CP_Intensity_MedianIntensity_EdU), colour=factor(Barcode)))+
-  geom_boxplot(outlier.size = .5)+
-  labs(x="Well",y="Median Intensity EdU (log2)",colour="Barcode", title="Median EdU Intensity per Spot by Well and Barcode")+xlab("")+ylab("Median Intensity EdU (log2)")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = log2(median(l2$Nuclei_CP_Intensity_MedianIntensity_EdU)), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = log2(median(l2$Nuclei_GT_EdU_MeanIntensity)), colour="blue", alpha=.5)
 print(p)
 
 ```
 
 
-```{r rawEdUBoxplotsbyLigand, fig.height=5, eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
+```{r rawEdUBoxplots, fig.height=5, eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
 
-p <- ggplot(l2, aes(x=factor(Ligand), y=Nuclei_PA_Gated_EdUPositiveProportion, colour=factor(Barcode)))+
+df <- l2 %>%
+  filter(str_detect(ECMp, "COL1_"))
+
+p <- ggplot(df, aes(x=reorder(factor(Ligand), X = Nuclei_PA_Gated_EdUPositiveProportion, FUN = median), y=Nuclei_PA_Gated_EdUPositiveProportion, colour=factor(Barcode)))+
   geom_boxplot(outlier.size = .5)+
   coord_cartesian(y=c(0,1))+
   labs(x="Ligand",y="EdU+ Proportion", colour="Barcode", title="EdU+ Proportion per Spot by Ligand and Barcode")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Nuclei_PA_Gated_EdUPositiveProportion), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = median(df$Nuclei_PA_Gated_EdUPositiveProportion), colour="blue", alpha=.5)
 print(p)
 
-p <- ggplot(l2, aes(x=reorder(factor(Ligand), X = Nuclei_PA_Gated_EdUPositiveProportion, FUN = median), y=Nuclei_PA_Gated_EdUPositiveProportion, colour=factor(Barcode)))+
+df <- l2 %>%
+  filter(str_detect(Ligand, "PBS"))
+
+p <- ggplot(df, aes(x=reorder(factor(ECMp), X = Nuclei_PA_Gated_EdUPositiveProportion, FUN = median), y=Nuclei_PA_Gated_EdUPositiveProportion))+
   geom_boxplot(outlier.size = .5)+
   coord_cartesian(y=c(0,1))+
-  labs(x="Ligand",y="EdU+ Proportion", colour="Barcode", title="EdU+ Proportion per Spot by Ligand and Barcode")+
+  labs(x="ECMp",y="EdU+ Proportion", colour="Barcode", title="EdU+ Proportion per Spot by ECMp")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Nuclei_PA_Gated_EdUPositiveProportion), colour="blue", alpha=.5)
+p <- p + geom_hline(yintercept = median(df$Nuclei_PA_Gated_EdUPositiveProportion), colour="blue", alpha=.5)
 print(p)
-
-
 ```
 
-
-
-
-
-```{r, child='MEP-LINCS_Krt14Krt19Text.Rmd', eval=length(setdiff(c("Cytoplasm_CP_Intensity_MedianIntensity_KRT14","Cytoplasm_CP_Intensity_MedianIntensity_KRT19"),colnames(l2)))==0}
-
-```
-
-
-
-```{r rawKrt14Boxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_KRT14" %in% colnames(l2)}
-
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT14), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity KRT14 (log2)")+
-  ggtitle("Median Intensity KRT14 per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT14)), colour="blue", alpha=.5)
-print(p)
-
-p <- ggplot(l2, aes(x=factor(Barcode_Well_Ligand), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_KRT14), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity KRT14 (log2)")+
-  ggtitle("Median Intensity KRT14 per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT14)), colour="blue", alpha=.5)
-print(p)
-
-
-p <- ggplot(l2, aes(x=factor(Ligand), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT14, colour=factor(Barcode)))+
-  geom_boxplot(outlier.size = .5)+
-  #coord_cartesian(y=c(0,1))+
-  labs(x="Ligand",y="KRT14 Intensity", colour="Barcode", title="KRT14 Intensity by Ligand and Barcode")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT14), colour="blue", alpha=.5)
-print(p)
-
-p <- ggplot(l2, aes(x=reorder(factor(Ligand), X = Cytoplasm_CP_Intensity_MedianIntensity_KRT14, FUN = median, na.rm=TRUE), y=Cytoplasm_CP_Intensity_MedianIntensity_KRT14, colour=factor(Barcode)))+
-  geom_boxplot(outlier.size = .5)+
-   labs(x="Ligand",y="KRT14 Intensity", colour="Barcode", title="KRT14 Intensity by Ligand and Barcode")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_KRT14, na.rm=TRUE), colour="blue", alpha=.5)
-print(p)
-
-```
-
-
-
-
-
-
-```{r rawVIMBoxplots, fig.height=5, eval="Cytoplasm_CP_Intensity_MedianIntensity_VIM" %in% colnames(l2)}
-
-p <- ggplot(l2, aes(x=factor(Barcode), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_VIM), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity VIM (log2)")+
-  ggtitle("Median Intensity VIM per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_VIM)), colour="blue", alpha=.5)
-print(p)
-
-p <- ggplot(l2, aes(x=factor(Barcode_Well_Ligand), y=log2(Cytoplasm_CP_Intensity_MedianIntensity_VIM), colour=Well))+
-  geom_boxplot(outlier.size = .5)+
-  xlab("")+ylab("Median Intensity VIM (log2)")+
-  ggtitle("Median Intensity VIM per Spot by Well and Barcode ")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(log2(l2$Cytoplasm_CP_Intensity_MedianIntensity_VIM)), colour="blue", alpha=.5)
-print(p)
-
-
-p <- ggplot(l2, aes(x=factor(Ligand), y=Cytoplasm_CP_Intensity_MedianIntensity_VIM, colour=factor(Barcode)))+
-  geom_boxplot(outlier.size = .5)+
-  #coord_cartesian(y=c(0,1))+
-  labs(x="Ligand",y="Median Intensity VIM", colour="Barcode", title="VIM Intensity by Ligand and Barcode")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_VIM), colour="blue", alpha=.5)
-print(p)
-
-p <- ggplot(l2, aes(x=reorder(factor(Ligand), Cytoplasm_CP_Intensity_MedianIntensity_VIM, FUN = median, na.rm=TRUE), y=Cytoplasm_CP_Intensity_MedianIntensity_VIM, colour=factor(Barcode)))+
-  geom_boxplot(outlier.size = .5)+
-  labs(x="Ligand",y="Median Intensity VIM", colour="Barcode", title="VIM Intensity by Ligand and Barcode")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=0.5, size=rel(1)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.8)))
-p <- p + geom_hline(yintercept = median(l2$Cytoplasm_CP_Intensity_MedianIntensity_VIM, na.rm=TRUE), colour="blue", alpha=.5)
-print(p)
-
-```
 
 
 
@@ -330,40 +233,6 @@ p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportion))+geom_histogram(bin
 suppressWarnings(print(p))
 ```
 
-```{r ProliferationRawHistogram, eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
-
-dt <- l2
-
-p <- ggplot(dt, aes(x=Nuclei_PA_Gated_EdUPositiveProportion))+geom_histogram(binwidth = .001)+
-  ggtitle(paste("MEP EdU+ Proportion Distribution"))+
-  ylab("Count")+xlab("EdU+ Proportion")+
-  theme(strip.text = element_text(size = 5))
-suppressWarnings(print(p))
-```
-
-
-```{r ProliferationByLigandFull, , eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportion",colnames(dt)))}
-
-p <- ggplot(dt, aes(x = reorder(Ligand, Nuclei_PA_Gated_EdUPositiveProportion, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportion, colour = Barcode))+geom_boxplot()+
-  coord_cartesian(ylim = c(0,1))+
-  ggtitle(paste("MEP , EdU+ Proportion by Ligand"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
-```{r ProliferationByECMpFull, eval=any(grepl("Nuclei_PA_Gated_EdUPositiveProportion",colnames(dt)))}
-
-p <- ggplot(dt, aes(x = reorder(ECMp, Nuclei_PA_Gated_EdUPositiveProportion, FUN=median), y = Nuclei_PA_Gated_EdUPositiveProportion))+geom_boxplot()+
-    coord_cartesian(ylim = c(0,1))+
-  ggtitle(paste("MEP , EdU+ Proportion by ECM Protein"))+
-  xlab("")+ylab("")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-suppressWarnings(print(p))
-
-```
-
 
 
 
@@ -373,16 +242,18 @@ suppressWarnings(print(p))
 
 ```{r lineageRatioHistogram, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(dt)))}
 
-p <- ggplot(dt, aes(x=Cytoplasm_PA_Intensity_LineageRatio))+geom_histogram(binwidth = .02)+
+p <- ggplot(l2, aes(x=Cytoplasm_PA_Intensity_LineageRatio))+geom_histogram(binwidth = .02)+
   ggtitle(paste("MEP Lineage Ratio Distribution"))+
   ylab("Count")+xlab("Lineage Ratio")+
   theme(strip.text = element_text(size = 5))
 suppressWarnings(print(p))
 ```
 
-```{r LineageRatioByLigand, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(dt)))}
+```{r LineageRatioByLigand, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(l2)))}
 
-p <- ggplot(dt, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio, colour = Barcode))+geom_boxplot()+
+df <- l2 %>%
+  filter(str_detect(ECMp, "COL1_"))
+p <- ggplot(df, aes(x = reorder(Ligand, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio, colour = Barcode))+geom_boxplot()+
   ggtitle(paste("\n\nMEP Lineage Ratio by Ligand"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -392,7 +263,9 @@ suppressWarnings(print(p))
 
 ```{r lineageRatioByECMp, eval=any(grepl("Cytoplasm_PA_Intensity_LineageRatio",colnames(dt)))}
 
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio))+geom_boxplot()+
+df <- l2 %>%
+  filter(str_detect(Ligand, "PBS"))
+p <- ggplot(df, aes(x = reorder(ECMp, Cytoplasm_PA_Intensity_LineageRatio, FUN=median), y = Cytoplasm_PA_Intensity_LineageRatio))+geom_boxplot()+
   ggtitle(paste("MEP LineageRatio by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
@@ -401,13 +274,23 @@ suppressWarnings(print(p))
 ```
 
 
-```{r KRT5ByECMp, eval=any(grepl("Cytoplasm_CP_Intensity_MedianIntensity_KRT5",colnames(dt)))}
+```{r KRT5ByECMpl2, eval=any(grepl("Cytoplasm_GT_KRT5_MeanIntensity",colnames(l2)))}
 
-p <- ggplot(dt, aes(x = reorder(ECMp, Cytoplasm_CP_Intensity_MedianIntensity_KRT5, FUN=median), y = Cytoplasm_CP_Intensity_MedianIntensity_KRT5))+geom_boxplot()+
+df <- l2 %>%
+  filter(str_detect(Ligand, "PBS"))
+p <- ggplot(df, aes(x = reorder(ECMp, Cytoplasm_GT_KRT5_MeanIntensity, FUN=median), y = Cytoplasm_GT_KRT5_MeanIntensity))+geom_boxplot()+
   ggtitle(paste("MEP  KRT5 by ECM Protein"))+
   xlab("")+ylab("")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
 suppressWarnings(print(p))
+
+
+p <- ggplot(df, aes(x = reorder(ECMp, Cytoplasm_GT_KRT19_MeanIntensity, FUN=median), y = Cytoplasm_GT_KRT19_MeanIntensity))+geom_boxplot()+
+  ggtitle(paste("MEP  KRT19 by ECM Protein"))+
+  xlab("")+ylab("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
+suppressWarnings(print(p))
+
 
 ```
 
@@ -620,12 +503,16 @@ print(p)
 The median replicate count is `r  sprintf("%3.2f",median(table(df$ECMp)))` and the range of the replicate counts is `r range(table(df$ECMp))`.  
 
 ```{r Layout Replicate Count,echo=FALSE, message=FALSE, warnings=FALSE, fig.width=6.5, fig.height=8, eval=dim(df)[1]>0}
+reps <- table(l2$ECMp)/length(unique(paste(l2$Barcode, l2$Well)))
+df  <- data_frame(ECMp = names(reps),
+                  value = reps)
 
-p <- ggplot(df, aes(x=ECMp))+
-  geom_bar(width=.8)+geom_hline(yintercept = median(table(df$ECMp)), colour="blue")+
+p <- ggplot(df, aes(x=ECMp, y = value))+
+  geom_col(width=.8)+
+  geom_hline(yintercept = median(df$value), colour="blue")+
   scale_y_log10()+
-  ggtitle(" \n\nCount of Replicate ECM Proteins In Each MEMA")+
-  xlab("Printed ECM Protein")+ylab("Number of spots")+
+  ggtitle(" \n\nAverage count of replicate ECM proteins in each MEMA")+
+  xlab("Printed ECM protein")+ylab("Number of spots")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)),axis.title.x = element_text(size=rel(.8)),axis.title.y = element_text(size=rel(.8)),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.5)))
 
 print(p)
@@ -641,37 +528,26 @@ for(barcode in barcodes){
   dtb <- l2 %>%
     filter(Barcode == barcode) 
   
-  p <- create8WellPseudoImage(dtb, pr = "Nuclei_CP_Intensity_MedianIntensity_Dapi", prDisplay = "Median DAPI")
+  p <- create8WellPseudoImage(dtb, pr = "Nuclei_GT_DAPI_MeanIntensity", prDisplay = "Median DAPI")
   suppressWarnings(print(p))
   
  
   if (any(grepl("EdU",colnames(dtb))))  {    
-    p <- create8WellPseudoImage(dtb, pr = "Nuclei_CP_Intensity_MedianIntensity_EdU",prDisplay = "EdU")
+    p <- create8WellPseudoImage(dtb, pr = "Nuclei_GT_EdU_MeanIntensity",prDisplay = "EdU")
     suppressWarnings(print(p))
   } 
   
-  if (any(grepl("KRT14",colnames(dtb))))  {
+  if (any(grepl("KRT5",colnames(dtb))))  {
     
-    p <- create8WellPseudoImage(dtb, pr = "Cytoplasm_CP_Intensity_MedianIntensity_KRT14", prDisplay = "KRT14")
+    p <- create8WellPseudoImage(dtb, pr = "Cytoplasm_GT_KRT5_MeanIntensity", prDisplay = "KRT5")
     suppressWarnings(print(p))
   }
   
-   if (any(grepl("VIM",colnames(dtb))))  {    
-    p <- create8WellPseudoImage(dtb, pr = "Cytoplasm_CP_Intensity_MedianIntensity_VIM", prDisplay ="VIM")
+  if (any(grepl("KRT19",colnames(dtb))))  {
+    
+    p <- create8WellPseudoImage(dtb, pr = "Cytoplasm_GT_KRT19_MeanIntensity", prDisplay = "KRT19")
     suppressWarnings(print(p))
   }
 }
 ```
 
-```{r, , fig.height=10,  eval="Nuclei_PA_Gated_EdUPositiveProportion" %in% colnames(l2)}
-
-  p <- ggplot(l2, aes(y=Nuclei_PA_Gated_EdUPositiveProportion, x=Well, colour=Well))+
-    geom_boxplot()+
-    xlab("Well")+
-    coord_cartesian( ylim=c(0,1))+
-    ggtitle("EdU+ Proportion by Well")+
-    facet_wrap(~Barcode)+
-    theme(strip.text = element_text(size = rel(.5)), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.3)),legend.title=element_text(size = rel(.3)))
-  print(p)
-
-```

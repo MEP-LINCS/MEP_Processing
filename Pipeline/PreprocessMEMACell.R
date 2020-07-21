@@ -12,6 +12,7 @@ suppressPackageStartupMessages(library(dplyr))
 library(optparse)
 library(githubr)
 
+
 # Get the command line arguments and options
 # returns a list with options and args elements
 getCommandLineArgs <- function(){

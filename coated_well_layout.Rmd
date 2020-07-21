@@ -5,41 +5,345 @@ date: "12/6/2019"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=FALSE}
 library(tidyverse)
 
 
 ```
 
-```{r createLayouts}
+```{r createLayouts, echo=FALSE}
+
+#Specify locations for the controls
+control_indices <- c(8, 16, 76, 80, 88, 92, 169, 176, 184, 192, 268, 272, 280, 284, 368, 376)
+
+df_pre <- tibble(ECM = rep(1:16,  each = 24),
+             Ligand_1 = rep(1:24, times = 16),
+             Ligand_2 = 48 - Ligand_1)
+df_pre$ECM[df_pre$Ligand_1 == 24] <- 1
+df_pre$ECM[df_pre$Ligand_2 == 24] <- 1
 set.seed(42)
-df <- tibble(ECM = rep(1:16,  each = 24),
-             ligand_A = rep(1:24, times = 16),
-             ligand_B = rep(25:48, each = 16)) %>%
-  mutate(MEP = paste(ECM, ligand_A, sep = "_"),
+df <- df_pre %>%
+  mutate(MEP_1 = paste(ECM, Ligand_1, sep = "_"),
+         MEP_2 = paste(ECM, Ligand_2, sep = "_"),
          well_index = sample(1:384, size = 384, replace = FALSE),
-         well_row = floor((well_index-1)/24)+1,
-         well_column = ((well_index-1) %% 24) + 1)
+         well_row_plate1 = floor((well_index-1)/24)+1,
+         well_column_plate1 = ((well_index-1) %% 24) + 1,
+         control_loc = well_index %in% control_indices)
+
+#identify wells that were randomly assigned to be controls 
+current_control_wells <- df %>%
+  filter(MEP_1 == "1_24") %>%
+ select(well_index, well_row_plate1, well_column_plate1, control_loc) 
+
+#Identify  the contents of the wells where the controls are going
+#select their contents and move them to the current control wells
+moved_wells <- df %>%
+  filter(well_index %in% control_indices) %>%
+  select(ECM, Ligand_1, Ligand_2, MEP_1, MEP_2) %>%
+  bind_cols(current_control_wells)
+
+new_control_wells <- df %>%
+   filter(well_index %in% control_indices) %>%
+  mutate(ECM = 1,
+         Ligand_1 = 24,
+         Ligand_2 = 24,
+         MEP_1 = "1_24",
+         MEP_2 = "1_24",
+         control_loc = TRUE)
+  
+df <- df %>%
+  filter(!well_index %in% moved_wells$well_index,
+         !well_index %in% control_indices) %>%
+  bind_rows(moved_wells, new_control_wells)
+  
+         
+#paste(df$well_row_plate1[df$control_loc], df$well_column_plate1[df$control_loc], sep = "_")
+#put MEPS into current control locations
+
+A_96 <- df %>%
+  filter(well_row_plate1 %in% seq(1, 16, by = 2),
+         well_column_plate1 %in% seq(1,24, by = 2)) %>% 
+  mutate(intermediate_plate = "A",
+         well_row_plate_s = well_row_plate1 + 1,
+         well_column_plate_s = well_column_plate1 + 1,
+         well_row_96 = ceiling(well_row_plate1/2),
+         well_column_96 = ceiling(well_column_plate1/2))
+
+B_96 <- df %>%
+  filter(well_row_plate1 %in% seq(1, 16, by = 2),
+         well_column_plate1 %in% seq(2,24, by = 2)) %>% 
+  mutate(intermediate_plate = "B",
+         well_row_plate_s = well_row_plate1 + 1,
+         well_column_plate_s = well_column_plate1 - 1,
+         well_row_96 = ceiling(well_row_plate1/2),
+         well_column_96 = ceiling(well_column_plate1/2))
+
+C_96 <- df %>%
+  filter(well_row_plate1 %in% seq(2, 16, by = 2),
+         well_column_plate1 %in% seq(1,24, by = 2))  %>% 
+  mutate(intermediate_plate = "C",
+         well_row_plate_s = well_row_plate1 - 1,
+         well_column_plate_s = well_column_plate1 + 1,
+         well_row_96 = ceiling(well_row_plate1/2),
+         well_column_96 = ceiling(well_column_plate1/2))
+
+D_96 <- df %>%
+  filter(well_row_plate1 %in% seq(2, 16, by = 2),
+         well_column_plate1 %in% seq(2,24, by = 2)) %>% 
+  mutate(intermediate_plate = "D",
+         well_row_plate_s = well_row_plate1 - 1,
+         well_column_plate_s = well_column_plate1 - 1,
+         well_row_96 = ceiling(well_row_plate1/2),
+         well_column_96 = ceiling(well_column_plate1/2))
+
+assignments <- bind_rows(A_96, B_96, C_96, D_96) %>%
+  mutate(control_1 = MEP_1 == "1_24",
+         control_2 = MEP_2 == "1_24")
 
 ```
 
-There are `r length(unique(df$ECM))` ECM proteins and `r length(unique(df$ligand_A))` ligands that create `r length(unique(df$ECM))*length(unique(df$ligand_A))` unique MEPs.  
+There are `r length(unique(df$ECM))` ECM proteins and `r length(c(unique(df$Ligand_1), unique(df$Ligand_2)))-1` ligands that create `r length(unique(df$ECM))*length(unique(c(df$Ligand_1, df$Ligand_2)))` unique MEPs.  
 
-```{r showLayouts}
-p <- ggplot(df, aes(x = well_column, y = well_row, colour = factor(ECM), label = ECM)) +
-  geom_point(size = 6) +
+#####Controls
+ECM 1 is COL1 and ligand 24 is the ligand media, typically PBS or FBS. These are neutral controls replicated   `r sum(df$MEP_1=="1_24")` times in the ligand A plate and  `r sum(df$MEP_2=="1_24")` in the ligand B plate.
+
+There are `r length(unique(assignments$MEP_1))` MEPS  pairs in ligand set 1 and  `r length(unique(assignments$MEP_2))` MEPS pairs in ligand set 2. 
+
+Frequency tables for ligands and ECMps.  
+
+```{r tables, ech0 = FALSE}
+table(assignments$Ligand_1)
+table(assignments$Ligand_2)
+table(assignments$ECM)
+
+```
+
+```{r showLayouts, echo=FALSE, fig.width=4, fig.height=3}
+p <- ggplot(df, aes(x = well_column_plate1, y = well_row_plate1, colour = factor(ECM), label = ECM)) +
+  geom_point(size = 4) +
     geom_text(colour = "black", size = 3)+
   labs(title = "ECM plate",
        colour = "ECM") +
+      guides(colour = FALSE) +
   scale_y_reverse()
+
+p <- ggplot(A_96, aes(x = well_column_96, y = well_row_96, colour = factor(ECM), label = ECM)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "ECM 96-well intermediate plate A",
+       colour = "ECM",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
 p
 
-p <- ggplot(df, aes(x = well_column, y = well_row, colour = factor(ligand_A), label = ligand_A)) +
-  geom_point(size = 6) +
-  geom_text(colour = "black", size = 3) +
-  labs(title = "Ligand plate",
-       colour = "Ligand")+
-  scale_y_reverse()
+p <- ggplot(A_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_1), label = Ligand_1)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_1 96-well intermediate plate A",
+       colour = "Ligand_1",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(A_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_2), label = Ligand_2)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_2 96-well intermediate plate A",
+       colour = "Ligand_2",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(B_96, aes(x = well_column_96, y = well_row_96, colour = factor(ECM), label = ECM)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "ECM 96-well intermediate plate B",
+       colour = "ECM",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(B_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_1), label = Ligand_1)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_1 96-well intermediate plate B",
+       colour = "Ligand_1",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(B_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_2), label = Ligand_2)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_2 96-well intermediate plate B",
+       colour = "Ligand_2",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(C_96, aes(x = well_column_96, y = well_row_96, colour = factor(ECM), label = ECM)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "ECM 96-well intermediate plate C",
+       colour = "ECM",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+p <- ggplot(C_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_1), label = Ligand_1)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_1 96-well intermediate plate C",
+       colour = "Ligand_1",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(C_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_2), label = Ligand_2)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_2 96-well intermediate plate C",
+       colour = "Ligand_2",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(D_96, aes(x = well_column_96, y = well_row_96, colour = factor(ECM), label = ECM)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "ECM 96-well intermediate plate D",
+       colour = "ECM",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+  scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(D_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_1), label = Ligand_1)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_1 96-well intermediate plate D",
+       colour = "Ligand_1",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
+p
+
+p <- ggplot(D_96, aes(x = well_column_96, y = well_row_96, colour = factor(Ligand_2), label = Ligand_2)) +
+  geom_point(size = 7) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "Ligand_2 96-well intermediate plate D",
+       colour = "Ligand_2",
+       x = "",
+       y ="") +
+    guides(colour = FALSE) +
+scale_y_reverse(breaks = 1:8) +
+  scale_x_continuous(breaks = 1:12)
 p
 
 ```
+
+```{r finalPlates, echo=FALSE}
+p <- ggplot(assignments, aes(x = well_column_plate1, y = well_row_plate1, colour = factor(ECM), shape = control_1, label = ECM)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "ECM plate A",
+       colour = "ECM",
+       x = "",
+       y ="") +
+    guides(colour = FALSE,
+           shape = FALSE) +
+scale_y_reverse()
+p
+
+p <- ggplot(assignments, aes(x = well_column_plate_s, y = well_row_plate_s, colour = factor(ECM), shape = control_1, label = ECM)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3)+
+  labs(title = "ECM plate As",
+       colour = "ECM",
+       x = "",
+       y ="") +
+      guides(colour = FALSE,
+             shape = FALSE) +
+scale_y_reverse()
+p
+
+p <- ggplot(assignments, aes(x = well_column_plate1, y = well_row_plate1, colour = factor(Ligand_1), shape = control_1, label = Ligand_1)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3) +
+  labs(title = "Ligand set 1 layout for ECM plate A",
+       colour = "Ligand",
+       x = "",
+       y ="") +
+    guides(colour = FALSE,
+           shape = FALSE) +
+scale_y_reverse()
+p
+
+p <- ggplot(assignments, aes(x = well_column_plate_s, y = well_row_plate_s, colour = factor(Ligand_1), shape = control_1, label = Ligand_1)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3) +
+  labs(title = "Ligand set 1 layout for ECM plate As",
+       colour = "Ligand",
+       x = "",
+       y ="") +
+    guides(colour = FALSE,
+           shape = FALSE) +
+scale_y_reverse()
+p
+
+p <- ggplot(assignments, aes(x = well_column_plate1, y = well_row_plate1, colour = factor(Ligand_2), shape = control_2, label = Ligand_2)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3) +
+  labs(title = "Ligand set 2 layout for ECM plate A",
+       colour = "Ligand",
+       x = "",
+       y ="") +
+    guides(colour = FALSE,
+           shape = FALSE) +
+scale_y_reverse()
+p
+
+p <- ggplot(assignments, aes(x = well_column_plate_s, y = well_row_plate_s, colour = factor(Ligand_2), shape = control_2, label = Ligand_2)) +
+  geom_point(size = 6) +
+  geom_text(colour = "black", size = 3) +
+  labs(title = "Ligand set 2 layout for ECM plate As",
+       colour = "Ligand",
+       x = "",
+       y ="") +
+    guides(colour = FALSE,
+           shape = FALSE) +
+scale_y_reverse()
+p
+
+```
+
