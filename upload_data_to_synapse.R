@@ -5,18 +5,18 @@ library(githubr)
 
 synLogin()
 
-reportType <- "Preprocessing"
+reportType <- "QA"
 dataType <- "metadata"
-activityName <- "Summarize data"
+activityName <- "QA data"
 
 #repo <- try(getRepo("MEP-LINCS/MEP_Processing", ref="branch", refName="master"),silent = TRUE)
 
 MDD_MEMA_Data <- "syn22264760" 
-MDD_MEMA_data_file_suffix <- "_Level2.tsv"
+MDD_MEMA_data_file_suffix <- "_Level3.tsv"
 MDD_MEMA_Metadata <- "syn22264761"
 MDD_MEMA_metadata_file_suffix <- "_an2omero.csv"
-synapse_destination <- MDD_MEMA_Metadata
-file_suffix <- MDD_MEMA_metadata_file_suffix
+synapse_destination <- MDD_MEMA_Data
+file_suffix <- MDD_MEMA_data_file_suffix
 
 # Take row of data frame and remove file name
 # Convert to a list to use as Synapse annotations
@@ -43,21 +43,37 @@ createAnnotations <- function(studyName, path) {
   barcodes <- MEMA::getBarcodes(studyName)
   
   #create a dataframe with path, filename, and annotations
-  metadataFiles <- tibble(filename = paste0(path,"/",barcodes,"/Analysis/",barcodes,file_suffix),
-                          Drug = "none",
-                          Level = "",
-                          Study = studyName,
-                          Barcode=barcodes,
-                          CellLine="MCF10A",
-                          DataType="Metadata",
-                          StainingSet = "SSF",
-                          Consortia="MEP-LINCS",
-                          segmentation = "",
-                          assay = "MEMA"
-  )
+  if(str_detect(path, "study")){
+    metadataFiles <- tibble(filename = paste0(path,"/",studyName,"/Annotated/",studyName, file_suffix),
+                            Drug = "none",
+                            Level = "3",
+                            Study = studyName,
+                            Barcode=barcodes,
+                            CellLine="MCF10A",
+                            DataType="Quantitative Imaging",
+                            StainingSet = "SSF",
+                            Consortia="MEP-LINCS",
+                            segmentation = "",
+                            assay = "MEMA"
+    )
+  } else {
+    metadataFiles <- tibble(filename = paste0(path,"/",barcodes,"/Analysis/",barcodes,file_suffix),
+                            Drug = "none",
+                            Level = "",
+                            Study = studyName,
+                            Barcode=barcodes,
+                            CellLine="MCF10A",
+                            DataType="Quantitative Imaging",
+                            StainingSet = "SSF",
+                            Consortia="MEP-LINCS",
+                            segmentation = "",
+                            assay = "MEMA"
+    )
+  }
+  
 }
 
-metadataFiles <- createAnnotations(studyName = "mcf10a_egf_ssf", path = "/lincs/share/lincs_user")
+metadataFiles <- createAnnotations(studyName = "mcf10a_em_ssf", path = "/lincs/share/lincs_user/study")
 res <- metadataFiles %>%
  by_row(uploadToSynapse,  parentId = synapse_destination)
 
